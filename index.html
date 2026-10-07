@@ -95,6 +95,14 @@ aside>*{flex:none}#lgo{flex:none}
 .csk>div:last-child{flex:1;min-width:0}.csk em{display:block;font-style:normal;font-size:11px;color:var(--mu)}.csk .kr{display:grid;grid-template-columns:1fr auto;align-items:center;column-gap:8px;font-size:11.5px;color:var(--mu);margin-top:5px;padding-top:5px;border-top:1px solid var(--bd)}.csk .kr i{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:5px}.csk .kr span,.csk .kr u{white-space:nowrap}.csk .kr u{text-decoration:none;color:var(--tx);font-weight:600;text-align:right}.csk .kr .mo{grid-column:2;text-align:right;font-size:10.5px}
 .sheet{padding:0;overflow:hidden;border-top:0!important}.sheet .st{background:#1f3864;color:#fff;text-align:center;font-variant:small-caps;font-weight:700;font-size:19px;letter-spacing:.02em;padding:12px 10px;font-family:inherit}.cs2{border-collapse:separate;border-spacing:2px;background:#fff;font-size:13px}.cs2 th{padding:6px 8px;font-weight:700;text-align:center;color:#fff}.cs2 th.sl{background:#1f3864;width:34%}.cs2 th.hg{background:#c6e0b4;color:#1f3864}.cs2 th.ho{background:#ed7d31}.cs2 td{padding:7px 10px;text-align:right;font-variant-numeric:tabular-nums}.cs2 td.sl{background:#1f3864;color:#fff;font-weight:700;text-align:center}.cs2 td.sg{background:#e2f0d9;color:#1b2b1b}.cs2 td.so{background:#fce4d6;color:#3b1e12}.sheet .cap{padding:6px 12px 10px;font-size:11px;color:var(--mu);text-align:center}
 .fbar .nt{font-size:11px;color:var(--mu);border-bottom:1px dotted var(--mu);cursor:help}
+
+.k:has(.csk){grid-template-columns:repeat(3,minmax(0,1fr))}
+.csk{align-items:flex-start;min-width:0;overflow:hidden}
+.csk>div:last-child{display:flex;flex-direction:column}
+.csk .kr{grid-template-columns:minmax(0,1fr) auto}
+.csk .kr span{overflow:hidden;text-overflow:ellipsis}
+.csk .kr .mo{grid-column:1/-1;text-align:right}
+@media(max-width:700px){.k:has(.csk){grid-template-columns:minmax(0,1fr)}}
 </style></head><body>
 <svg width="0" height="0" style="position:absolute"><defs>
 <symbol id="home" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></symbol>
