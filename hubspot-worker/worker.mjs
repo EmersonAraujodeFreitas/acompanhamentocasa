@@ -157,7 +157,7 @@ export default {
     const qc = dig(u.searchParams.get('cpf')), qt = dig(u.searchParams.get('tel')), q = dig(u.searchParams.get('q')); if (!qc && !qt && q.length < 10) return out({ erro: 'informe telefone com DDD ou CPF' }, 400); if ((qc && qc.length != 11) || (qt && (qt.length < 10 || qt.length > 13))) return out({ erro: 'CPF com 11 dígitos e telefone com DDD' }, 400);
     try {
       let cpfProp = env.CPF_PROP || 'cpf', ids = new Set(), cpfNames = [], cpfDeal = []; const R0 = await resolver().catch(() => null);
-      cpfNames = R0 && R0.cpf ? [...(R0.cpfp.contacts.length ? R0.cpfp.contacts : R0.cpf.contacts)] : []; if (env.CPF_PROP && !cpfNames.includes(env.CPF_PROP)) cpfNames.unshift(env.CPF_PROP); if (!cpfNames.length) cpfNames = ['cpf'];
+      cpfNames = R0 && R0.cpf ? [...(R0.cpfp.contacts.length ? R0.cpfp.contacts : R0.cpf.contacts)] : []; if (env.CPF_PROP && !cpfNames.includes(env.CPF_PROP) && !(R0 && R0.cpf && R0.cpf.contacts.includes(env.CPF_PROP))) cpfNames.unshift(env.CPF_PROP); if (!cpfNames.length) cpfNames = ['cpf'];
       cpfDeal = R0 && R0.cpf ? [...(R0.cpfp.deals.length ? R0.cpfp.deals : R0.cpf.deals)] : []; const cpfPrim = [...cpfNames], cpfAlvo = qc || (cpfOk(q) ? q : ''); let viaCpf = false;
       const buscaCt = async (prop, vals) => { if (!vals.length) return; try { const r = await api('/crm/v3/objects/contacts/search', { method: 'POST', body: JSON.stringify({ filterGroups: vals.slice(0, 5).map(v => ({ filters: [{ propertyName: prop, operator: 'EQ', value: v }] })), properties: ['hs_object_id'], limit: 50 }) }); r.results.forEach(x => ids.add(x.id)) } catch (e) { if (e.st == 401 || e.st == 403 || e.st == 429) throw e } };
       const buscaNg = async (prop, vals) => { try { const r = await api('/crm/v3/objects/deals/search', { method: 'POST', body: JSON.stringify({ filterGroups: vals.map(v => ({ filters: [{ propertyName: prop, operator: 'EQ', value: v }] })), properties: ['hs_object_id'], limit: 30 }) }); for (const d of r.results.slice(0, 5)) { const a = await api('/crm/v4/objects/deals/' + d.id + '/associations/contacts').catch(() => ({ results: [] })); a.results.forEach(x => ids.add(String(x.toObjectId))) } } catch (e) { if (e.st == 401 || e.st == 403 || e.st == 429) throw e } };
@@ -210,7 +210,7 @@ export default {
       { const o = ficha.contatos.map((_, i) => i).sort((a, b) => ficha.contatos[b].cr - ficha.contatos[a].cr); const R = (arr) => o.map(i => arr[i]); ficha.contatos = R(ficha.contatos); ident.contatos = R(ident.contatos); cts.splice(0, cts.length, ...R(cts)) }
       ficha.negocios.sort((a, b) => b.per - a.per || b.cr - a.cr);
       ev.sort((a, b) => a.d < b.d ? -1 : a.d > b.d ? 1 : a.h - b.h);
-      return out({ contatos: cts, eventos: ev, ficha, ident, versao: 'cpf-estrito-2026-10-22b' });
+      return out({ contatos: cts, eventos: ev, ficha, ident, versao: 'cpf-estrito-2026-10-22c' });
     } catch (e) { return out({ erro: String(e.message || e).slice(0, 200) }, e.st == 401 || e.st == 403 ? 502 : 500) }
   }
 };
