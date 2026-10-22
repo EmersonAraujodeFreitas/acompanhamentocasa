@@ -152,13 +152,13 @@ export default {
     }
     const qc = dig(u.searchParams.get('cpf')), qt = dig(u.searchParams.get('tel')), q = dig(u.searchParams.get('q')); if (!qc && !qt && q.length < 10) return out({ erro: 'informe telefone com DDD ou CPF' }, 400); if ((qc && qc.length != 11) || (qt && (qt.length < 10 || qt.length > 13))) return out({ erro: 'CPF com 11 dígitos e telefone com DDD' }, 400);
     try {
-      const cpfProp = env.CPF_PROP || 'cpf', ids = new Set();
+      const cpfProp = env.CPF_PROP || 'cpf', ids = new Set(), cpfNames = [...new Set([cpfProp, ...((await api('/crm/v3/properties/contacts').catch(() => ({ results: [] }))).results.filter(x => /cpf/i.test(x.name + ' ' + x.label) && !/respons|dependent/i.test(x.label)).map(x => x.name))])].slice(0, 4);
       const buscaCt = async (prop, vals) => { if (!vals.length) return; const r = await api('/crm/v3/objects/contacts/search', { method: 'POST', body: JSON.stringify({ filterGroups: vals.slice(0, 5).map(v => ({ filters: [{ propertyName: prop, operator: 'EQ', value: v }] })), properties: ['hs_object_id'], limit: 10 }) }); r.results.forEach(x => ids.add(x.id)) };
       if (qc || qt) {
-        if (qc) await buscaCt(cpfProp, [qc, qc.slice(0, 3) + '.' + qc.slice(3, 6) + '.' + qc.slice(6, 9) + '-' + qc.slice(9)]);
+        if (qc) { const fm = qc.slice(0, 3) + '.' + qc.slice(3, 6) + '.' + qc.slice(6, 9) + '-' + qc.slice(9); for (const pn of cpfNames) await buscaCt(pn, [qc, fm]) }
         if (qt) { const n = qt.length > 11 && qt.startsWith('55') ? qt.slice(2) : qt; if (n.length >= 10 && n.length <= 11) { const a = n.slice(0, 2), r = n.slice(2), m = r.length == 9 ? r.slice(0, 5) + '-' + r.slice(5) : r.slice(0, 4) + '-' + r.slice(4); const v = [n, '55' + n, '+55' + n, '(' + a + ') ' + m, '+55 ' + a + ' ' + m]; await buscaCt('mobilephone', v); await buscaCt('phone', v) } }
       } else {
-      if (cpfOk(q)) await buscaCt(cpfProp, [q, q.slice(0, 3) + '.' + q.slice(3, 6) + '.' + q.slice(6, 9) + '-' + q.slice(9)]);
+      if (cpfOk(q)) for (const pn of cpfNames) await buscaCt(pn, [q, q.slice(0, 3) + '.' + q.slice(3, 6) + '.' + q.slice(6, 9) + '-' + q.slice(9)]);
       const n = q.length > 11 && q.startsWith('55') ? q.slice(2) : q;
       if (n.length >= 10 && n.length <= 11 && !(cpfOk(q) && ids.size)) { const a = n.slice(0, 2), r = n.slice(2), m = r.length == 9 ? r.slice(0, 5) + '-' + r.slice(5) : r.slice(0, 4) + '-' + r.slice(4); const v = [n, '55' + n, '+55' + n, '(' + a + ') ' + m, '+55 ' + a + ' ' + m]; await buscaCt('mobilephone', v); await buscaCt('phone', v) }
       }
@@ -172,8 +172,8 @@ export default {
       const ficha = { contatos: [], negocios: [] }, ident = { contatos: [], ra: [] }, fcpf = v => { const d = dig(v); return d.length == 11 ? d.slice(0, 3) + '.' + d.slice(3, 6) + '.' + d.slice(6, 9) + '-' + d.slice(9) : String(v || '') };
       const assoc = async (id, tipo, props, hist) => { const a = await api('/crm/v4/objects/contacts/' + id + '/associations/' + tipo).catch(() => ({ results: [] })); const ii = a.results.map(x => ({ id: String(x.toObjectId) })).slice(0, 100); if (!ii.length) return []; const r = await api('/crm/v3/objects/' + tipo + '/batch/read', { method: 'POST', body: JSON.stringify(hist ? { inputs: ii, properties: props, propertiesWithHistory: hist } : { inputs: ii, properties: props }) }).catch(() => ({ results: [] })); return r.results };
       for (const id of [...ids].slice(0, 5)) {
-        const c = await api('/crm/v3/objects/contacts/' + id + '?properties=' + [...new Set([...CONTATO, ...cN, 'firstname', 'lastname', 'email', 'phone', 'mobilephone', cpfProp])].join(',') + '&propertiesWithHistory=lifecyclestage,hs_lead_status,hubspot_owner_id,recent_conversion_event_name'), p = c.properties, ow = dono[p.hubspot_owner_id] || '';
-        ident.contatos.push({ nome: [p.firstname, p.lastname].filter(Boolean).join(' '), cpf: fcpf(p[cpfProp]), email: p.email || '', tel: p.phone || '', cel: p.mobilephone || '' });
+        const c = await api('/crm/v3/objects/contacts/' + id + '?properties=' + [...new Set([...CONTATO, ...cN, 'firstname', 'lastname', 'email', 'phone', 'mobilephone', ...cpfNames])].join(',') + '&propertiesWithHistory=lifecyclestage,hs_lead_status,hubspot_owner_id,recent_conversion_event_name'), p = c.properties, ow = dono[p.hubspot_owner_id] || '';
+        ident.contatos.push({ nome: [p.firstname, p.lastname].filter(Boolean).join(' '), cpf: fcpf(p[cpfNames.find(n => p[n])] || ''), email: p.email || '', tel: p.phone || '', cel: p.mobilephone || '' });
         ficha.contatos.push({ id, cr: +new Date(p.createdate) || 0, campos: RV.contacts.map(d => ({ g: d.g, r: d.rot, v: fv(d, p[d.name]) })).filter(x => x.v) });
         cts.push({ id, etapa: p.lifecyclestage, status: p.hs_lead_status, origem: p.hs_analytics_source, proprietario: ow });
         push(p.createdate, 'criado', 'Contato criado', { st: p.lifecyclestage, or: p.hs_analytics_source, ow });
