@@ -16,10 +16,10 @@ export default {
     const chave = (req.headers.get('Authorization') || '').replace(/^Bearer /, '');
     if (!env.CHAVE_ACESSO || !igual(chave, env.CHAVE_ACESSO)) return out({ erro: 'acesso negado' }, 401);
     const u = new URL(req.url); if (!['/buscar', '/estrutura', '/painel', '/campos', '/contar'].includes(u.pathname)) return out({ erro: 'rota inexistente' }, 404);
-    const api = async (p, o) => { const r = await fetch(H + p, { ...o, headers: { Authorization: 'Bearer ' + env.HUBSPOT_TOKEN, 'Content-Type': 'application/json' } }); if (!r.ok) { const e = new Error('HubSpot ' + r.status + ' em ' + p.split('?')[0]); e.st = r.status; throw e } return r.json() };
-    const uniDe = t => { t = String(t || '').toLowerCase(); return /unijorge|\buj\b|jorge amado/.test(t) ? 'UNIJORGE' : /\buva\b|veiga de almeida/.test(t) ? 'UVA' : '' };
     const espera = ms => new Promise(r => setTimeout(r, ms));
-    const busca = async (p, corpo) => { for (let i = 0; i < 5; i++) { try { return await api(p, { method: 'POST', body: JSON.stringify(corpo) }) } catch (e) { if (e.st != 429 || i == 4) throw e; await espera(1200) } } };
+    const api = async (p, o) => { for (let i = 0; ; i++) { const r = await fetch(H + p, { ...o, headers: { Authorization: 'Bearer ' + env.HUBSPOT_TOKEN, 'Content-Type': 'application/json' } }); if (r.status == 429 && i < 6) { await espera(1000 + 700 * i); continue } if (!r.ok) { const e = new Error('HubSpot ' + r.status + ' em ' + p.split('?')[0]); e.st = r.status; throw e } return r.json() } };
+    const uniDe = t => { t = String(t || '').toLowerCase(); return /unijorge|\buj\b|jorge amado/.test(t) ? 'UNIJORGE' : /\buva\b|veiga de almeida/.test(t) ? 'UVA' : '' };
+    const busca = (p, corpo) => api(p, { method: 'POST', body: JSON.stringify(corpo) });
     if (u.pathname != '/buscar') {
       try {
         if (u.pathname == '/campos') {
@@ -52,7 +52,7 @@ export default {
             const fl = (Array.isArray(x.f) ? x.f : []).slice(0, 12).map(f => { if (!/^[a-z0-9_]{1,80}$/.test(f.p || '') || !OPS.includes(f.op)) throw new Error('filtro inválido'); const o = { propertyName: f.p, operator: f.op }; if (Array.isArray(f.vs)) o.values = f.vs.slice(0, 100).map(String); else if (f.v != null) o.value = String(f.v); return o });
             const j = await busca('/crm/v3/objects/' + ob + '/search', { filterGroups: [{ filters: fl }], limit: 1, properties: ['hs_object_id'] }); res[x.i] = j.total
           };
-          let k = 0; await Promise.all([0, 1].map(async () => { while (k < qs.length) { const x = qs[k++]; try { await um(x) } catch (e) { res[x.i] = -1; if (e.st == 401 || e.st == 403) throw e } } }));
+          let k = 0; while (k < qs.length) { const x = qs[k++]; try { await um(x) } catch (e) { res[x.i] = -1; if (e.st == 401 || e.st == 403) throw e } await espera(120) }
           return out({ r: res });
         }
         const obj = u.searchParams.get('obj') == 'contacts' ? 'contacts' : 'deals', desde = +u.searchParams.get('desde') || 0, LIM = 200, PAG = 8;
