@@ -24,3 +24,7 @@ Painel de indicadores de atendimento gerado a partir das exportações da Botmak
 
 ## Consulta ao vivo no HubSpot
 A guia **Hubspot** tem um campo para a chave de acesso (`CHAVE_ACESSO` do Worker). Ela fica salva só no navegador. Com a chave, a **Buscar** consulta `https://central-hubspot.emerson-freitas.workers.dev` e inclui os eventos do HubSpot na jornada. Nesse caso o telefone/CPF digitado é enviado ao Worker (não ao GitHub). Se o site usar outro domínio, ajuste `ORIGEM_PERMITIDA` no Worker; se o CPF estiver em outra propriedade, ajuste `CPF_PROP`.
+
+### Visão gerencial do HubSpot (guia Hubspot › Visão gerencial)
+Com a chave de acesso salva, o botão **Carregar dados do HubSpot** lê contatos e negócios em lotes pelo Worker (rotas `/estrutura`, `/painel`, `/campos`) e monta KPIs, comparativo UVA × Unijorge, jornada (formulário → MQL → SQL → oportunidade → cliente → negócio ganho), funil por pipeline/etapa, origem, formulários e proprietários, com filtros. O Worker devolve só datas, etapas, valores e origem: nunca nome, e-mail ou telefone. Os dados ficam só na memória do navegador (não são publicados).
+A universidade é deduzida do nome do pipeline, do negócio e do formulário de entrada. Se houver uma propriedade própria, defina `UNI_PROP` no Worker (use `/campos` para descobrir o nome interno). **Atualize o código do Worker no Cloudflare** com `hubspot-worker/worker.mjs`.
