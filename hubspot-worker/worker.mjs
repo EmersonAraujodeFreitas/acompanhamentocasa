@@ -34,7 +34,7 @@ const SPEC = {
     ['Financeiro', 'Mais de 6 meses de atraso', '6 meses'], ['Financeiro', 'Faixa de dívida', 'faixa de divida'], ['Acadêmico', 'Situação acadêmica', 'situacao academica'], ['Acadêmico', 'Situação do aluno', 'situacao do aluno'], ['Acadêmico', 'Período do curso', 'periodo do curso']
   ]
 };
-let PCACHE = null;
+let PCACHE = null; const PNOM = {};
 export default {
   async fetch(req, env) {
     const orig = env.ORIGEM_PERMITIDA || 'https://emersonaraujodefreitas.github.io';
@@ -120,9 +120,12 @@ export default {
           const b = await req.json().catch(() => null); if (!b || !Array.isArray(b.q)) return out({ erro: 'pedido inválido' }, 400);
           const ob = ['contacts', 'deals', 'calls', 'emails', 'meetings', 'communications', 'notes', 'tasks'].includes(b.obj) ? b.obj : 'deals', OPS = ['EQ', 'NEQ', 'IN', 'NOT_IN', 'GTE', 'LTE', 'GT', 'LT', 'HAS_PROPERTY', 'NOT_HAS_PROPERTY', 'CONTAINS_TOKEN'];
           const qs = b.q.slice(0, 40), res = {}, erros = [];
+          if (!PNOM[ob] || Date.now() - PNOM[ob].t > 36e5) { const pj = await api('/crm/v3/properties/' + ob).catch(() => null); PNOM[ob] = { t: Date.now(), s: pj && pj.results ? new Set(pj.results.map(x => x.name)) : null } }
+          const conhece = n => !PNOM[ob].s || PNOM[ob].s.has(n);
           const um = async x => {
             const fl = (Array.isArray(x.f) ? x.f : []).slice(0, 12).map(f => { if (!/^[a-z0-9_]{1,80}$/.test(f.p || '') || !OPS.includes(f.op)) throw new Error('filtro inválido'); const o = { propertyName: f.p, operator: f.op }; if (Array.isArray(f.vs)) o.values = f.vs.slice(0, 100).map(String); else if (f.v != null) o.value = String(f.v); return o });
             const gr = Array.isArray(x.o) && x.o.length ? x.o.slice(0, 5).map(g => ({ filters: [...fl, ...(Array.isArray(g) ? g : []).slice(0, 3).map(f => { if (!/^[a-z0-9_]{1,80}$/.test(f.p || '') || !OPS.includes(f.op)) throw new Error('filtro inválido'); const o = { propertyName: f.p, operator: f.op }; if (Array.isArray(f.vs)) o.values = f.vs.slice(0, 100).map(String); else if (f.v != null) o.value = String(f.v); return o })] })) : [{ filters: fl }];
+            const falta = [...new Set(gr.flatMap(g => g.filters.map(f => f.propertyName)))].find(n => !conhece(n)); if (falta) throw new Error('propriedade inexistente: ' + falta);
             const j = await busca('/crm/v3/objects/' + ob + '/search', { filterGroups: gr, limit: 1, properties: ['hs_object_id'] }); res[x.i] = j.total
           };
           let k = 0; while (k < qs.length) { const x = qs[k++]; try { await um(x) } catch (e) { res[x.i] = -1; erros.push(String(e.message || e).slice(0, 140)); if (e.st == 401 || e.st == 403) throw e } await espera(120) }
