@@ -21,3 +21,6 @@ Painel de indicadores de atendimento gerado a partir das exportações da Botmak
 - **Botmaker na Buscar**: ao importar o arquivo de **Sessões** do Botmaker, o painel também guarda, por telefone (código irreversível), data, hora, canal, tipificação e se houve operador, e publica em `jb.json` (criptografado, junto com a publicação normal). Sessões já importadas antes dessa versão precisam ser reimportadas e publicadas de novo.
 - **Hubspot**: importe as exportações (contatos, negócios, atividades; .csv ou .xlsx). Nome, e-mail e assunto são descartados; telefone/CPF viram código irreversível. Os eventos entram na publicação do Olos (`olos.json`).
 - Ligação ao vivo com o HubSpot (webhook/API) exige um serviço intermediário (por exemplo uma função serverless) que guarde a chave do HubSpot; o site é estático e o repositório é público, então a chave não pode ficar aqui.
+
+## Consulta ao vivo no HubSpot
+A guia **Hubspot** tem um campo para a chave de acesso (`CHAVE_ACESSO` do Worker). Ela fica salva só no navegador. Com a chave, a **Buscar** consulta `https://central-hubspot.emerson-freitas.workers.dev` e inclui os eventos do HubSpot na jornada. Nesse caso o telefone/CPF digitado é enviado ao Worker (não ao GitHub). Se o site usar outro domínio, ajuste `ORIGEM_PERMITIDA` no Worker; se o CPF estiver em outra propriedade, ajuste `CPF_PROP`.
