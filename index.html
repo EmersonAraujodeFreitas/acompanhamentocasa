@@ -1444,11 +1444,11 @@ return a.join(' · ')};
 function pBs(){const form=`<div class="c w"><h3>Buscar contato <i>Olos, Botmaker e HubSpot juntos</i></h3><p class="ex">Digite um telefone com DDD ou um CPF. O painel reúne tudo o que existe sobre esse contato, cruzando as bases, e monta a jornada em ordem de data. Nada do que você digita é enviado ou guardado: a busca usa um código irreversível do número, e o número só aparece mascarado.</p><div class="bsf"><input id="bsq" type="text" inputmode="numeric" autocomplete="off" placeholder="Telefone com DDD ou CPF" value="${ESC(BQ)}"><button data-act="bs" class="p">Buscar</button>${BQ?'<button data-act="bsx">Limpar</button>':''}</div></div>`;
 if(!BSR)return form;if(BSR.err)return form+`<div class="c w"><p style="color:#b91c1c;margin:0">${ESC(BSR.err)}</p></div>`;
 const E=BSR.E,O=E.filter(e=>e.src=='Olos'),B=E.filter(e=>e.src=='Botmaker'),HU=E.filter(e=>e.src=='HubSpot');let h=form;
-const warn=[];if(!S.f.length)warn.push('Não há dados do Olos carregados. Importe os arquivos ou aguarde a versão publicada.');else if(PUB.old)warn.push('A versão publicada do Olos é antiga e usa outro código de telefone. Reimporte os arquivos do Olos e publique de novo para a busca funcionar.');
+const warn=[];const noKey=S.f.length&&!S.tab.some(r=>r.hp)&&!S.aut.some(r=>r.hp)&&!S.ura.some(r=>r.hp);if(!S.f.length)warn.push('Não há dados do Olos carregados. Importe os arquivos (Olos › Importar arquivos) ou aguarde a versão publicada.');else if(PUB.old||noKey)warn.push('A versão publicada do Olos é antiga e usa outro código de telefone. Reimporte os arquivos do Olos e publique de novo para a busca funcionar.');
 if(!S.hs.length)warn.push('Ainda não há dados do HubSpot. Importe as exportações na guia <b>Hubspot</b> para incluir formulários, mudanças de etapa, e-mails, negócios e atividades.');
 if(!BSR.bm)warn.push('Ainda não há histórico por contato do Botmaker publicado. Reimporte o arquivo de <b>Sessões</b> do Botmaker (aba de importação do Botmaker) e publique para que a jornada inclua o Botmaker.');
 if(warn.length)h+=`<div class="how"><svg class="i"><use href="#ic-info"/></svg><span>${warn.join('<br>')}</span></div>`;
-if(!E.length)return h+`<div class="c w"><h3>${ESC(BSR.last)}</h3><p style="color:var(--mu)">Nenhum registro encontrado para esse contato nos dados carregados.</p></div>`;
+if(!E.length)return h+`<div class="c w"><h3>${ESC(BSR.last)}</h3><p style="color:var(--mu)">Nenhum registro encontrado para esse contato nos dados carregados.${BSR.tCpf&&!BSR.tPh?' O CPF só consta nos arquivos de discagem automática e de acessos à URA; se não houver registro neles, busque pelo telefone.':''}</p></div>`;
 const ds=E.map(e=>e.d).filter(Boolean),days=[...new Set(ds)].sort(),first=days[0],last=days[days.length-1];
 const cn=cnt(B,e=>e.cn||'n/d'),un=cnt(E.filter(e=>e.un),e=>UN[e.un]),area=cnt(E.filter(e=>e.ar),e=>e.ar);
 const k=(ic)=>O.filter(e=>e.ic==ic).length;
@@ -1463,7 +1463,7 @@ const MAXE=400,show=BSR.all?E:E.slice(-MAXE);
 const byD=new Map();for(const e of show){if(!byD.has(e.d))byD.set(e.d,[]);byD.get(e.d).push(e)}
 h+=gt('Jornada do contato')+`<p class="ex">Do contato mais antigo ao mais recente. <b style="color:#ff7a59">Laranja</b> = HubSpot, <b style="color:#25a244">verde</b> = Botmaker, <b style="color:#00487f">azul</b> = Olos.${E.length>show.length?' Mostrando os '+N(show.length)+' mais recentes de '+N(E.length)+'.':''}</p><div class="jn">`+[...byD.entries()].map(([d,es])=>`<div class="jd"><div class="jh">${fdate(d)}</div><div class="jl">${es.map(e=>`<div class="je ${e.src=='Botmaker'?'jb':e.src=='HubSpot'?'jh':'jo'}"><span class="jt">${e.h>=0&&e.h!=null?String(e.h).padStart(2,'0')+'h':'–'}</span><svg class="i"><use href="#ic-${ICO[e.ic]||'activity'}"/></svg><div><b>${ESC(e.src)}${e.un?' · '+UN[e.un]:''}</b> — ${ESC(e.tx)}<small>${dtl(e)}</small></div></div>`).join('')}</div></div>`).join('')+'</div>'+(E.length>show.length?'<p><button data-act="bsall">Mostrar toda a jornada</button></p>':'');
 return h}
-function doBusca(){const el=$o('#bsq');BQ=el?el.value.trim():BQ;BSR=BQ?buscar(BQ):null;render()}
+function doBusca(){const el=$o('#bsq');BQ=el?el.value.trim():BQ;try{BSR=BQ?buscar(BQ):null}catch(e){console.error('Olos busca',e&&e.message);BSR={err:'Não foi possível buscar: '+(e&&e.message||e)}}render()}
 
 /* ---------- HubSpot: importação de exportações (contatos, negócios, atividades) ---------- */
 const p2=n=>String(n).padStart(2,'0');
