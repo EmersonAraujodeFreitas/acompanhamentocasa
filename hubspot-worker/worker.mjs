@@ -6,6 +6,35 @@ const dig = s => String(s || '').replace(/\D/g, '');
 const cpfOk = d => { if (d.length != 11 || /^(\d)\1+$/.test(d)) return false; for (const n of [9, 10]) { let t = 0; for (let i = 0; i < n; i++) t += +d[i] * (n + 1 - i); if ((t * 10 % 11) % 10 != +d[n]) return false } return true };
 const local = v => { if (!v) return null; const t = /^\d+$/.test(String(v)) ? +v : Date.parse(v); if (!t) return null; const s = new Date(t).toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }); return { d: s.slice(0, 10), h: +s.slice(11, 13) } };
 const igual = (a, b) => { if (a.length != b.length) return false; let r = 0; for (let i = 0; i < a.length; i++) r |= a.charCodeAt(i) ^ b.charCodeAt(i); return r == 0 };
+
+const norm = t => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+// [grupo, rótulo pedido, expressão sobre o rótulo normalizado, nome interno provável, evento da jornada, sensível]
+const SPEC = {
+  contacts: [
+    ['Cadastro e ciclo', 'Status do contato de marketing', 'status do contato de marketing|marketing contact status', 'hs_marketable_status'], ['Acadêmico', 'Já é aluno matriculado', '(ja|aluno).*(aluno|matricul)|matriculad'], ['Cadastro e ciclo', 'Fase do ciclo de vida', '^(fase do ciclo|etapa do ciclo|lifecycle)', 'lifecyclestage'],
+    ['Origem e marketing', 'Origem da integração', 'origem da integra'], ['Cadastro e ciclo', 'Data que entrou em lead', 'data.*(entrou|tornou).*lead|lead date', 'hs_lifecyclestage_lead_date'], ['Cadastro e ciclo', 'Data de criação do contato', '^data de cria', 'createdate'],
+    ['Acadêmico', 'Modalidade de interesse', 'modalidade'], ['Acadêmico', 'Universidade', '^universidade$', 'universidade'], ['Origem e marketing', 'Origem', '^origem$', 'origem'], ['Acadêmico', 'Turno de interesse', 'turno'],
+    ['Origem e marketing', 'Última página vista', 'ultima pagina|last page seen', 'hs_analytics_last_url'], ['Origem e marketing', 'Detalhamento da fonte', 'detalhamento da fonte|original source drill-down 1', 'hs_analytics_source_data_1'], ['Origem e marketing', 'Fonte do tráfego mais recente', 'fonte.*(mais recente|recente)|latest source', 'hs_latest_source'],
+    ['Origem e marketing', 'Fonte original do tráfego', 'fonte original|original source', 'hs_analytics_source'], ['Origem e marketing', 'Fonte recente de mídia paga', 'midia paga|paid.*source|fonte recente de midia'], ['Origem e marketing', 'Categoria da fonte original', 'categoria da fonte'],
+    ['Origem e marketing', 'Período original', 'periodo original'], ['Origem e marketing', 'Detalhe da fonte de registro', 'detalhe da fonte de registro|registration source detail'], ['Origem e marketing', 'Fonte de registro', '^fonte de registro|registration source', 'hs_registration_method'],
+    ['Negócios', 'Primeiro negócio', 'primeiro neg|first deal', 'first_deal_created_date'], ['Negócios', 'Negócios associados', 'neg.cios associados|associated deals', 'num_associated_deals'], ['Origem e marketing', 'Primeira origem', 'primeira origem'],
+    ['Acadêmico', 'Curso', '^curso'], ['Origem e marketing', 'Tipo de origem', 'tipo (de|da) origem'], ['Cadastro e ciclo', 'Recusa receber ligações', 'recus.*liga|nao ligar|do not call'],
+    ['Campanha', 'Campanha', '^campanha|utm_campaign|^utm campaign'], ['Campanha', 'Conteúdo do anúncio', 'conteudo do anuncio|utm.?content'], ['Campanha', 'Fonte', '^fonte$|utm.?source'], ['Campanha', 'Meio', '^meio$|utm.?medium'], ['Campanha', 'Termo do anúncio', 'termo do anuncio|utm.?term'],
+    ['Campanha', 'URL campanha WhatsApp', 'url.*whats'], ['Campanha', 'Referral source', 'referral'], ['Negócios', 'Pipeline', '^pipeline'], ['Negócios', 'Nome da etapa do negócio', 'etapa do neg'],
+    ['Financeiro', 'Aluno adimplente', 'adimpl'], ['Financeiro', 'Dívidas de acordo', 'divida.* de acordo|dividas? acordo'], ['Financeiro', 'Biblioteca', 'biblioteca'], ['Financeiro', 'Mensalidade', '^mensalidade'], ['Financeiro', 'Outros acordos', 'outros acordos'], ['Financeiro', 'Faixa de dívida', 'faixa de divida']
+  ],
+  deals: [
+    ['Negócio', 'Data de criação', '^data de cria', 'createdate'], ['Negócio', 'Etapa do negócio', '^etapa do neg|deal stage', 'dealstage'], ['Acadêmico', 'Apto', '^apto'], ['Acadêmico', 'Contrato aceito', 'contrato aceit'], ['Acadêmico', 'Disciplinas inseridas', '^disciplinas inseridas'], ['Acadêmico', 'Enturmado', '^enturmado'],
+    ['Acadêmico', 'Modalidade', '^modalidade'], ['Acadêmico', 'Nome do curso', 'nome do curso|^curso'], ['Acadêmico', 'Universidade', '^universidade$', 'universidade'], ['Marcos', 'Data das disciplinas inseridas', 'data.*disciplinas', null, 'Disciplinas inseridas'], ['Marcos', 'Aceite de contrato e enturmado', 'aceite.*enturmad|data.*aceite', null, 'Aceite de contrato e enturmado'],
+    ['Negócio', 'Data da última modificação', 'ultima modifica|last modified', 'hs_lastmodifieddate'], ['Origem e marketing', 'Tipo da origem', 'tipo da origem|tipo de origem'], ['Origem e marketing', 'Origem do negócio', 'origem do neg'], ['Origem e marketing', 'Fonte original do tráfego', 'fonte original|original source', 'hs_analytics_source'], ['Origem e marketing', 'Fonte de tráfego mais recente', 'fonte.*(mais recente|recente)|latest source', 'hs_latest_source'],
+    ['Negócio', 'Pipeline', '^pipeline', 'pipeline'], ['Acadêmico', 'Período letivo', 'periodo letivo'], ['Origem e marketing', 'Origem da integração', 'origem da integra'], ['Identificação', 'Nome do negócio', 'nome do neg', 'dealname', null, 1], ['Marcos', 'Data de fechamento', '^data de fechamento|close date', 'closedate', 'Fechamento do negócio'],
+    ['Acadêmico', 'Turno', '^turno'], ['Financeiro', 'Aluno 5 cotas', '5 cotas|cinco cotas'], ['Marcos', 'Vencimento da mensalidade', 'vencimento.*mensalidade', null, 'Vencimento da mensalidade'], ['Marcos', 'Data da mensalidade paga', 'data.*mensalidade paga|mensalidade paga', null, 'Mensalidade paga'],
+    ['Identificação', 'RA', '^ra$|registro academico', null, null, 1], ['Financeiro', 'Aluno adimplente', 'adimpl'], ['Financeiro', 'Valores devidos', 'valores? devidos'], ['Financeiro', 'Dívidas de acordo', 'divida.* de acordo|dividas? acordo'], ['Financeiro', 'Biblioteca', 'biblioteca'], ['Financeiro', 'Mensalidade', '^mensalidade'],
+    ['Financeiro', 'Outros valores', 'outros valores'], ['Financeiro', 'Descrição da dívida', 'descricao da divida'], ['Financeiro', 'Descrição do benefício', 'descricao do beneficio'], ['Financeiro', 'Tipo de benefício', 'tipo de beneficio'], ['Financeiro', 'Valor da bolsa', 'valor da bolsa'],
+    ['Financeiro', 'Mais de 6 meses de atraso', '6 meses'], ['Financeiro', 'Faixa de dívida', 'faixa de divida'], ['Acadêmico', 'Situação acadêmica', 'situacao academica'], ['Acadêmico', 'Situação do aluno', 'situacao do aluno'], ['Acadêmico', 'Período do curso', 'periodo do curso']
+  ]
+};
+let PCACHE = null;
 export default {
   async fetch(req, env) {
     const orig = env.ORIGEM_PERMITIDA || 'https://emersonaraujodefreitas.github.io';
@@ -15,9 +44,22 @@ export default {
     if (req.headers.get('Origin') && req.headers.get('Origin') != orig) return out({ erro: 'origem não permitida' }, 403);
     const chave = (req.headers.get('Authorization') || '').replace(/^Bearer /, '');
     if (!env.CHAVE_ACESSO || !igual(chave, env.CHAVE_ACESSO)) return out({ erro: 'acesso negado' }, 401);
-    const u = new URL(req.url); if (!['/buscar', '/estrutura', '/painel', '/campos', '/contar', '/emails'].includes(u.pathname)) return out({ erro: 'rota inexistente' }, 404);
+    const u = new URL(req.url); if (!['/buscar', '/estrutura', '/painel', '/campos', '/contar', '/emails', '/propriedades', '/amostra'].includes(u.pathname)) return out({ erro: 'rota inexistente' }, 404);
     const espera = ms => new Promise(r => setTimeout(r, ms));
     const api = async (p, o) => { for (let i = 0; ; i++) { const r = await fetch(H + p, { ...o, headers: { Authorization: 'Bearer ' + env.HUBSPOT_TOKEN, 'Content-Type': 'application/json' } }); if (r.status == 429 && i < 6) { await espera(1000 + 700 * i); continue } if (!r.ok) { const e = new Error('HubSpot ' + r.status + ' em ' + p.split('?')[0]); e.st = r.status; throw e } return r.json() } };
+    const resolver = async () => {
+      if (PCACHE && Date.now() - PCACHE.t < 36e5) return PCACHE.v;
+      const v = { contacts: [], deals: [], faltam: { contacts: [], deals: [] } };
+      for (const o of ['contacts', 'deals']) {
+        const pr = (await api('/crm/v3/properties/' + o)).results;
+        for (const [g, rot, rx, hint, ev, pii] of SPEC[o]) {
+          let best = null, bs = 0; const re = new RegExp(rx);
+          for (const p of pr) { if (p.hidden) continue; const l = norm(p.label), n = norm(p.name); let sc = 0; if (hint && p.name == hint) sc = 4; else if (l == norm(rot)) sc = 3; else if (re.test(l)) sc = 2; else if (!/ /.test(rx) && re.test(n)) sc = 1; if (sc > bs) { best = p; bs = sc } }
+          if (best) v[o].push({ g, rot, name: best.name, tipo: best.type, ft: best.fieldType, ev: ev || '', pii: pii ? 1 : 0, op: (best.options || []).filter(x => !x.hidden).map(x => [x.value, x.label]) }); else v.faltam[o].push(rot)
+        }
+      }
+      PCACHE = { t: Date.now(), v }; return v
+    };
     const uniDe = t => { t = String(t || '').toLowerCase(); return /unijorge|\buj\b|jorge amado/.test(t) ? 'UNIJORGE' : /\buva\b|veiga de almeida/.test(t) ? 'UVA' : '' };
     const busca = (p, corpo) => api(p, { method: 'POST', body: JSON.stringify(corpo) });
     if (u.pathname != '/buscar') {
@@ -57,6 +99,16 @@ export default {
             else uni[o] = { tipo: 'nenhuma' }
           }
           return out({ funis, donos, uni, opc });
+        }
+        if (u.pathname == '/propriedades') {
+          const ob = u.searchParams.get('obj') == 'deals' ? 'deals' : 'contacts', j = await api('/crm/v3/properties/' + ob);
+          return out({ p: j.results.filter(x => !x.hidden).map(x => ({ n: x.name, l: x.label || x.name, t: x.type, f: x.fieldType, o: (x.options || []).filter(z => !z.hidden).slice(0, 80).map(z => ({ v: z.value, l: z.label })) })) });
+        }
+        if (u.pathname == '/amostra') {
+          const ob = u.searchParams.get('obj') == 'deals' ? 'deals' : 'contacts', props = (u.searchParams.get('props') || '').split(',').filter(p => /^[a-z0-9_]{1,80}$/.test(p)).slice(0, 40), s0 = +u.searchParams.get('s') || 0, e0 = +u.searchParams.get('e') || Date.now(), n = Math.min(+u.searchParams.get('n') || 400, 600);
+          const rows = []; let after;
+          while (rows.length < n) { const j = await busca('/crm/v3/objects/' + ob + '/search', { filterGroups: [{ filters: [{ propertyName: 'createdate', operator: 'GTE', value: String(s0) }, { propertyName: 'createdate', operator: 'LTE', value: String(e0) }] }], sorts: [{ propertyName: 'createdate', direction: 'ASCENDING' }], properties: props, limit: 200, ...(after ? { after } : {}) }); for (const x of j.results) rows.push(props.map(p => x.properties[p] == null ? '' : String(x.properties[p]).slice(0, 200))); after = j.paging && j.paging.next && j.paging.next.after; if (!after) break }
+          return out({ r: rows.slice(0, n) });
         }
         if (u.pathname == '/emails') {
           let after, all = [];
@@ -110,9 +162,13 @@ export default {
       const dono = {}; own.results.forEach(o => dono[o.id] = [o.firstName, o.lastName].filter(Boolean).join(' ') || o.email || o.id);
       const etapa = {}, funil = {}; pip.results.forEach(p => { funil[p.id] = p.label; p.stages.forEach(s => etapa[s.id] = s.label) });
       const ev = [], cts = [], push = (t, ty, tx, x) => { const l = local(t); if (l) ev.push({ ...l, ty, tx, ...x }) };
+      const RV = await resolver().catch(() => ({ contacts: [], deals: [] })), cN = RV.contacts.map(x => x.name), dN = RV.deals.map(x => x.name);
+      const fv = (d, v) => { if (v == null || v === '') return ''; if (d.name == 'dealstage') return etapa[v] || v; if (d.name == 'pipeline') return funil[v] || v; if (d.tipo == 'bool' || (d.ft == 'booleancheckbox' && /^(true|false)$/i.test(v))) return /^true$/i.test(v) ? 'Sim' : 'Não'; if (d.tipo == 'enumeration') return String(v).split(';').map(z => (d.op.find(o => o[0] == z) || [])[1] || z).join(', '); if (d.tipo == 'date' || d.tipo == 'datetime') { const l = local(v); return l ? l.d.split('-').reverse().join('/') : '' } return String(v).slice(0, 200) };
+      const ficha = { contatos: [], negocios: [] };
       const assoc = async (id, tipo, props, hist) => { const a = await api('/crm/v4/objects/contacts/' + id + '/associations/' + tipo).catch(() => ({ results: [] })); const ii = a.results.map(x => ({ id: String(x.toObjectId) })).slice(0, 100); if (!ii.length) return []; const r = await api('/crm/v3/objects/' + tipo + '/batch/read', { method: 'POST', body: JSON.stringify(hist ? { inputs: ii, properties: props, propertiesWithHistory: hist } : { inputs: ii, properties: props }) }).catch(() => ({ results: [] })); return r.results };
       for (const id of [...ids].slice(0, 5)) {
-        const c = await api('/crm/v3/objects/contacts/' + id + '?properties=' + CONTATO.join(',') + '&propertiesWithHistory=lifecyclestage,hs_lead_status,hubspot_owner_id,recent_conversion_event_name'), p = c.properties, ow = dono[p.hubspot_owner_id] || '';
+        const c = await api('/crm/v3/objects/contacts/' + id + '?properties=' + [...new Set([...CONTATO, ...cN])].join(',') + '&propertiesWithHistory=lifecyclestage,hs_lead_status,hubspot_owner_id,recent_conversion_event_name'), p = c.properties, ow = dono[p.hubspot_owner_id] || '';
+        ficha.contatos.push({ id, campos: RV.contacts.map(d => ({ g: d.g, r: d.rot, v: fv(d, p[d.name]) })).filter(x => x.v) });
         cts.push({ id, etapa: p.lifecyclestage, status: p.hs_lead_status, origem: p.hs_analytics_source, proprietario: ow });
         push(p.createdate, 'criado', 'Contato criado', { st: p.lifecyclestage, or: p.hs_analytics_source, ow });
         for (const v of (c.propertiesWithHistory?.lifecyclestage || [])) push(v.timestamp, 'ciclo', 'Mudou para a etapa: ' + v.value, { ow });
@@ -128,8 +184,8 @@ export default {
         for (const [k, n] of [['subscriber', 'Assinante'], ['lead', 'Lead'], ['marketingqualifiedlead', 'MQL'], ['salesqualifiedlead', 'SQL'], ['opportunity', 'Oportunidade'], ['customer', 'Cliente']]) { const t = p['hs_lifecyclestage_' + k + '_date']; if (t && !(c.propertiesWithHistory?.lifecyclestage || []).some(v => v.value == k)) push(t, 'ciclo', 'Mudou para a etapa: ' + k, { ow }) }
         push(p.hs_email_last_send_date, 'email', 'E-mail de marketing enviado: ' + (p.hs_email_last_email_name || ''), {});
         push(p.hs_email_last_open_date, 'email', 'E-mail de marketing aberto', {}); push(p.hs_email_last_click_date, 'email', 'E-mail de marketing clicado', {});
-        const [neg, lig, mail, reu, com, nota, tar] = await Promise.all([assoc(id, 'deals', ['dealstage', 'pipeline', 'amount', 'createdate', 'closedate', 'hubspot_owner_id'], ['dealstage']), assoc(id, 'calls', ['hs_timestamp', 'hs_call_direction', 'hs_call_duration']), assoc(id, 'emails', ['hs_timestamp', 'hs_email_direction', 'hs_email_status']), assoc(id, 'meetings', ['hs_timestamp', 'hs_meeting_outcome']), assoc(id, 'communications', ['hs_timestamp', 'hs_communication_channel_type']), assoc(id, 'notes', ['hs_timestamp', 'hubspot_owner_id']), assoc(id, 'tasks', ['hs_timestamp', 'hs_task_status', 'hs_task_type', 'hubspot_owner_id'])]);
-        neg.forEach(d => { const q = d.properties, x = { st: etapa[q.dealstage] || q.dealstage, pl: funil[q.pipeline] || q.pipeline, v: +q.amount || 0, ow: dono[q.hubspot_owner_id] || '' }; x.did = d.id; push(q.createdate, 'neg', 'Negócio criado', x); for (const v of (d.propertiesWithHistory?.dealstage || [])) push(v.timestamp, 'etapa', 'Negócio mudou para a etapa: ' + (etapa[v.value] || v.value), { ...x, st: etapa[v.value] || v.value }); if (q.closedate) push(q.closedate, 'fech', 'Negócio: data de fechamento', x) });
+        const [neg, lig, mail, reu, com, nota, tar] = await Promise.all([assoc(id, 'deals', [...new Set(['dealstage', 'pipeline', 'amount', 'createdate', 'closedate', 'hubspot_owner_id', ...dN])], ['dealstage']), assoc(id, 'calls', ['hs_timestamp', 'hs_call_direction', 'hs_call_duration']), assoc(id, 'emails', ['hs_timestamp', 'hs_email_direction', 'hs_email_status']), assoc(id, 'meetings', ['hs_timestamp', 'hs_meeting_outcome']), assoc(id, 'communications', ['hs_timestamp', 'hs_communication_channel_type']), assoc(id, 'notes', ['hs_timestamp', 'hubspot_owner_id']), assoc(id, 'tasks', ['hs_timestamp', 'hs_task_status', 'hs_task_type', 'hubspot_owner_id'])]);
+        neg.forEach(d => { const q = d.properties, x = { st: etapa[q.dealstage] || q.dealstage, pl: funil[q.pipeline] || q.pipeline, v: +q.amount || 0, ow: dono[q.hubspot_owner_id] || '' }; x.did = d.id; ficha.negocios.push({ id: d.id, campos: RV.deals.map(f => ({ g: f.g, r: f.rot, v: fv(f, q[f.name]) })).filter(z => z.v) }); for (const f of RV.deals) if (f.ev && q[f.name] && f.name != 'closedate') push(q[f.name], 'marco', f.ev, { ...x }); push(q.createdate, 'neg', 'Negócio criado', x); for (const v of (d.propertiesWithHistory?.dealstage || [])) push(v.timestamp, 'etapa', 'Negócio mudou para a etapa: ' + (etapa[v.value] || v.value), { ...x, st: etapa[v.value] || v.value }); if (q.closedate) push(q.closedate, 'fech', 'Negócio: data de fechamento', x) });
         nota.forEach(d => push(d.properties.hs_timestamp, 'nota', 'Nota registrada no contato', { ow: dono[d.properties.hubspot_owner_id] || '' }));
         tar.forEach(d => push(d.properties.hs_timestamp, 'tarefa', 'Tarefa' + (d.properties.hs_task_type ? ' (' + d.properties.hs_task_type.toLowerCase() + ')' : '') + (d.properties.hs_task_status ? ' · ' + d.properties.hs_task_status.toLowerCase() : ''), { ow: dono[d.properties.hubspot_owner_id] || '' }));
         lig.forEach(d => push(d.properties.hs_timestamp, 'ligacao', 'Ligação ' + (/in/i.test(d.properties.hs_call_direction || '') ? 'recebida' : 'realizada') + (d.properties.hs_call_duration ? ' · ' + Math.round(d.properties.hs_call_duration / 1000) + ' s' : ''), {}));
@@ -138,7 +194,7 @@ export default {
         com.forEach(d => push(d.properties.hs_timestamp, /whats/i.test(d.properties.hs_communication_channel_type || '') ? 'wa' : 'ativ', 'Mensagem ' + (d.properties.hs_communication_channel_type || ''), {}));
       }
       ev.sort((a, b) => a.d < b.d ? -1 : a.d > b.d ? 1 : a.h - b.h);
-      return out({ contatos: cts, eventos: ev });
+      return out({ contatos: cts, eventos: ev, ficha });
     } catch (e) { return out({ erro: String(e.message || e).slice(0, 200) }, e.st == 401 || e.st == 403 ? 502 : 500) }
   }
 };
