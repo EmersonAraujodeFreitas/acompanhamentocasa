@@ -28,3 +28,5 @@ A guia **Hubspot** tem um campo para a chave de acesso (`CHAVE_ACESSO` do Worker
 ### Visão gerencial do HubSpot (guia Hubspot › Visão gerencial)
 Com milhões de contatos e negócios, o painel **não baixa registros**: o Worker (rotas `/estrutura`, `/contar`) pergunta ao HubSpot os **totais exatos** de cada recorte (universidade, pipeline, etapa, origem, ciclo de vida, mês) e devolve só números. Os dados carregam sozinhos ao abrir a guia (últimos 12 meses por padrão) e ficam guardados só neste navegador; o botão atualiza em tempo real. Não há valores em R$ (a busca do HubSpot não soma).
 A universidade vem da propriedade `universidade` (contatos e negócios) ou, se não houver, do nome do pipeline. Defina `UNI_PROP` no Worker para outro nome. **Atualize o código do Worker** com `hubspot-worker/worker.mjs` sempre que este arquivo mudar.
+
+> Atualização: a guia **Buscar** agora consulta **somente o HubSpot** (telefone ou CPF), sem cruzar Olos nem Botmaker.
