@@ -119,14 +119,14 @@ export default {
           if (req.method != 'POST') return out({ erro: 'use POST' }, 405);
           const b = await req.json().catch(() => null); if (!b || !Array.isArray(b.q)) return out({ erro: 'pedido inválido' }, 400);
           const ob = ['contacts', 'deals', 'calls', 'emails', 'meetings', 'communications', 'notes', 'tasks'].includes(b.obj) ? b.obj : 'deals', OPS = ['EQ', 'NEQ', 'IN', 'NOT_IN', 'GTE', 'LTE', 'GT', 'LT', 'HAS_PROPERTY', 'NOT_HAS_PROPERTY', 'CONTAINS_TOKEN'];
-          const qs = b.q.slice(0, 40), res = {};
+          const qs = b.q.slice(0, 40), res = {}, erros = [];
           const um = async x => {
             const fl = (Array.isArray(x.f) ? x.f : []).slice(0, 12).map(f => { if (!/^[a-z0-9_]{1,80}$/.test(f.p || '') || !OPS.includes(f.op)) throw new Error('filtro inválido'); const o = { propertyName: f.p, operator: f.op }; if (Array.isArray(f.vs)) o.values = f.vs.slice(0, 100).map(String); else if (f.v != null) o.value = String(f.v); return o });
             const gr = Array.isArray(x.o) && x.o.length ? x.o.slice(0, 5).map(g => ({ filters: [...fl, ...(Array.isArray(g) ? g : []).slice(0, 3).map(f => { if (!/^[a-z0-9_]{1,80}$/.test(f.p || '') || !OPS.includes(f.op)) throw new Error('filtro inválido'); const o = { propertyName: f.p, operator: f.op }; if (Array.isArray(f.vs)) o.values = f.vs.slice(0, 100).map(String); else if (f.v != null) o.value = String(f.v); return o })] })) : [{ filters: fl }];
             const j = await busca('/crm/v3/objects/' + ob + '/search', { filterGroups: gr, limit: 1, properties: ['hs_object_id'] }); res[x.i] = j.total
           };
-          let k = 0; while (k < qs.length) { const x = qs[k++]; try { await um(x) } catch (e) { res[x.i] = -1; if (e.st == 401 || e.st == 403) throw e } await espera(120) }
-          return out({ r: res });
+          let k = 0; while (k < qs.length) { const x = qs[k++]; try { await um(x) } catch (e) { res[x.i] = -1; erros.push(String(e.message || e).slice(0, 140)); if (e.st == 401 || e.st == 403) throw e } await espera(120) }
+          return out({ r: res, e: [...new Set(erros)].slice(0, 4) });
         }
         const obj = u.searchParams.get('obj') == 'contacts' ? 'contacts' : 'deals', desde = +u.searchParams.get('desde') || 0, LIM = 200, PAG = 8;
         let uniP = env.UNI_PROP || '';
@@ -164,10 +164,11 @@ export default {
       const ev = [], cts = [], push = (t, ty, tx, x) => { const l = local(t); if (l) ev.push({ ...l, ty, tx, ...x }) };
       const RV = await resolver().catch(() => ({ contacts: [], deals: [] })), cN = RV.contacts.map(x => x.name), dN = RV.deals.map(x => x.name);
       const fv = (d, v) => { if (v == null || v === '') return ''; if (d.name == 'dealstage') return etapa[v] || v; if (d.name == 'pipeline') return funil[v] || v; if (d.tipo == 'bool' || (d.ft == 'booleancheckbox' && /^(true|false)$/i.test(v))) return /^true$/i.test(v) ? 'Sim' : 'Não'; if (d.tipo == 'enumeration') return String(v).split(';').map(z => (d.op.find(o => o[0] == z) || [])[1] || z).join(', '); if (d.tipo == 'date' || d.tipo == 'datetime') { const l = local(v); return l ? l.d.split('-').reverse().join('/') : '' } return String(v).slice(0, 200) };
-      const ficha = { contatos: [], negocios: [] };
+      const ficha = { contatos: [], negocios: [] }, ident = { contatos: [], ra: [] }, fcpf = v => { const d = dig(v); return d.length == 11 ? d.slice(0, 3) + '.' + d.slice(3, 6) + '.' + d.slice(6, 9) + '-' + d.slice(9) : String(v || '') };
       const assoc = async (id, tipo, props, hist) => { const a = await api('/crm/v4/objects/contacts/' + id + '/associations/' + tipo).catch(() => ({ results: [] })); const ii = a.results.map(x => ({ id: String(x.toObjectId) })).slice(0, 100); if (!ii.length) return []; const r = await api('/crm/v3/objects/' + tipo + '/batch/read', { method: 'POST', body: JSON.stringify(hist ? { inputs: ii, properties: props, propertiesWithHistory: hist } : { inputs: ii, properties: props }) }).catch(() => ({ results: [] })); return r.results };
       for (const id of [...ids].slice(0, 5)) {
-        const c = await api('/crm/v3/objects/contacts/' + id + '?properties=' + [...new Set([...CONTATO, ...cN])].join(',') + '&propertiesWithHistory=lifecyclestage,hs_lead_status,hubspot_owner_id,recent_conversion_event_name'), p = c.properties, ow = dono[p.hubspot_owner_id] || '';
+        const c = await api('/crm/v3/objects/contacts/' + id + '?properties=' + [...new Set([...CONTATO, ...cN, 'firstname', 'lastname', 'email', 'phone', 'mobilephone', cpfProp])].join(',') + '&propertiesWithHistory=lifecyclestage,hs_lead_status,hubspot_owner_id,recent_conversion_event_name'), p = c.properties, ow = dono[p.hubspot_owner_id] || '';
+        ident.contatos.push({ nome: [p.firstname, p.lastname].filter(Boolean).join(' '), cpf: fcpf(p[cpfProp]), email: p.email || '', tel: p.phone || '', cel: p.mobilephone || '' });
         ficha.contatos.push({ id, campos: RV.contacts.map(d => ({ g: d.g, r: d.rot, v: fv(d, p[d.name]) })).filter(x => x.v) });
         cts.push({ id, etapa: p.lifecyclestage, status: p.hs_lead_status, origem: p.hs_analytics_source, proprietario: ow });
         push(p.createdate, 'criado', 'Contato criado', { st: p.lifecyclestage, or: p.hs_analytics_source, ow });
@@ -185,7 +186,7 @@ export default {
         push(p.hs_email_last_send_date, 'email', 'E-mail de marketing enviado: ' + (p.hs_email_last_email_name || ''), {});
         push(p.hs_email_last_open_date, 'email', 'E-mail de marketing aberto', {}); push(p.hs_email_last_click_date, 'email', 'E-mail de marketing clicado', {});
         const [neg, lig, mail, reu, com, nota, tar] = await Promise.all([assoc(id, 'deals', [...new Set(['dealstage', 'pipeline', 'amount', 'createdate', 'closedate', 'hubspot_owner_id', ...dN])], ['dealstage']), assoc(id, 'calls', ['hs_timestamp', 'hs_call_direction', 'hs_call_duration']), assoc(id, 'emails', ['hs_timestamp', 'hs_email_direction', 'hs_email_status']), assoc(id, 'meetings', ['hs_timestamp', 'hs_meeting_outcome']), assoc(id, 'communications', ['hs_timestamp', 'hs_communication_channel_type']), assoc(id, 'notes', ['hs_timestamp', 'hubspot_owner_id']), assoc(id, 'tasks', ['hs_timestamp', 'hs_task_status', 'hs_task_type', 'hubspot_owner_id'])]);
-        neg.forEach(d => { const q = d.properties, x = { st: etapa[q.dealstage] || q.dealstage, pl: funil[q.pipeline] || q.pipeline, v: +q.amount || 0, ow: dono[q.hubspot_owner_id] || '' }; x.did = d.id; ficha.negocios.push({ id: d.id, campos: RV.deals.map(f => ({ g: f.g, r: f.rot, v: fv(f, q[f.name]) })).filter(z => z.v) }); for (const f of RV.deals) if (f.ev && q[f.name] && f.name != 'closedate') push(q[f.name], 'marco', f.ev, { ...x }); push(q.createdate, 'neg', 'Negócio criado', x); for (const v of (d.propertiesWithHistory?.dealstage || [])) push(v.timestamp, 'etapa', 'Negócio mudou para a etapa: ' + (etapa[v.value] || v.value), { ...x, st: etapa[v.value] || v.value }); if (q.closedate) push(q.closedate, 'fech', 'Negócio: data de fechamento', x) });
+        neg.forEach(d => { const q = d.properties, x = { st: etapa[q.dealstage] || q.dealstage, pl: funil[q.pipeline] || q.pipeline, v: +q.amount || 0, ow: dono[q.hubspot_owner_id] || '' }; x.did = d.id; { const rf = RV.deals.find(f => f.rot == 'RA'); if (rf && q[rf.name] && !ident.ra.includes(String(q[rf.name]))) ident.ra.push(String(q[rf.name])) } ficha.negocios.push({ id: d.id, campos: RV.deals.map(f => ({ g: f.g, r: f.rot, v: fv(f, q[f.name]) })).filter(z => z.v) }); for (const f of RV.deals) if (f.ev && q[f.name] && f.name != 'closedate') push(q[f.name], 'marco', f.ev, { ...x }); push(q.createdate, 'neg', 'Negócio criado', x); for (const v of (d.propertiesWithHistory?.dealstage || [])) push(v.timestamp, 'etapa', 'Negócio mudou para a etapa: ' + (etapa[v.value] || v.value), { ...x, st: etapa[v.value] || v.value }); if (q.closedate) push(q.closedate, 'fech', 'Negócio: data de fechamento', x) });
         nota.forEach(d => push(d.properties.hs_timestamp, 'nota', 'Nota registrada no contato', { ow: dono[d.properties.hubspot_owner_id] || '' }));
         tar.forEach(d => push(d.properties.hs_timestamp, 'tarefa', 'Tarefa' + (d.properties.hs_task_type ? ' (' + d.properties.hs_task_type.toLowerCase() + ')' : '') + (d.properties.hs_task_status ? ' · ' + d.properties.hs_task_status.toLowerCase() : ''), { ow: dono[d.properties.hubspot_owner_id] || '' }));
         lig.forEach(d => push(d.properties.hs_timestamp, 'ligacao', 'Ligação ' + (/in/i.test(d.properties.hs_call_direction || '') ? 'recebida' : 'realizada') + (d.properties.hs_call_duration ? ' · ' + Math.round(d.properties.hs_call_duration / 1000) + ' s' : ''), {}));
@@ -194,7 +195,7 @@ export default {
         com.forEach(d => push(d.properties.hs_timestamp, /whats/i.test(d.properties.hs_communication_channel_type || '') ? 'wa' : 'ativ', 'Mensagem ' + (d.properties.hs_communication_channel_type || ''), {}));
       }
       ev.sort((a, b) => a.d < b.d ? -1 : a.d > b.d ? 1 : a.h - b.h);
-      return out({ contatos: cts, eventos: ev, ficha });
+      return out({ contatos: cts, eventos: ev, ficha, ident });
     } catch (e) { return out({ erro: String(e.message || e).slice(0, 200) }, e.st == 401 || e.st == 403 ? 502 : 500) }
   }
 };
