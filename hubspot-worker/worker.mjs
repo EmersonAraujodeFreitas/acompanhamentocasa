@@ -150,13 +150,18 @@ export default {
         return out({ r, prox: ult, mais, prop: uniP });
       } catch (e) { return out({ erro: String(e.message || e).slice(0, 200) }, e.st == 401 || e.st == 403 ? 502 : 500) }
     }
-    const q = dig(u.searchParams.get('q')); if (q.length < 10) return out({ erro: 'informe telefone com DDD ou CPF' }, 400);
+    const qc = dig(u.searchParams.get('cpf')), qt = dig(u.searchParams.get('tel')), q = dig(u.searchParams.get('q')); if (!qc && !qt && q.length < 10) return out({ erro: 'informe telefone com DDD ou CPF' }, 400); if ((qc && qc.length != 11) || (qt && (qt.length < 10 || qt.length > 13))) return out({ erro: 'CPF com 11 dígitos e telefone com DDD' }, 400);
     try {
       const cpfProp = env.CPF_PROP || 'cpf', ids = new Set();
       const buscaCt = async (prop, vals) => { if (!vals.length) return; const r = await api('/crm/v3/objects/contacts/search', { method: 'POST', body: JSON.stringify({ filterGroups: vals.slice(0, 5).map(v => ({ filters: [{ propertyName: prop, operator: 'EQ', value: v }] })), properties: ['hs_object_id'], limit: 10 }) }); r.results.forEach(x => ids.add(x.id)) };
+      if (qc || qt) {
+        if (qc) await buscaCt(cpfProp, [qc, qc.slice(0, 3) + '.' + qc.slice(3, 6) + '.' + qc.slice(6, 9) + '-' + qc.slice(9)]);
+        if (qt) { const n = qt.length > 11 && qt.startsWith('55') ? qt.slice(2) : qt; if (n.length >= 10 && n.length <= 11) { const a = n.slice(0, 2), r = n.slice(2), m = r.length == 9 ? r.slice(0, 5) + '-' + r.slice(5) : r.slice(0, 4) + '-' + r.slice(4); const v = [n, '55' + n, '+55' + n, '(' + a + ') ' + m, '+55 ' + a + ' ' + m]; await buscaCt('mobilephone', v); await buscaCt('phone', v) } }
+      } else {
       if (cpfOk(q)) await buscaCt(cpfProp, [q, q.slice(0, 3) + '.' + q.slice(3, 6) + '.' + q.slice(6, 9) + '-' + q.slice(9)]);
       const n = q.length > 11 && q.startsWith('55') ? q.slice(2) : q;
       if (n.length >= 10 && n.length <= 11 && !(cpfOk(q) && ids.size)) { const a = n.slice(0, 2), r = n.slice(2), m = r.length == 9 ? r.slice(0, 5) + '-' + r.slice(5) : r.slice(0, 4) + '-' + r.slice(4); const v = [n, '55' + n, '+55' + n, '(' + a + ') ' + m, '+55 ' + a + ' ' + m]; await buscaCt('mobilephone', v); await buscaCt('phone', v) }
+      }
       if (!ids.size) return out({ contatos: [], eventos: [] });
       const [own, pip] = await Promise.all([api('/crm/v3/owners?limit=500').catch(() => ({ results: [] })), api('/crm/v3/pipelines/deals').catch(() => ({ results: [] }))]);
       const dono = {}; own.results.forEach(o => dono[o.id] = [o.firstName, o.lastName].filter(Boolean).join(' ') || o.email || o.id);
