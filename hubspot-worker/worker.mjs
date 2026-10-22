@@ -52,12 +52,14 @@ export default {
       const v = { contacts: [], deals: [], faltam: { contacts: [], deals: [] }, cpf: {}, cpfp: {} };
       for (const o of ['contacts', 'deals']) {
         const pr = (await api('/crm/v3/properties/' + o)).results;
+        const gj = await api('/crm/v3/properties/' + o + '/groups').catch(() => ({ results: [] })), gl = {}; (gj.results || []).forEach(x => gl[x.name] = x.label);
         { const lc = pr.filter(x => /cpf/i.test(x.name + ' ' + x.label) && !/respons|dependent/i.test(x.label)), od = x => /^cpf$/i.test(x.label.trim()) ? 0 : /desuso|utilizado|antigo/i.test(x.label) ? 2 : 1; lc.sort((a, b) => od(a) - od(b)); v.cpf[o] = lc.map(x => x.name).slice(0, 6); v.cpfp[o] = lc.filter(x => od(x) < 2).map(x => x.name) }
         for (const [g, rot, rx, hint, ev, pii] of SPEC[o]) {
           let best = null, bs = 0; const re = new RegExp(rx);
           for (const p of pr) { if (p.hidden) continue; const l = norm(p.label), n = norm(p.name); let sc = 0; if (hint && p.name == hint) sc = 4; else if (l == norm(rot)) sc = 3; else if (re.test(l)) sc = 2; else if (!/ /.test(rx) && re.test(n)) sc = 1; if (sc > bs) { best = p; bs = sc } }
           if (best) v[o].push({ g, rot, name: best.name, tipo: best.type, ft: best.fieldType, ev: ev || '', pii: pii ? 1 : 0, op: (best.options || []).filter(x => !x.hidden).map(x => [x.value, x.label]) }); else v.faltam[o].push(rot)
         }
+        { const ja = new Set(v[o].map(x => x.name)); let ne = 0; for (const p of pr) { if (p.hidden || ja.has(p.name) || ne >= 120) continue; const gB = /botmaker/i.test((gl[p.groupName] || '') + ' ' + p.groupName), gT = /template|whats/i.test(p.name + ' ' + p.label); if (!gB && !gT) continue; ne++; v[o].push({ g: gB ? 'Botmaker · ' + (gl[p.groupName] || p.groupName) : 'Template e WhatsApp', rot: p.label, name: p.name, tipo: p.type, ft: p.fieldType, ev: '', pii: 0, op: (p.options || []).filter(x => !x.hidden).map(x => [x.value, x.label]) }) } }
       }
       PCACHE = { t: Date.now(), v }; return v
     };
@@ -210,7 +212,7 @@ export default {
       { const o = ficha.contatos.map((_, i) => i).sort((a, b) => ficha.contatos[b].cr - ficha.contatos[a].cr); const R = (arr) => o.map(i => arr[i]); ficha.contatos = R(ficha.contatos); ident.contatos = R(ident.contatos); cts.splice(0, cts.length, ...R(cts)) }
       ficha.negocios.sort((a, b) => b.per - a.per || b.cr - a.cr);
       ev.sort((a, b) => a.d < b.d ? -1 : a.d > b.d ? 1 : a.h - b.h);
-      return out({ contatos: cts, eventos: ev, ficha, ident, versao: 'cpf-estrito-2026-10-22c' });
+      return out({ contatos: cts, eventos: ev, ficha, ident, versao: 'cpf-estrito-2026-10-22d' });
     } catch (e) { return out({ erro: String(e.message || e).slice(0, 200) }, e.st == 401 || e.st == 403 ? 502 : 500) }
   }
 };
