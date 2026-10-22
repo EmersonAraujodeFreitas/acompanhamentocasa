@@ -1097,7 +1097,130 @@ ${card('Proteção dos dados sensíveis','como o módulo evita vazamento',`<ul s
 <li><b>Exibição segura:</b> todo texto vindo dos arquivos é escapado antes de aparecer na tela.</li></ul>
 <div class="ov" style="margin-top:10px"><table class="ot"><thead><tr><th>Modelo</th><th>O que é descartado</th></tr></thead><tbody>${Object.keys(DROP).map(k=>`<tr><td>${ESC(KINDS[k])}</td><td>${ESC(DROP[k])}</td></tr>`).join('')}</tbody></table></div>
 <p style="margin:10px 0 0"><span class="tag ${a.bad?'dnt':'ok'}">Verificação agora: ${a.bad?N(a.bad)+' campos com padrão de CPF/telefone':'nenhum CPF ou telefone retido'}</span> <span style="font-size:11px;color:var(--mu)">${N(a.rows)} registros · ${N(a.fields)} campos de texto conferidos</span></p>`,'w')}</div>`}
-const PAN={ov:['Visão geral',pOv],cm:['Unijorge × UVA',pCm],at:['Atendimento e fila',pAt],op:['Operadores',pOp],pa:['Pausas',pPa],ur:['URA e satisfação',pUr],di:['Discagem e desconexões',pDi],imp:['Importar arquivos',pIm]};
+/* ---------- indicadores adicionais por guia ---------- */
+const WD=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'],WO=[1,2,3,4,5,6,0],wdOf=d=>new Date(d+'T12:00:00').getDay();
+const byWd=a=>{const v=Array(7).fill(0);for(const r of a)v[wdOf(r.d)]++;return WO.map(i=>v[i])};
+const WL=WO.map(i=>WD[i]);
+const dset=(...as)=>[...new Set(as.flat().map(r=>r.d))].sort();
+const per=(a,days,f)=>days.map(d=>f(a.filter(r=>r.d==d)));
+const med=v=>{if(!v.length)return 0;const s=[...v].sort((x,y)=>x-y),m=s.length>>1;return s.length%2?s[m]:(s[m-1]+s[m])/2};
+const binC=(v,ed)=>ed.slice(0,-1).map((e,i)=>v.filter(x=>x>=e&&x<ed[i+1]).length);
+const heat=(a,tt)=>{if(!a.length)return'';const m=Array.from({length:7},()=>Array(24).fill(0));let mx=1;for(const r of a)if(r.h>=0){const v=++m[wdOf(r.d)][r.h];if(v>mx)mx=v}
+const hs=HRS.filter(h=>m.some(x=>x[h]>0));if(!hs.length)return'';
+return card(tt,'dia da semana × hora; quanto mais escuro, maior o volume',`<div class="ov"><table class="ot hm"><thead><tr><th></th>${hs.map(h=>`<th>${String(h).padStart(2,'0')}h</th>`).join('')}</tr></thead><tbody>${WO.map(i=>`<tr><td>${WD[i]}</td>${hs.map(h=>{const v=m[i][h];return`<td style="background:rgba(0,72,127,${(v/mx*.85).toFixed(2)});color:${v/mx>.5?'#fff':'inherit'}">${v?N(v):''}</td>`}).join('')}</tr>`).join('')}</tbody></table></div>`,'w')};
+const stk=(labels,sets)=>({type:'bar',st:1,labels,sets});
+const lineP=(labels,sets,pct)=>({type:'line',pct:pct?1:0,labels,sets});
+const uniSets=(a,labels,f)=>['UJ','UVA',''].filter(u=>a.some(r=>r.un==u)).map(u=>({l:UN[u],d:labels.map(x=>f(a.filter(r=>r.un==u),x)),c:UC[u]}));
+const G=(...x)=>x.filter(Boolean).join('');
+function xOv(){const T=fX('tab'),A=fX('abn'),R=fX('ura'),NP=fX('nps'),AU=fX('aut');const days=dset(T,A,R,NP,AU);if(!days.length)return'';const prod=T.filter(r=>!imp(r)),np=NP.filter(r=>r.nt>0);
+const pk=(a)=>{const v=hh(a),m=Math.max(...v);return m>0?String(v.indexOf(m)).padStart(2,'0')+'h ('+N(m)+')':'–'};
+const dpk=T.length?top(cnt(T,r=>r.d),1)[0]:null;
+let h=gt('Ritmo e sazonalidade')+kk([kpi('Dias com dados',N(days.length),fdate(days[0])+(days.length>1?' a '+fdate(days[days.length-1]):''),'calendar'),kpi('Média diária de ligações',T.length?N(T.length/dset(T).length):'–','tabuladas por dia','gauge'),kpi('Hora de pico (ligações)',T.length?pk(T):'–','','clock'),kpi('Dia de pico',dpk?fdate(dpk[0]):'–',dpk?N(dpk[1])+' ligações':'','trend'),kpi('Abandonadas por 100 ligações',T.length&&A.length?D1(100*A.length/T.length):'–','abandonadas e rejeitadas ÷ tabuladas','alert'),kpi('Operadores com ligações',T.length?N(new Set(T.map(r=>r.ag).filter(Boolean)).size):'–','','users')],3);
+h+='<div class="g">'+chartCard('Volume por dia da semana','',{type:'bar',labels:WL,sets:[T.length&&{l:'Tabulações',d:byWd(T)},A.length&&{l:'Abandonadas',d:byWd(A)},R.length&&{l:'Acessos à URA',d:byWd(R)}].filter(Boolean)},270)
++(T.length&&days.length>1?chartCard('Sucesso e transferências por dia','',lineP(dset(T).map(fdate),[{l:'Sucesso de negócio',d:per(T,dset(T),a=>sum(a,r=>r.ok))},{l:'Transferidas',d:per(T,dset(T),a=>sum(a,r=>r.tr))}]),270):'')
++(T.length&&dset(T).length>1?chartCard('% de improdutivas por dia','',lineP(dset(T).map(fdate),[{l:'% improdutivas',d:per(T,dset(T),a=>a.length?+(100*a.filter(imp).length/a.length).toFixed(1):0)}],1),260):'')
++(np.length&&dset(np).length>1?chartCard('Nota média da pesquisa por dia','de 1 a 5',lineP(dset(np).map(fdate),[{l:'Nota média',d:per(np,dset(np),a=>a.length?+(sum(a,r=>r.nt)/a.length).toFixed(2):0)}]),260):'')
++(T.length?chartCard('Duração média por hora','minutos, ligações produtivas',lineP(HL,[{l:'Minutos',d:HRS.map(x=>{const a=prod.filter(r=>r.h==x&&r.du>0);return a.length?+(sum(a,r=>r.du)/a.length/60).toFixed(1):0})}]),260):'')
++heat(T,'Mapa de calor das ligações')+heat(A,'Mapa de calor das abandonadas')+'</div>';return h}
+function xAt(){const T=fX('tab'),A=fX('abn');let h='';
+if(T.length){const prod=T.filter(r=>!imp(r)),dv=prod.filter(r=>r.du>0).map(r=>r.du),wv=prod.map(r=>r.wr);
+h+=gt('Duração, espera e resultado')+kk([kpi('Mediana de duração',dv.length?TM(med(dv)):'–','ligações produtivas','timer'),kpi('Ligações acima de 10 min',dv.length?P(dv.filter(x=>x>=600).length,dv.length):'–',N(dv.filter(x=>x>=600).length)+' ligações','hourglass'),kpi('Mediana de wrap',wv.length?TM(med(wv)):'–','tempo de tabulação','clock'),kpi('Wrap acima de 1 min',wv.length?P(wv.filter(x=>x>=60).length,wv.length):'–','','alert')],4);
+const n1=top(cnt(T,r=>r.n1||'(sem classificação)'),8).map(x=>x[0]),cps=top(cnt(T,r=>r.cp||'(sem campanha)'),10).map(x=>x[0]);
+const cpS=cps.map(k=>{const a=T.filter(r=>(r.cp||'(sem campanha)')==k);return{k,n:a.length,t:sum(a,r=>r.tr),o:sum(a,r=>r.ok),i:a.filter(imp).length}});
+h+='<div class="g">'+chartCard('Faixas de duração','ligações produtivas',{type:'bar',labels:['até 30 s','30 s – 1 min','1 – 3 min','3 – 5 min','5 – 10 min','mais de 10 min'],sets:[{l:'Ligações',d:binC(dv,[0.001,30,60,180,300,600,1e9])}]},270)
++chartCard('Faixas de wrap','tempo de tabulação, produtivas',{type:'bar',labels:['até 10 s','10 – 30 s','30 s – 1 min','1 – 2 min','mais de 2 min'],sets:[{l:'Ligações',d:binC(wv,[-1,10,30,60,120,1e9])}]},270)
++chartCard('Produtivas e improdutivas por universidade','',stk(['Unijorge','UVA','Sem universidade'].filter((_,i)=>T.some(r=>r.un==['UJ','UVA',''][i])),[{l:'Produtivas',d:['UJ','UVA',''].filter(u=>T.some(r=>r.un==u)).map(u=>T.filter(r=>r.un==u&&!imp(r)).length)},{l:'Improdutivas',d:['UJ','UVA',''].filter(u=>T.some(r=>r.un==u)).map(u=>T.filter(r=>r.un==u&&imp(r)).length),c:'#9ca3af'}]),270)
++chartCard('Classificação (nível 1) por universidade','8 mais frequentes',{h:1,type:'bar',st:1,labels:n1,sets:['UJ','UVA',''].filter(u=>T.some(r=>r.un==u)).map(u=>({l:UN[u],d:n1.map(k=>T.filter(r=>r.un==u&&(r.n1||'(sem classificação)')==k).length),c:UC[u]}))},340)
++chartCard('Sucesso de negócio por campanha','10 campanhas com mais ligações',hbar(cpS.map(o=>[o.k,o.o]),'Sucessos'),340)
++chartCard('Transferência por campanha','% das ligações da campanha',{h:1,pct:1,type:'bar',labels:cpS.map(o=>o.k),sets:[{l:'% transferidas',d:cpS.map(o=>+(100*o.t/o.n).toFixed(1))}]},340)
++chartCard('Improdutividade por campanha','% das ligações da campanha',{h:1,pct:1,type:'bar',labels:cpS.map(o=>o.k),sets:[{l:'% improdutivas',d:cpS.map(o=>+(100*o.i/o.n).toFixed(1))}]},340)
++chartCard('Sucesso de negócio por hora','',{type:'bar',labels:HL,sets:[{l:'Sucessos',d:HRS.map(x=>sum(T.filter(r=>r.h==x),r=>r.ok))}]},270)
++chartCard('Ligações por dia da semana e área','',stk(WL,['Admissão','Serviços',''].filter(a=>T.some(r=>r.ar==a)).map(a=>({l:a||'Sem área',d:WO.map(i=>T.filter(r=>r.ar==a&&wdOf(r.d)==i).length)}))),270)+'</div>'}
+if(A.length){const dd=dset(A);h+=gt('Fila: padrões das abandonadas')+'<div class="g">'+chartCard('Abandonadas por dia da semana','',{type:'bar',labels:WL,sets:[{l:'Chamadas',d:byWd(A)}]},260)
++chartCard('Tempo médio de fila por hora','segundos',lineP(HL,[{l:'Segundos',d:HRS.map(x=>{const a=A.filter(r=>r.h==x);return a.length?Math.round(sum(a,r=>r.tf)/a.length):0})}]),260)
++(dd.length>1?chartCard('Abandonadas por dia','',stk(dd.map(fdate),uniSets(A,dd,(a,d)=>a.filter(r=>r.d==d).length)),260):'')
++chartCard('Fila acima de 1 min por hora','% das chamadas da hora',lineP(HL,[{l:'% acima de 1 min',d:HRS.map(x=>{const a=A.filter(r=>r.h==x);return a.length?+(100*a.filter(r=>r.tf>=60).length/a.length).toFixed(1):0})}],1),260)
++chartCard('Por universidade e área','',stk(['Admissão','Serviços','Sem área'].filter((_,i)=>A.some(r=>r.ar==['Admissão','Serviços',''][i])),['UJ','UVA',''].filter(u=>A.some(r=>r.un==u)).map(u=>({l:UN[u],d:['Admissão','Serviços',''].filter(a=>A.some(r=>r.ar==a)).map(a=>A.filter(r=>r.un==u&&r.ar==a).length),c:UC[u]}))),260)
++card('Tempo de fila','abandonadas e rejeitadas',tbl(['Medida','Valor'],[['Média',TM(sum(A,r=>r.tf)/A.length)],['Mediana',TM(med(A.map(r=>r.tf)))],['Maior fila',TM(Math.max(...A.map(r=>r.tf)))]]))+'</div>'}
+return h}
+function xOp(){const R=opRows();if(!R.length)return'';const T=fX('tab');const a=R.filter(o=>o.n),ln=a.map(o=>o.n).sort((x,y)=>y-x),tt=sum(a,o=>o.n),t10=ln.slice(0,Math.max(1,Math.ceil(ln.length*.1)));
+let h=gt('Distribuição da equipe')+kk([kpi('Operadores com ligações',N(a.length),'','users'),kpi('Média por operador',a.length?N(tt/a.length):'–','ligações','gauge'),kpi('Mediana por operador',a.length?N(med(ln)):'–','ligações','activity'),kpi('Concentração (10% maiores)',tt?P(sum(t10,x=>x),tt):'–','das ligações ficam com os '+t10.length+' operadores com mais volume','trend')],4);
+const m5=(f,min,fl)=>R.filter(o=>f(o)!=null&&min(o)).sort((x,y)=>f(y)-f(x)).slice(0,12);
+const S1=R.filter(o=>o.n>=10).sort((x,y)=>y.ok-x.ok).slice(0,12),S2=R.filter(o=>o.n>=20).sort((x,y)=>y.pr/y.n-x.pr/x.n).slice(0,12),S3=R.filter(o=>o.n>=20).sort((x,y)=>y.tr/y.n-x.tr/x.n).slice(0,12),S4=R.filter(o=>o.pr>=5).sort((x,y)=>y.wr/y.pr-x.wr/x.pr).slice(0,12),S5=R.filter(o=>o.pn).sort((x,y)=>y.pn-x.pn).slice(0,12);
+const dd=dset(T),ag=r=>r.ag;
+h+='<div class="g">'+(S1.length?chartCard('Sucesso de negócio por operador','12 maiores, 10 ou mais ligações',hbar(S1.map(o=>[o.nm,o.ok]),'Sucessos'),340):'')
++(S2.length?chartCard('Taxa de ligações produtivas','operadores com 20 ou mais ligações',{h:1,pct:1,type:'bar',labels:S2.map(o=>o.nm),sets:[{l:'% produtivas',d:S2.map(o=>+(100*o.pr/o.n).toFixed(1))}]},340):'')
++(S3.length?chartCard('Taxa de transferência','operadores com 20 ou mais ligações',{h:1,pct:1,type:'bar',labels:S3.map(o=>o.nm),sets:[{l:'% transferidas',d:S3.map(o=>+(100*o.tr/o.n).toFixed(1))}]},340):'')
++(S4.length?chartCard('Wrap médio por operador','segundos, 5 ou mais produtivas',hbar(S4.map(o=>[o.nm,Math.round(o.wr/o.pr)]),'Segundos'),340):'')
++(S5.length?chartCard('Quantidade de pausas por operador','12 maiores',hbar(S5.map(o=>[o.nm,o.pn]),'Pausas'),340):'')
++(dd.length>1?chartCard('Operadores ativos por dia','com pelo menos uma ligação',lineP(dd.map(fdate),[{l:'Operadores',d:per(T,dd,x=>new Set(x.map(ag).filter(Boolean)).size)}]),260):'')
++(dd.length>1?chartCard('Ligações por operador ativo, por dia','média',lineP(dd.map(fdate),[{l:'Ligações por operador',d:per(T,dd,x=>{const n=new Set(x.map(ag).filter(Boolean)).size;return n?+(x.length/n).toFixed(1):0})}]),260):'')
++chartCard('Faixas de volume por operador','quantos operadores em cada faixa de ligações',{type:'bar',labels:['1 – 10','11 – 30','31 – 60','61 – 100','mais de 100'],sets:[{l:'Operadores',d:binC(a.map(o=>o.n),[1,11,31,61,101,1e9])}]},260)+'</div>';return h}
+function xPa(){const PA=fX('pau');if(!PA.length)return'';const ts=PA.map(r=>r.t),dd=dset(PA),ops=new Map();for(const r of PA){const k=r.nm||r.lg;const o=ops.get(k)||{n:0,t:0,l:0};o.n++;o.t+=r.t;if(r.t>=1800)o.l++;ops.set(k,o)}
+const lg=PA.filter(r=>r.t>=1800),mo=[...new Set(PA.map(r=>r.m))],mt=mo.map(m=>{const a=PA.filter(r=>r.m==m);return[m,Math.round(sum(a,r=>r.t)/a.length/60*10)/10]}).sort((a,b)=>b[1]-a[1]);
+let h=gt('Duração e distribuição das pausas')+kk([kpi('Mediana de duração',TM(med(ts)),'por pausa','timer'),kpi('Maior pausa',TM(Math.max(...ts)),'','hourglass'),kpi('Pausas acima de 30 min',P(lg.length,PA.length),N(lg.length)+' pausas','alert'),kpi('Tempo médio por operador',HR(sum(PA,r=>r.t)/ops.size),N(ops.size)+' operadores','users')],4);
+h+='<div class="g">'+chartCard('Faixas de duração','pausas',{type:'bar',labels:['até 5 min','5 – 15 min','15 – 30 min','30 – 60 min','mais de 1 h'],sets:[{l:'Pausas',d:binC(ts,[0,300,900,1800,3600,1e9])}]},270)
++chartCard('Duração média por motivo','minutos',hbar(mt.slice(0,10),'Minutos'),270)
++chartCard('Pausas por dia da semana','',{type:'bar',labels:WL,sets:[{l:'Pausas',d:byWd(PA)}]},260)
++chartCard('Pausas por hora de início','quantidade',{type:'bar',labels:HL,sets:[{l:'Pausas',d:hh(PA)}]},260)
++(dd.length>1?chartCard('Tempo em pausa por dia','horas, por motivo',stk(dd.map(fdate),mo.slice(0,6).map(m=>({l:m,d:dd.map(d=>+(sum(PA.filter(r=>r.d==d&&r.m==m),r=>r.t)/3600).toFixed(1))}))),280):'')
++chartCard('Operadores com mais pausas','quantidade',hbar([...ops.entries()].sort((a,b)=>b[1].n-a[1].n).slice(0,12).map(([k,o])=>[k,o.n]),'Pausas'),340)
++card('Pausas de 30 min ou mais','por operador',tbl(['Operador','Pausas longas','Total de pausas','Pausa média'],[...ops.entries()].filter(x=>x[1].l).sort((a,b)=>b[1].l-a[1].l).slice(0,25).map(([k,o])=>[ESC(k),N(o.l),N(o.n),TM(o.t/o.n)])))
++heat(PA,'Mapa de calor do início das pausas')+'</div>';return h}
+function xUr(){const R=fX('ura'),NP=fX('nps'),np=NP.filter(r=>r.nt>0);let h='';
+if(R.length){const c=cnt(R,r=>r.hc||r.hp),vs=[...c.values()],dd=dset(R),seen=new Set(),nw=dd.map(d=>{let n=0;for(const r of R.filter(x=>x.d==d)){const k=r.hc||r.hp;if(!seen.has(k)){seen.add(k);n++}}return n});
+h+=gt('URA: comportamento')+'<div class="g">'+chartCard('Acessos por dia da semana','',{type:'bar',labels:WL,sets:[{l:'Acessos',d:byWd(R)}]},260)
++chartCard('Quantas vezes cada pessoa acessou','pessoas por faixa de acessos',{type:'bar',labels:['1 acesso','2','3','4','5 ou mais'],sets:[{l:'Pessoas',d:[1,2,3,4].map(n=>vs.filter(v=>v==n).length).concat([vs.filter(v=>v>=5).length])}]},260)
++(dd.length>1?chartCard('Pessoas novas por dia','que ainda não tinham acessado no período',lineP(dd.map(fdate),[{l:'Pessoas novas',d:nw},{l:'Pessoas únicas no dia',d:per(R,dd,a=>new Set(a.map(r=>r.hc||r.hp)).size)}]),260):'')
++chartCard('Acessos por universidade','',{type:'doughnut',labels:[...cnt(R,r=>UN[r.un]).keys()],sets:[{l:'Acessos',d:[...cnt(R,r=>UN[r.un]).values()]}]},260,'s')
++heat(R,'Mapa de calor dos acessos')+'</div>'}
+if(np.length){const dd=dset(np),og=top(cnt(np,r=>r.og||'(sem organização)'),8).map(x=>x[0]),ms=top(cnt(np.filter(r=>r.ms),r=>r.ms),10),av=a=>a.length?+(sum(a,r=>r.nt)/a.length).toFixed(2):0;
+h+=gt('Satisfação: cortes adicionais')+'<div class="g">'+chartCard('Taxa de resposta por dia','% das pesquisas com nota',lineP(dset(NP).map(fdate),[{l:'% com nota',d:per(NP,dset(NP),a=>a.length?+(100*a.filter(r=>r.nt>0).length/a.length).toFixed(1):0)}],1),260)
++chartCard('Nota média por hora','de 1 a 5',lineP(HL,[{l:'Nota média',d:HRS.map(x=>av(np.filter(r=>r.h==x)))}]),260)
++chartCard('Nota média por dia da semana','',{type:'bar',labels:WL,sets:[{l:'Nota média',d:WO.map(i=>av(np.filter(r=>wdOf(r.d)==i)))}]},260)
++chartCard('Distribuição das notas por universidade','respostas',stk(['1','2','3','4','5'],['UJ','UVA',''].filter(u=>np.some(r=>r.un==u)).map(u=>({l:UN[u],d:[1,2,3,4,5].map(n=>np.filter(r=>r.un==u&&r.nt==n).length),c:UC[u]}))),260)
++chartCard('Nota média por organização','',{h:1,type:'bar',labels:og,sets:[{l:'Nota média',d:og.map(k=>av(np.filter(r=>(r.og||'(sem organização)')==k)))}]},300)
++chartCard('Satisfeitos (4 e 5) por universidade e área','% das respostas',{type:'bar',pct:1,labels:['Admissão','Serviços','Sem área'].filter((_,i)=>np.some(r=>r.ar==['Admissão','Serviços',''][i])),sets:['UJ','UVA',''].filter(u=>np.some(r=>r.un==u)).map(u=>({l:UN[u],d:['Admissão','Serviços',''].filter(a=>np.some(r=>r.ar==a)).map(a=>{const x=np.filter(r=>r.un==u&&r.ar==a);return x.length?+(100*x.filter(r=>r.nt>=4).length/x.length).toFixed(1):0}),c:UC[u]}))},260)
++(ms.length?chartCard('Etapa da URA em que respondeu','último milestone, 10 mais frequentes',hbar(ms),300):'')
++(ms.length?card('Nota por etapa','último milestone',tbl(['Etapa','Respostas','Nota média'],ms.map(([k,n])=>[ESC(k),N(n),D1(av(np.filter(r=>r.ms==k)))]))):'')
++heat(np,'Mapa de calor das respostas')+'</div>'}
+return h}
+function xDi(){const AU=fX('aut'),DS=fX('dsc');let h='';
+if(AU.length){const dd=dset(AU),grp=r=>NOCT.test(r.st)?0:FILA.test(r.st)?1:2,GL=['Sem contato com pessoa','Chegou à fila','Com tabulação'],nc=cnt(AU,r=>r.hp),vs=[...nc.values()],og=top(cnt(AU,r=>r.og||'(sem organização)'),8).map(x=>x[0]);
+const byC=new Map();for(const r of AU){const k=r.cp||'(sem campanha)';const o=byC.get(k)||{n:0,c:0,f:0};o.n++;if(grp(r)==2)o.c++;if(grp(r)==1)o.f++;byC.set(k,o)}
+h+=gt('Discagem: eficiência')+kk([kpi('Taxa de contato com pessoa',P(AU.filter(r=>grp(r)>0).length,AU.length),'chegou à fila ou teve tabulação','target'),kpi('Taxa de tabulação',P(AU.filter(r=>grp(r)==2).length,AU.length),'','check'),kpi('Números discados 3+ vezes',P(vs.filter(v=>v>=3).length,vs.length),N(vs.filter(v=>v>=3).length)+' números','repeat'),kpi('Máximo de tentativas num número',N(Math.max(...vs)),'','alert')],4);
+h+='<div class="g">'+chartCard('Resultado por hora','tentativas por tipo de resultado',stk(HL,GL.map((l,i)=>({l,d:HRS.map(x=>AU.filter(r=>r.h==x&&grp(r)==i).length)}))),300,'w')
++chartCard('Taxa de contato por hora','% de tentativas que chegaram a uma pessoa',lineP(HL,[{l:'% contato',d:HRS.map(x=>{const a=AU.filter(r=>r.h==x);return a.length?+(100*a.filter(r=>grp(r)>0).length/a.length).toFixed(1):0})}],1),260)
++(dd.length>1?chartCard('Tentativas e números únicos por dia','',lineP(dd.map(fdate),[{l:'Tentativas',d:per(AU,dd,a=>a.length)},{l:'Números únicos',d:per(AU,dd,a=>new Set(a.map(r=>r.hp)).size)}]),260):'')
++chartCard('Tentativas por número','quantos números em cada faixa',{type:'bar',labels:['1','2','3','4','5 ou mais'],sets:[{l:'Números',d:[1,2,3,4].map(n=>vs.filter(v=>v==n).length).concat([vs.filter(v=>v>=5).length])}]},260)
++chartCard('Tentativas por organização','',hbar(og.map(k=>[k,AU.filter(r=>(r.og||'(sem organização)')==k).length])),300)
++chartCard('Resultado por universidade','',stk(['Unijorge','UVA','Sem universidade'].filter((_,i)=>AU.some(r=>r.un==['UJ','UVA',''][i])),GL.map((l,i)=>({l,d:['UJ','UVA',''].filter(u=>AU.some(r=>r.un==u)).map(u=>AU.filter(r=>r.un==u&&grp(r)==i).length)}))),260)
++chartCard('Tentativas por dia da semana','',{type:'bar',labels:WL,sets:[{l:'Tentativas',d:byWd(AU)}]},260)
++card('Eficiência por campanha','taxa de contato e de tabulação',tbl(['Campanha','Tentativas','Chegou à fila','Com tabulação','Taxa de contato'],[...byC.entries()].sort((a,b)=>b[1].n-a[1].n).slice(0,20).map(([k,o])=>[ESC(k),N(o.n),P(o.f,o.n),P(o.c,o.n),P(o.f+o.c,o.n)])),'w')
++heat(AU,'Mapa de calor das tentativas')+'</div>'}
+if(DS.length){const dd=dset(DS),by=cnt(DS,r=>r.ag);
+h+=gt('Desconexões: cortes adicionais')+'<div class="g">'+(dd.length>1?chartCard('Desconexões por dia','agente e cliente',stk(dd.map(fdate),[{l:'Agente',d:per(DS,dd,a=>a.filter(r=>r.ow=='Agente').length)},{l:'Cliente',d:per(DS,dd,a=>a.filter(r=>r.ow=='Cliente').length)}]),260):'')
++(dd.length>1?chartCard('% pelo agente por dia','',lineP(dd.map(fdate),[{l:'% pelo agente',d:per(DS,dd,a=>a.length?+(100*a.filter(r=>r.ow=='Agente').length/a.length).toFixed(1):0)}],1),260):'')
++chartCard('Desconexões por dia da semana','',stk(WL,['Agente','Cliente'].map(w=>({l:w,d:WO.map(i=>DS.filter(r=>r.ow==w&&wdOf(r.d)==i).length)}))),260)
++chartCard('% pelo agente por hora','',lineP(HL,[{l:'% pelo agente',d:HRS.map(x=>{const a=DS.filter(r=>r.h==x);return a.length?+(100*a.filter(r=>r.ow=='Agente').length/a.length).toFixed(1):0})}],1),260)
++chartCard('Operadores com mais desconexões','quantidade',hbar(top(by,12),'Desconexões'),340)
++heat(DS,'Mapa de calor das desconexões')+'</div>'}
+return h}
+function xCm(){const cols=['UJ','UVA',''].map(u=>{const g=k=>fXd(k).filter(r=>r.un==u);return{u,T:g('tab'),A:g('abn'),R:g('ura'),NP:g('nps'),AU:g('aut')}}).filter(c=>c.T.length||c.A.length||c.R.length||c.NP.length||c.AU.length);if(!cols.length)return'';
+const nm=c=>UN[c.u],cc=cols.map(c=>UC[c.u]),all=cols.flatMap(c=>c.T),dd=dset(...cols.map(c=>c.T)),pr=c=>c.T.filter(r=>!imp(r)),np=c=>c.NP.filter(r=>r.nt>0),av=a=>a.length?+(sum(a,r=>r.nt)/a.length).toFixed(2):0;
+const M=[['Mediana de duração (produtivas)',c=>pr(c).some(r=>r.du>0)?TM(med(pr(c).filter(r=>r.du>0).map(r=>r.du))):'–'],['Wrap médio (produtivas)',c=>pr(c).length?TM(sum(pr(c),r=>r.wr)/pr(c).length):'–'],['Operadores com ligações',c=>c.T.length?N(new Set(c.T.map(r=>r.ag).filter(Boolean)).size):'–'],['Campanhas distintas',c=>c.T.length?N(new Set(c.T.map(r=>r.cp)).size):'–'],['Ligações por operador',c=>{const n=new Set(c.T.map(r=>r.ag).filter(Boolean)).size;return n?D1(c.T.length/n):'–'}],['Sucesso por 100 ligações',c=>c.T.length?D1(100*sum(c.T,r=>r.ok)/c.T.length):'–'],['Abandonadas por 100 ligações',c=>c.T.length&&c.A.length?D1(100*c.A.length/c.T.length):'–'],['Fila acima de 1 min',c=>c.A.length?P(c.A.filter(r=>r.tf>=60).length,c.A.length):'–'],['Acessos por pessoa (URA)',c=>c.R.length?D1(c.R.length/new Set(c.R.map(r=>r.hc||r.hp)).size):'–'],['Taxa de resposta (pesquisa)',c=>c.NP.length?P(np(c).length,c.NP.length):'–'],['Taxa de contato (discagem)',c=>c.AU.length?P(c.AU.filter(r=>!NOCT.test(r.st)).length,c.AU.length):'–'],['Tentativas por número',c=>c.AU.length?D1(c.AU.length/new Set(c.AU.map(r=>r.hp)).size):'–']];
+const n1=top(cnt(all,r=>r.n1||'(sem classificação)'),8).map(x=>x[0]),cps=top(cnt(all,r=>r.cp||'(sem campanha)'),8).map(x=>x[0]);
+return'<div class="g">'+(all.length&&dd.length>1?chartCard('Ligações por dia','tabulações por universidade',lineP(dd.map(fdate),cols.map((c,i)=>({l:nm(c),d:per(c.T,dd,a=>a.length),c:cc[i]}))),270):'')
++chartCard('Ligações por dia da semana','',{type:'bar',labels:WL,sets:cols.map((c,i)=>({l:nm(c),d:byWd(c.T),c:cc[i]}))},270)
++chartCard('Duração média por hora','minutos, produtivas',lineP(HL,cols.map((c,i)=>({l:nm(c),d:HRS.map(x=>{const a=pr(c).filter(r=>r.h==x&&r.du>0);return a.length?+(sum(a,r=>r.du)/a.length/60).toFixed(1):0}),c:cc[i]}))),270)
++chartCard('Classificação (nível 1)','8 mais frequentes, por universidade',{h:1,type:'bar',labels:n1,sets:cols.map((c,i)=>({l:nm(c),d:n1.map(k=>c.T.filter(r=>(r.n1||'(sem classificação)')==k).length),c:cc[i]}))},340)
++chartCard('Campanhas','8 com mais ligações, por universidade',{h:1,type:'bar',labels:cps,sets:cols.map((c,i)=>({l:nm(c),d:cps.map(k=>c.T.filter(r=>(r.cp||'(sem campanha)')==k).length),c:cc[i]}))},340)
++chartCard('Distribuição das notas','respostas por nota',{type:'bar',labels:['1','2','3','4','5'],sets:cols.filter(c=>np(c).length).map((c,i)=>({l:nm(c),d:[1,2,3,4,5].map(n=>np(c).filter(r=>r.nt==n).length),c:UC[c.u]}))},270)
++chartCard('Nota média por dia','',lineP(dset(...cols.map(np)).map(fdate),cols.filter(c=>np(c).length).map(c=>({l:nm(c),d:dset(...cols.map(np)).map(d=>av(np(c).filter(r=>r.d==d))),c:UC[c.u]}))),270)
++card('Mais indicadores lado a lado','',tbl(['Indicador',...cols.map(nm)],M.map(m=>[m[0],...cols.map(c=>m[1](c))])),'w')+'</div>'}
+
+const WRAP=(f,x)=>()=>{let r=f();try{r+=x()}catch(e){console.error('Olos ext',e&&e.message)}return r};
+const PAN={ov:['Visão geral',WRAP(pOv,xOv)],cm:['Unijorge × UVA',WRAP(pCm,xCm)],at:['Atendimento e fila',WRAP(pAt,xAt)],op:['Operadores',WRAP(pOp,xOp)],pa:['Pausas',WRAP(pPa,xPa)],ur:['URA e satisfação',WRAP(pUr,xUr)],di:['Discagem e desconexões',WRAP(pDi,xDi)],imp:['Importar arquivos',pIm]};
 function render(){const mn=$o('#olmn');if(!mn||!$o('body').classList.contains('olos'))return;killCH();QD=[];CI=0;const y=scrollY;
 let h=`<div class="hero"><div class="ht"><h1>Olos · ${PAN[PNL][0]}</h1><p>Indicadores calculados dos arquivos do Olos ${cover()}</p></div></div>`;
 if(PNL!='imp')h+=filtros();h+=PAN[PNL][1]();mn.innerHTML=h;QD.forEach(f=>{try{f()}catch(e){}});QD=[];
@@ -1107,7 +1230,7 @@ function bindImp(){const dz=$o('#oldz'),fi=$o('#olfi');if(!dz)return;dz.onclick=
 /* ---------- estrutura: botões Botmaker / Olos, menu, eventos ---------- */
 function setMode(m){const b=document.body,on=m=='o';b.classList.toggle('olos',on);$o('#mn').style.display=on?'none':'';const tb=$o('.tb');if(tb)tb.style.display=on?'none':'';$o('#olmn').style.display=on?'':'none';$$o('#psw button').forEach(x=>x.classList.toggle('on',x.dataset.pr==m));document.title=on?'Olos · Central de Indicadores':'Botmaker · Central de Indicadores';
 if(on){render()}else{try{const a=$o('aside a[data-p].on')||$o('aside a[data-p="exec"]');a&&a.click()}catch(e){}if(typeof tbh=='function')tbh()}scrollTo(0,0)}
-const css=document.createElement('style');css.textContent=`#psw{display:flex;align-items:center;gap:12px;padding:10px 22px 0}#psw .seg button{padding:7px 20px;font-size:13px}#psw .pswt{font-size:11px;color:var(--mu)}body:not(.olos) aside .ol{display:none}body.olos aside a[data-p],body.olos aside>small:not(.ol){display:none}#olmn{padding:20px 22px 50px;max-width:1600px}.ot th,.ot td{text-align:right;padding:7px 9px;white-space:nowrap}.ot th:first-child,.ot td:first-child{text-align:left;white-space:normal;max-width:340px}.ot th{background:var(--acl);color:var(--tx)}.ot td{border-bottom:1px solid var(--bd)}.ot.fl th:nth-child(2),.ot.fl td:nth-child(2){text-align:left}#olfb select,#olfb input{max-width:150px}#olfb label{display:flex;align-items:center;gap:5px;font-size:12px}#olmn .hero{padding:10px 16px;border-radius:12px;box-shadow:none;margin-bottom:8px}#olmn .hero h1{font-size:16px}#olmn .hero p{font-size:11px;margin-top:1px;color:inherit;opacity:.9}#olmn .hero .ht{max-width:100%}#olmn .hero .pswt{color:#fff}`;document.head.appendChild(css);
+const css=document.createElement('style');css.textContent=`#psw{display:flex;align-items:center;gap:12px;padding:10px 22px 0}#psw .seg button{padding:7px 20px;font-size:13px}#psw .pswt{font-size:11px;color:var(--mu)}body:not(.olos) aside .ol{display:none}body.olos aside a[data-p],body.olos aside>small:not(.ol){display:none}#olmn{padding:20px 22px 50px;max-width:1600px}.ot th,.ot td{text-align:right;padding:7px 9px;white-space:nowrap}.ot th:first-child,.ot td:first-child{text-align:left;white-space:normal;max-width:340px}.ot th{background:var(--acl);color:var(--tx)}.ot td{border-bottom:1px solid var(--bd)}.ot.fl th:nth-child(2),.ot.fl td:nth-child(2){text-align:left}.ot.hm th,.ot.hm td{text-align:center;padding:4px 5px;font-size:11px;min-width:30px}.ot.hm td:first-child,.ot.hm th:first-child{text-align:left;min-width:40px}#olfb select,#olfb input{max-width:150px}#olfb label{display:flex;align-items:center;gap:5px;font-size:12px}#olmn .hero{padding:10px 16px;border-radius:12px;box-shadow:none;margin-bottom:8px}#olmn .hero h1{font-size:16px}#olmn .hero p{font-size:11px;margin-top:1px;color:inherit;opacity:.9}#olmn .hero .ht{max-width:100%}#olmn .hero .pswt{color:#fff}`;document.head.appendChild(css);
 const ct=$o('.ct'),tb0=$o('#tb'),mn0=$o('#mn');
 ct.insertBefore(Object.assign(document.createElement('div'),{id:'psw',innerHTML:'<div class="seg"><button data-pr="b" class="on">Botmaker</button><button data-pr="o">Olos</button></div>'}),tb0);
 mn0.insertAdjacentHTML('afterend','<main id="olmn" style="display:none"></main>');
