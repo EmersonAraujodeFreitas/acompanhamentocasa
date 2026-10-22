@@ -33,7 +33,8 @@ export default {
           return out({ funis, donos, uni: env.UNI_PROP || '' });
         }
         const obj = u.searchParams.get('obj') == 'contacts' ? 'contacts' : 'deals', desde = +u.searchParams.get('desde') || 0, LIM = 200, PAG = 8;
-        const uniP = env.UNI_PROP || '';
+        let uniP = env.UNI_PROP || '';
+        if (!uniP) { const pr = (await api('/crm/v3/properties/' + obj).catch(() => ({ results: [] }))).results, ach = pr.find(x => x.name == 'universidade') || pr.find(x => /^\s*universidade\s*$/i.test(x.label || '')) || pr.find(x => /^\s*(ies|institui)/i.test(x.label || '') || /^(ies|instituicao)/i.test(x.name)); if (ach) uniP = ach.name }
         const props = obj == 'deals' ? ['createdate', 'closedate', 'pipeline', 'dealstage', 'amount', 'hubspot_owner_id', 'hs_analytics_source', 'dealname'] : ['createdate', 'lifecyclestage', 'hs_lead_status', 'hubspot_owner_id', 'hs_analytics_source', 'first_conversion_event_name', 'first_conversion_date'];
         if (uniP) props.push(uniP);
         const funil = {}; if (obj == 'deals') (await api('/crm/v3/pipelines/deals')).results.forEach(p => funil[p.id] = p.label);
@@ -50,7 +51,7 @@ export default {
           after = j.paging && j.paging.next && j.paging.next.after;
           if (!after) break; if (i == PAG - 1) mais = true;
         }
-        return out({ r, prox: ult, mais });
+        return out({ r, prox: ult, mais, prop: uniP });
       } catch (e) { return out({ erro: String(e.message || e).slice(0, 200) }, e.st == 401 || e.st == 403 ? 502 : 500) }
     }
     const q = dig(u.searchParams.get('q')); if (q.length < 10) return out({ erro: 'informe telefone com DDD ou CPF' }, 400);
