@@ -885,5 +885,200 @@ clearTimeout(svT);DIRTY=false;setTimeout(()=>{if(!IMPB&&!PUBBUSY){DIRTY=false;co
 try{const rs=JSON.parse(sessionStorage.getItem('rs')||'null');if(rs){sessionStorage.removeItem('rs');Object.assign(F,rs.F||{});if(rs.PG)PG=rs.PG}}catch(e){}
 
 applyTheme(BR.lock&&THEMES[BR.th]?BR.th:'inst',false);thmInit();brand();fil();
+/*OLOS-BEGIN*/
+/* Módulo Olos: importação manual de arquivos exportados do Olos.
+   Segurança: todo o processamento ocorre na memória deste navegador. Nada é enviado, gravado em disco,
+   localStorage, sessionStorage, IndexedDB ou cookie. CPF, telefone, IDs de cliente/chamada e comentários
+   livres são descartados na leitura (ou reduzidos a um hash com sal aleatório da sessão, usado só para contar
+   números únicos). Os dados somem ao sair, recarregar, fechar a aba ou após 15 min sem uso. */
+(()=>{try{
+const $o=s=>document.querySelector(s),$$o=s=>[...document.querySelectorAll(s)];
+const ESC=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const N=n=>Math.round(n).toLocaleString('pt-BR'),D1=n=>(+n).toFixed(1).replace('.',','),P=(a,b)=>b?D1(100*a/b)+'%':'–';
+const TM=s=>{s=Math.round(s||0);if(s<60)return s+' s';if(s<3600)return Math.floor(s/60)+' min '+String(s%60).padStart(2,'0')+' s';return Math.floor(s/3600)+' h '+String(Math.floor(s%3600/60)).padStart(2,'0')+' min'};
+const HR=s=>(s/3600).toLocaleString('pt-BR',{maximumFractionDigits:1})+' h';
+const IDLE=15*60*1000,MAXB=60*1024*1024;
+const SEED=crypto.getRandomValues(new Uint32Array(2));
+function h53(str){let h1=0xdeadbeef^SEED[0],h2=0x41c6ce57^SEED[1];for(let i=0;i<str.length;i++){const c=str.charCodeAt(i);h1=Math.imul(h1^c,2654435761);h2=Math.imul(h2^c,1597334677)}h1=Math.imul(h1^(h1>>>16),2246822507)^Math.imul(h2^(h2>>>13),3266489909);h2=Math.imul(h2^(h2>>>16),2246822507)^Math.imul(h1^(h1>>>13),3266489909);return 4294967296*(2097151&h2)+(h1>>>0)}
+const dg=s=>String(s||'').replace(/\D/g,''),hs=s=>{s=dg(s);return s?h53(s):0};
+/* ---------- armazenamento em memória ---------- */
+const S={f:[],tab:[],pau:[],abn:[],dsc:[],nps:[],aut:[],ura:[]};
+const FL={un:'',ar:'',d0:'',d1:''};let MSG='',PNL='ov',CH=[],QD=[],idle=0,FID=0,OS={k:'n',d:-1},BUSY=0;
+const KINDS={tab:'Tabulações (EAGLLE)',pau:'Pausas',abn:'Abandonadas e rejeitadas',dsc:'Desconexões',nps:'Pesquisa de satisfação (NPS)',aut:'Discagem automática (TabAuto)',ura:'Acessos à URA'};
+const DROP={tab:'telefone, ID do cliente, ID da chamada, comentários livres',pau:'fila (repetida por linha)',abn:'telefone, ID da chamada',dsc:'telefone (Dnis), ID da chamada',nps:'telefone, navegação da URA',aut:'CPF, telefone, DDD, ID do cliente (só contagem por hash)',ura:'CPF, telefone, identificador (só contagem por hash)'};
+/* ---------- texto, datas, normalização ---------- */
+const CP850='ÇüéâäàåçêëèïîìÄÅÉæÆôöòûùÿÖÜø£Ø×ƒáíóúñÑªº¿®¬½¼¡«»░▒▓│┤ÁÂÀ©╣║╗╝¢¥┐└┴┬├─┼ãÃ╚╔╩╦╠═╬¤ðÐÊËÈıÍÎÏ┘┌█▄¦Ì▀ÓßÔÒõÕµþÞÚÛÙýÝ¯´\u00ad±‗¾¶§÷¸°¨·¹³²■\u00a0';
+function dec(buf){const u=new Uint8Array(buf);let t;if(u[0]==255&&u[1]==254)t=new TextDecoder('utf-16le').decode(u);else{try{t=new TextDecoder('utf-8',{fatal:true}).decode(u)}catch(e){const o=[];for(let i=0;i<u.length;i+=32768){const a=[];const e2=Math.min(u.length,i+32768);for(let j=i;j<e2;j++){const b=u[j];a.push(b<128?String.fromCharCode(b):CP850[b-128])}o.push(a.join(''))}t=o.join('')}}return t.replace(/\u0000/g,'').replace(/^\uFEFF/,'')}
+const FIXN=s=>s.replace(/ï¿½/g,'\uFFFD').replace(/Cobran\uFFFDa/g,'Cobrança').replace(/Matura\uFFFDao/g,'Maturação').replace(/P\uFFFDs Gradua\uFFFDao/g,'Pós Graduação').replace(/Gradua\uFFFDao/g,'Graduação').replace(/Matr\uFFFDcula/g,'Matrícula').replace(/\uFFFD/g,'');
+const cl=s=>FIXN(String(s==null?'':s)).replace(/\d{8,}/g,'#').replace(/\s+/g,' ').trim().slice(0,140);
+const AX=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim();
+const uniOf=s=>/UVA/i.test(s)?'UVA':/UJ|UNIJORGE|UNI\b|_UNI|UNI_/i.test(s)?'UJ':'';
+const areaOf=s=>/^\s*A-|admiss/i.test(s)?'Admissão':/^\s*S-|servi/i.test(s)?'Serviços':'';
+const dBR=s=>{const m=/^(\d{2})\/(\d{2})\/(\d{4})/.exec(s);return m?m[3]+'-'+m[2]+'-'+m[1]:''},hOf=s=>{const m=/(\d{1,2}):\d{2}/.exec(s);return m?+m[1]:-1};
+const sec=s=>{const m=/(\d+):(\d{2}):(\d{2})/.exec(s||'');return m?+m[1]*3600+ +m[2]*60+ +m[3]:0};
+const fdate=d=>d?d.split('-').reverse().join('/'):'';
+const yld=()=>new Promise(r=>setTimeout(r));
+/* ---------- detecção e leitura ---------- */
+function kind(lines){const h=(lines[0]||'').trim();if(/^CALLID;CALLTYPE;/i.test(h))return'tab';if(/^Fila\|Login\|Nome\|Data/i.test(h))return'pau';if(/^DATA\|HORA\|TELEFONE\|ID CAMPANHA/i.test(h))return'abn';if(/^DATA;HORARIO;TELEFONE;CAMPANHA/i.test(h))return'nps';if(/^DataHora\|Organizacao\|Campanha/i.test(h))return'aut';if(/^CPF;Data;Hora;Identificador;Telefone/i.test(h))return'ura';for(let i=0;i<Math.min(lines.length,5);i++)if(/^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d;\d+;[^;]*;(Agente|Cliente);/i.test(lines[i]))return'dsc';return''}
+async function parse(k,lines,name){const out=[],dates=new Set();let skip=0;const un0=/uva/i.test(name)?'UVA':/unj|\buj\b|_uj_|uni/i.test(name)?'UJ':'';
+let hd=null;const hdr=lines[0].split(/[;|]/).map(x=>x.trim());const ix={};hdr.forEach((x,i)=>ix[x]=i);
+const sep=k=='pau'||k=='abn'||k=='aut'?'|':';';const pauK=new Set();
+for(let i=(k=='dsc'?0:1);i<lines.length;i++){const l=lines[i];if(!l)continue;const c=l.split(sep);let r=null;
+try{
+if(k=='tab'){if(c.length!=hdr.length){skip++;continue}const d=dBR(c[ix.STARTAGENTDATE]);if(!d){skip++;continue}const cp=cl(c[ix.CAMPAIGN]),ml=cl(c[ix.MAILINGNAME]);r={d,h:hOf(c[ix.STARTAGENTDATE]),ag:cl(c[ix.AGENT]),cp,un:uniOf(cp)||uniOf(ml),ar:areaOf(cp),ty:cl(c[ix.CALLTYPE]),n1:cl(c[ix.DISPOSITION_NIVEL_1]),n2:cl(c[ix.DISPOSITION_NIVEL_2]),ol:cl(c[ix.DISPOSITION_OLOS]),du:+c[ix.DURATION]||0,wr:+c[ix.DURATIONWRAP]||0,tr:c[ix.TRANSFERED]=='Y'?1:0,ok:c[ix.BUSINESSSUCCESS]=='Y'?1:0}}
+else if(k=='pau'){if(c.length<8){skip++;continue}const d=dBR(c[3]);if(!d){skip++;continue}const key=c[1]+'|'+c[3]+'|'+c[4]+'|'+c[5]+'|'+c[7];if(pauK.has(key))continue;pauK.add(key);r={d,lg:cl(c[1]).toLowerCase(),nm:cl(c[2]),h:hOf(c[4]),t:sec(c[6]),m:cl(c[7])}}
+else if(k=='abn'){if(c.length<10){skip++;continue}const d=dBR(c[0]);if(!d){skip++;continue}const cp=cl(c[4]);r={d,h:hOf(c[1]),cp,un:uniOf(cp),ar:areaOf(cp),fn:cl(c[6]),tc:sec(c[7]),tf:sec(c[8])}}
+else if(k=='dsc'){const m=/^(\d{4}-\d\d-\d\d) (\d\d):\d\d:\d\d;\d+;([^;]*);(Agente|Cliente);/i.exec(l);if(!m){if(i>0&&!/^Data;/i.test(l))skip++;continue}r={d:m[1],h:+m[2],ag:cl(m[3]),ow:/ag/i.test(m[4])?'Agente':'Cliente'}}
+else if(k=='nps'){if(c.length<12){skip++;continue}const d=dBR(c[ix.DATA]);if(!d){skip++;continue}const og=cl(c[ix.ORGANIZACAO]),cp=cl(c[ix.CAMPANHA]);r={d,h:hOf(c[ix.HORARIO]),cp,og,un:uniOf(og)||uniOf(cp),ar:areaOf(og)||areaOf(cp),nt:+String(c[ix.Nota]).trim()||0,tb:cl(c[ix.Tabulacao]),lg:cl(c[ix.LOGIN]).toLowerCase(),ms:cl(c[ix.UltimoMilestone])}}
+else if(k=='aut'){if(c.length<10){skip++;continue}const d=(c[0]||'').slice(0,10);if(!/^\d{4}-\d\d-\d\d$/.test(d)){skip++;continue}const og=cl(c[1]),cp=cl(c[2]);r={d,h:hOf(c[0].slice(11)),og,cp,un:uniOf(og)||uniOf(cp),ar:areaOf(og)||areaOf(cp),st:cl(c[7]),hp:hs(c[5]+c[6]),hc:hs(c[4])}}
+else if(k=='ura'){if(c.length<5){skip++;continue}if(!/^\d{4}-\d\d-\d\d$/.test(c[1])){skip++;continue}r={d:c[1],h:hOf(c[2]),un:un0,hc:hs(c[0]),hp:hs(c[4])}}
+}catch(e){skip++;continue}
+if(r){dates.add(r.d);out.push(r)}
+if(i%25000==0)await yld()}
+return{out,dates:[...dates].sort(),skip,u:k=='ura'?un0:''}}
+async function load(file){if(BUSY)return;BUSY=1;const say=m=>{MSG=m;const e=$o('#olst');if(e)e.innerHTML=m};
+try{if(!/\.(txt|csv)$/i.test(file.name))throw new Error('formato não aceito (use .txt ou .csv)');if(file.size>MAXB)throw new Error('arquivo acima de 60 MB');
+say('Lendo <b>'+ESC(file.name)+'</b>…');const t=dec(await file.arrayBuffer());const lines=t.split(/\r?\n/);const k=kind(lines);if(!k)throw new Error('modelo de arquivo não reconhecido');
+say('Processando '+KINDS[k]+'…');const p=await parse(k,lines,file.name);if(!p.out.length)throw new Error('nenhuma linha válida');
+const nm=file.name.replace(/^[0-9a-f]{8}-(\d{13}_)?/i,'');let msg='';
+const dsS=new Set(p.dates);S.f=S.f.filter(f=>{if(f.k!=k||f.u!=p.u)return true;if(f.dates.every(d=>dsS.has(d))){S[k]=S[k].filter(r=>r.f!=f.id);msg+=' Substituiu '+ESC(f.nm)+'.';return false}return true});
+const ov=S.f.filter(f=>f.k==k&&f.u==p.u&&f.dates.some(d=>dsS.has(d)));if(k=='ura'&&!p.u)msg+=' <b>Atenção:</b> não identifiquei a universidade pelo nome do arquivo (use UJ ou UVA no nome); os acessos ficam sem universidade.';if(ov.length)msg+=' <b>Atenção:</b> há datas em comum com '+ESC(ov.map(f=>f.nm).join(', '))+'; remova um dos arquivos para não contar em dobro.';
+const id=++FID;p.out.forEach(r=>r.f=id);S[k]=S[k].concat(p.out);S.f.push({id,k,u:p.u,nm,n:p.out.length,skip:p.skip,dates:p.dates,at:new Date()});
+say('<b>'+ESC(nm)+'</b> carregado: '+N(p.out.length)+' linhas'+(p.skip?' ('+N(p.skip)+' ignoradas)':'')+'.'+msg)
+}catch(e){say('<span style="color:#b91c1c">Não foi possível ler '+ESC(file.name)+': '+ESC(e.message)+'</span>')}
+BUSY=0}
+async function loadMany(fs){for(const f of fs)await load(f);render(true)}
+function wipe(why){const had=S.f.length;for(const k of Object.keys(S))S[k]=[];FID=0;FL.un=FL.ar=FL.d0=FL.d1='';if(had){killCH();if(why&&$o('#olmn')){MSG=ESC(why);PNL='imp';render()}}else if($o('#olmn')&&$o('body').classList.contains('olos'))render()}
+/* ---------- filtros e agregação ---------- */
+const allDates=()=>{const s=new Set();for(const k of['tab','pau','abn','dsc','nps','aut','ura'])for(const r of S[k])s.add(r.d);return[...s].sort()};
+const fD=r=>(!FL.d0||r.d>=FL.d0)&&(!FL.d1||r.d<=FL.d1);
+const fU=r=>fD(r)&&(!FL.un||r.un==FL.un)&&(!FL.ar||r.ar==FL.ar);
+const fX=k=>S[k].filter(k=='pau'||k=='dsc'?fD:k=='ura'?(r=>fD(r)&&(!FL.un||r.un==FL.un)):fU);
+const cnt=(a,kf)=>{const m=new Map();for(const r of a){const k=kf(r);m.set(k,(m.get(k)||0)+1)}return m};
+const top=(m,n)=>[...m.entries()].sort((a,b)=>b[1]-a[1]).slice(0,n);
+const sum=(a,f)=>{let s=0;for(const r of a)s+=f(r);return s};
+const imp=r=>/improdut|^telefonia$/i.test(r.n1);
+const HRS=[...Array(24).keys()],HL=HRS.map(h=>String(h).padStart(2,'0')+'h');
+const hh=(a)=>{const v=Array(24).fill(0);for(const r of a)if(r.h>=0)v[r.h]++;return v};
+const UN={UJ:'Unijorge',UVA:'UVA','':'Sem universidade'};
+/* ---------- componentes visuais ---------- */
+const kpi=(l,v,s,ic)=>`<div class="kp"><div class="b"><svg class="i"><use href="#ic-${ic||'activity'}"/></svg></div><div><small>${l}</small><b>${v}</b>${s?`<em>${s}</em>`:''}</div></div>`;
+const kk=(a,n)=>`<div class="k k${n||4}">${a.join('')}</div>`;
+const card=(t,s,inner,cl)=>`<div class="c ${cl||''}"><h3>${t} <i>${s||''}</i></h3>${inner}</div>`;
+let CI=0;const chartCard=(t,s,cfg,h,cl)=>{const id='olc'+(++CI);QD.push(()=>chart(id,cfg));return card(t,s,`<div class="cv" style="height:${h||270}px"><canvas id="${id}"></canvas></div>`,cl)};
+const empty=(t)=>`<div class="c w"><h3>${t}</h3><p style="color:var(--mu)">Sem dados neste recorte. Importe o arquivo correspondente na aba <b>Importar arquivos</b>.</p></div>`;
+const gt=t=>`<div class="gt">${t}</div>`;
+const how=t=>`<div class="how"><svg class="i"><use href="#ic-info"/></svg><span>${t}</span></div>`;
+const tbl=(h,rows,cl)=>`<div class="ov"><table class="ot ${cl||''}"><thead><tr>${h.map(x=>`<th${x.k?` data-sk="${x.k}" style="cursor:pointer"`:''}>${x.t||x}${x.k&&OS.k==x.k?(OS.d<0?' ↓':' ↑'):''}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+const pal=()=>{const g=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();return[g('--c1'),g('--c2'),g('--c3'),g('--c4'),g('--ac'),'#6b7280','#9ca3af','#0ea5e9','#a855f7','#84cc16'].map((c,i)=>c||['#00487f','#d81824','#f5b800','#3aa0ff','#374151','#6b7280','#9ca3af','#0ea5e9','#a855f7','#84cc16'][i])};
+function killCH(){CH.forEach(c=>{try{c.destroy()}catch(e){}});CH=[]}
+function chart(id,cfg){const el=document.getElementById(id);if(!el||typeof Chart=='undefined')return;const P_=pal();const type=cfg.type||'bar',lab=cfg.labels,dsx=cfg.sets.map((s,i)=>({label:s.l,data:s.d,backgroundColor:type=='doughnut'?lab.map((_,j)=>P_[j%P_.length]):(s.c||P_[i%P_.length]),borderColor:type=='line'?(s.c||P_[i%P_.length]):undefined,borderWidth:type=='line'?2:0,type:s.ty,tension:.3,pointRadius:type=='line'?2:undefined,yAxisID:s.y,order:s.ty=='line'?0:1,borderRadius:type=='bar'?3:0}));
+const o={responsive:true,maintainAspectRatio:false,indexAxis:cfg.h?'y':'x',plugins:{legend:{display:cfg.sets.length>1||type=='doughnut',position:type=='doughnut'?'right':'top',labels:{boxWidth:10,font:{size:11}}},tooltip:{callbacks:{label:c=>' '+c.dataset.label+': '+(cfg.pct?D1(c.parsed[cfg.h?'x':'y']??c.parsed)+'%':N(c.parsed[cfg.h?'x':'y']??c.parsed))}}}};
+if(type!='doughnut'){o.scales={x:{stacked:!!cfg.st,grid:{display:false},ticks:{font:{size:10},callback:cfg.h?undefined:function(v){const l=this.getLabelForValue(v);return String(l).length>18?String(l).slice(0,17)+'…':l}}},y:{stacked:!!cfg.st,beginAtZero:true,ticks:{font:{size:10},callback:cfg.h?function(v){const l=this.getLabelForValue(v);return String(l).length>34?String(l).slice(0,33)+'…':l}:undefined}}};if(cfg.h){o.scales.x.grid={display:true};o.scales.x.ticks={font:{size:10}};o.scales.y.grid={display:false};o.scales.y.beginAtZero=false}if(cfg.y2)o.scales.y1={position:'right',beginAtZero:true,grid:{display:false},ticks:{font:{size:10}}}}
+CH.push(new Chart(el,{type:type=='line'?'line':type,data:{labels:lab,datasets:dsx},options:o}))}
+const hbar=(a,fmt)=>({h:1,type:'bar',labels:a.map(x=>x[0]||'(vazio)'),sets:[{l:fmt||'Quantidade',d:a.map(x=>x[1])}]});
+/* ---------- painéis ---------- */
+function filtros(){const ds=allDates();const un=['','UJ','UVA'].map(v=>`<option value="${v}"${FL.un==v?' selected':''}>${v?UN[v]:'Todas'}</option>`).join('');const ar=['','Admissão','Serviços'].map(v=>`<option value="${v}"${FL.ar==v?' selected':''}>${v||'Todas'}</option>`).join('');
+return`<div class="fbar" id="olfb"><svg class="i"><use href="#ic-calendar"/></svg><label>Universidade <select data-f="un">${un}</select></label><label>Área <select data-f="ar">${ar}</select></label><label>De <input type="date" data-f="d0" value="${FL.d0}"${ds.length?` min="${ds[0]}" max="${ds[ds.length-1]}"`:''}></label><label>Até <input type="date" data-f="d1" value="${FL.d1}"${ds.length?` min="${ds[0]}" max="${ds[ds.length-1]}"`:''}></label><button data-act="clr">Limpar filtros</button>${FL.un||FL.ar?'<span class="nt" style="font-size:11px">Pausas e desconexões não têm universidade/área: ficam só com o filtro de data.</span>':''}</div>`}
+function cover(){return S.f.length?`<span style="opacity:.85">· ${S.f.length} arquivo(s) · ${N(sum(S.f,f=>f.n))} linhas na memória</span>`:''}
+function pOv(){const T=fX('tab'),A=fX('abn'),R=fX('ura'),NP=fX('nps'),PA=fX('pau'),AU=fX('aut'),DS=fX('dsc');let h='';
+const prod=T.filter(r=>!imp(r)),np=NP.filter(r=>r.nt>0);const tm=prod.filter(r=>r.du>0);
+h+=gt('Atendimento (tabulações)')+kk([kpi('Ligações tabuladas',T.length?N(T.length):'–',T.length?'Arquivo de tabulações':'importe as tabulações','headset'),kpi('Improdutivas',T.length?P(T.length-prod.length,T.length):'–',T.length?N(T.length-prod.length)+' ligações':'','alert'),kpi('Transferidas',T.length?P(sum(T,r=>r.tr),T.length):'–',T.length?N(sum(T,r=>r.tr))+' ligações':'','shuffle'),kpi('Sucesso de negócio',T.length?N(sum(T,r=>r.ok)):'–',T.length?P(sum(T,r=>r.ok),T.length)+' das ligações':'','target'),kpi('Duração média (produtivas)',tm.length?TM(sum(tm,r=>r.du)/tm.length):'–','','timer'),kpi('Wrap médio (produtivas)',prod.length?TM(sum(prod,r=>r.wr)/prod.length):'–','tempo de tabulação','clock')],3);
+h+=gt('Fila, URA e satisfação')+kk([kpi('Abandonadas e rejeitadas',A.length?N(A.length):'–',A.length?'tempo médio de fila '+TM(sum(A,r=>r.tf)/A.length):'importe o arquivo','phone'),kpi('Acessos à URA',R.length?N(R.length):'–',R.length?N(new Set(R.map(r=>r.hc||r.hp)).size)+' pessoas únicas':'','msg'),kpi('Nota média',np.length?D1(sum(np,r=>r.nt)/np.length):'–',NP.length?N(np.length)+' respostas de '+N(NP.length)+' ('+P(np.length,NP.length)+')':'','award'),kpi('Satisfeitos (nota 4 e 5)',np.length?P(np.filter(r=>r.nt>=4).length,np.length):'–','das respostas','check')],4);
+h+=gt('Equipe e discagem')+kk([kpi('Tempo em pausa',PA.length?HR(sum(PA,r=>r.t)):'–',PA.length?N(PA.length)+' pausas · '+N(new Set(PA.map(r=>r.lg)).size)+' operadores':'','hourglass'),kpi('Desconexões pelo agente',DS.length?P(DS.filter(r=>r.ow=='Agente').length,DS.length):'–',DS.length?N(DS.length)+' desconexões':'','x'),kpi('Tentativas de discagem',AU.length?N(AU.length):'–',AU.length?N(new Set(AU.map(r=>r.hp)).size)+' números únicos':'','zap')],3);
+if(!S.f.length)return h+empty('Nenhum arquivo carregado');
+h+='<div class="g">'+(T.length||A.length?chartCard('Volume por hora','tabulações e abandonadas',{type:'bar',labels:HL,sets:[{l:'Tabulações',d:hh(T)},{l:'Abandonadas',d:hh(A),ty:'line',c:'#d81824'}]},280,'w'):'')+(T.length?chartCard('Ligações por universidade','tabulações',{type:'doughnut',labels:[...cnt(T,r=>UN[r.un]).keys()],sets:[{l:'Ligações',d:[...cnt(T,r=>UN[r.un]).values()]}]},260,'s'):'')+(T.length?chartCard('Principais campanhas','tabulações',hbar(top(cnt(T,r=>r.cp||'(sem campanha)'),10)),260):'')+'</div>';
+return h}
+function pAt(){const T=fX('tab'),A=fX('abn');let h=how('Tabulações por nível de classificação, campanhas e a fila de espera. <b>Improdutiva</b> = tabulação cujo nome indica improdutividade ou telefonia.');if(!T.length&&!A.length)return h+empty('Atendimento');
+if(T.length){const prod=T.filter(r=>!imp(r));h+=gt('Tabulações')+'<div class="g">'+chartCard('Classificação – nível 1','ligações',hbar(top(cnt(T,r=>r.n1),12)),340)+chartCard('Classificação – nível 2','ligações',hbar(top(cnt(T.filter(r=>r.n2),r=>r.n2),12)),340)+chartCard('Motivos Olos mais frequentes','ligações',hbar(top(cnt(T.filter(r=>r.ol),r=>r.ol),12)),340)+chartCard('Tipo de chamada','código do Olos',{type:'doughnut',labels:[...cnt(T,r=>r.ty||'?').keys()],sets:[{l:'Ligações',d:[...cnt(T,r=>r.ty||'?').values()]}]},340)+'</div>';
+const cps=[...new Map([...T].reduce((m,r)=>{const k=r.cp||'(sem campanha)';const o=m.get(k)||{k,n:0,i:0,t:0,o:0,d:0,dn:0};o.n++;if(imp(r))o.i++;o.t+=r.tr;o.o+=r.ok;if(!imp(r)&&r.du>0){o.d+=r.du;o.dn++}m.set(k,o);return m},new Map())).values()].sort((a,b)=>b.n-a.n);
+h+='<div class="g">'+card('Campanhas','tabulações, improdutivas, transferência, sucesso e duração',tbl(['Campanha','Ligações','Improdutivas','Transferidas','Sucesso','Duração média'],cps.slice(0,25).map(o=>[ESC(o.k),N(o.n),P(o.i,o.n),P(o.t,o.n),N(o.o),o.dn?TM(o.d/o.dn):'–'])),'w')+'</div>'}
+if(A.length){const q=(a,b)=>A.filter(r=>r.tf>=a&&r.tf<b).length;h+=gt('Abandonadas e rejeitadas')+kk([kpi('Total',N(A.length),'','phone'),kpi('Tempo médio de fila',TM(sum(A,r=>r.tf)/A.length),'','timer'),kpi('Fila acima de 1 min',P(A.filter(r=>r.tf>=60).length,A.length),N(A.filter(r=>r.tf>=60).length)+' chamadas','hourglass')],3)+'<div class="g">'+chartCard('Finalização','como a chamada terminou',hbar(top(cnt(A,r=>r.fn),10)),300)+chartCard('Tempo de fila','faixas',{type:'bar',labels:['até 30 s','30 s – 1 min','1 – 2 min','2 – 5 min','acima de 5 min'],sets:[{l:'Chamadas',d:[q(0,30),q(30,60),q(60,120),q(120,300),q(300,1e9)]}]},300)+chartCard('Campanhas','abandonadas e rejeitadas',hbar(top(cnt(A,r=>r.cp),10)),300)+chartCard('Por hora','abandonadas e rejeitadas',{type:'bar',labels:HL,sets:[{l:'Chamadas',d:hh(A)}]},300)+'</div>'}
+return h}
+function opRows(){const T=fX('tab'),PA=fX('pau'),DS=fX('dsc'),NP=fX('nps');const m=new Map(),L2N=new Map();for(const r of PA)if(r.lg&&r.nm)L2N.set(r.lg,r.nm);
+const names=[...new Set([...T.map(r=>r.ag),...PA.map(r=>r.nm),...DS.map(r=>r.ag)].filter(Boolean))];const tok=n=>AX(n).split(' ');
+const byFL=new Map();for(const n of names){const t=tok(n);byFL.set(t[0]+'.'+t[t.length-1],n)}
+const res=lg=>{const n=L2N.get(lg);if(n)return n;const p=lg.split('.');return byFL.get(AX(p[0])+'.'+AX(p[p.length-1]))||lg};
+const keys=[],memo=new Map(),lev=(a,b)=>{const d=[...Array(b.length+1).keys()];for(let i=1;i<=a.length;i++){let p=d[0];d[0]=i;for(let j=1;j<=b.length;j++){const t=d[j];d[j]=Math.min(d[j]+1,d[j-1]+1,p+(a[i-1]==b[j-1]?0:1));p=t}}return d[b.length]},canon=n=>{let k=memo.get(n);if(k)return k;const a=AX(n);k=keys.find(x=>x==a||(a.length>8&&Math.abs(x.length-a.length)<=2&&x[0]==a[0]&&lev(x,a)<=2))||a;if(!keys.includes(k))keys.push(k);memo.set(n,k);return k};
+const get=n=>{const k=canon(n);let o=m.get(k);if(!o)m.set(k,o={nm:n,n:0,pr:0,tr:0,ok:0,du:0,dn:0,wr:0,pa:0,pn:0,ds:0,da:0,ns:0,nn:0});if(n.length>o.nm.length)o.nm=n;return o};
+for(const r of T){if(!r.ag)continue;const o=get(r.ag);o.n++;o.tr+=r.tr;o.ok+=r.ok;if(!imp(r)){o.pr++;o.wr+=r.wr;if(r.du>0){o.du+=r.du;o.dn++}}}
+for(const r of PA){if(!r.nm)continue;const o=get(r.nm);o.pa+=r.t;o.pn++}
+for(const r of DS){if(!r.ag)continue;const o=get(r.ag);o.ds++;if(r.ow=='Agente')o.da++}
+for(const r of NP){if(!r.lg||r.nt<1)continue;const o=get(res(r.lg));o.ns+=r.nt;o.nn++}
+return[...m.values()]}
+function pOp(){const R=opRows();let h=how('Uma linha por operador, juntando tabulações, pausas, desconexões e notas da URA. Clique no título de uma coluna para ordenar. <b>Duração média</b> considera só ligações produtivas.');if(!R.length)return h+empty('Operadores');
+const V={n:o=>o.n,pr:o=>o.n?o.pr/o.n:0,tr:o=>o.n?o.tr/o.n:0,ok:o=>o.ok,du:o=>o.dn?o.du/o.dn:0,wr:o=>o.pr?o.wr/o.pr:0,pa:o=>o.pa,da:o=>o.ds?o.da/o.ds:0,ns:o=>o.nn?o.ns/o.nn:0,nm:o=>AX(o.nm)};
+R.sort((a,b)=>{const x=V[OS.k](a),y=V[OS.k](b);return(x<y?-1:x>y?1:0)*OS.d});
+const hd=[{t:'Operador',k:'nm'},{t:'Ligações',k:'n'},{t:'Produtivas',k:'pr'},{t:'Transferidas',k:'tr'},{t:'Sucesso',k:'ok'},{t:'Duração média',k:'du'},{t:'Wrap médio',k:'wr'},{t:'Tempo em pausa',k:'pa'},{t:'Desconexão pelo agente',k:'da'},{t:'Nota média (URA)',k:'ns'}];
+const rows=R.map(o=>[ESC(o.nm),o.n?N(o.n):'–',o.n?P(o.pr,o.n):'–',o.n?P(o.tr,o.n):'–',o.n?N(o.ok):'–',o.dn?TM(o.du/o.dn):'–',o.pr?TM(o.wr/o.pr):'–',o.pn?HR(o.pa):'–',o.ds?P(o.da,o.ds):'–',o.nn?D1(o.ns/o.nn)+' <small style="color:var(--mu)">('+o.nn+')</small>':'–']);
+const T2=R.filter(o=>o.n).sort((a,b)=>b.n-a.n).slice(0,12);
+return h+'<div class="g">'+(T2.length?chartCard('Ligações por operador','12 maiores',hbar(T2.map(o=>[o.nm,o.n])),340):'')+'</div><div class="g">'+card('Produtividade por operador',N(R.length)+' operadores',tbl(hd,rows),'w')+'</div>'}
+function pPa(){const PA=fX('pau');let h=how('Pausas registradas pelos operadores. Cada pausa é contada uma vez (o arquivo repete a pausa para cada fila do operador).');if(!PA.length)return h+empty('Pausas');
+const tot=sum(PA,r=>r.t),mm=new Map();for(const r of PA)mm.set(r.m,(mm.get(r.m)||0)+r.t);const mo=[...mm.entries()].sort((a,b)=>b[1]-a[1]);
+const hv=Array(24).fill(0);for(const r of PA)if(r.h>=0)hv[r.h]+=r.t/60;
+const ops=new Map();for(const r of PA){const o=ops.get(r.nm||r.lg)||{nm:r.nm||r.lg,t:0,n:0,m:new Map()};o.t+=r.t;o.n++;o.m.set(r.m,(o.m.get(r.m)||0)+r.t);ops.set(o.nm,o)}
+const ol=[...ops.values()].sort((a,b)=>b.t-a.t),ms=mo.map(x=>x[0]);
+return h+kk([kpi('Tempo total em pausa',HR(tot),'','hourglass'),kpi('Pausas',N(PA.length),'','clock'),kpi('Duração média',TM(tot/PA.length),'por pausa','timer'),kpi('Operadores',N(ops.size),'com pausa no período','users')],4)+'<div class="g">'+chartCard('Tempo por motivo','horas',{type:'bar',labels:mo.map(x=>x[0]),sets:[{l:'Horas',d:mo.map(x=>+(x[1]/3600).toFixed(1))}]},280)+chartCard('Quantidade por motivo','pausas',{type:'doughnut',labels:mo.map(x=>x[0]),sets:[{l:'Pausas',d:mo.map(x=>PA.filter(r=>r.m==x[0]).length)}]},280)+chartCard('Início das pausas por hora','minutos em pausa',{type:'bar',labels:HL,sets:[{l:'Minutos',d:hv.map(x=>Math.round(x))}]},280,'w')+card('Pausas por operador','tempo por motivo',tbl(['Operador','Pausas','Total',...ms],ol.slice(0,40).map(o=>[ESC(o.nm),N(o.n),HR(o.t),...ms.map(m=>o.m.has(m)?TM(o.m.get(m)):'–')])),'w')+'</div>'}
+function pUr(){const R=fX('ura'),NP=fX('nps');let h=how('Acessos à URA e pesquisa de satisfação. Pessoas únicas e recorrência usam um código irreversível, sem CPF nem telefone.');if(!R.length&&!NP.length)return h+empty('URA e satisfação');
+if(R.length){const key=r=>r.hc||r.hp,c=cnt(R,key),u=c.size,rec=[...c.values()].filter(v=>v>1).length;const days=[...new Set(R.map(r=>r.d))].sort();
+h+=gt('Acessos à URA')+kk([kpi('Acessos',N(R.length),'','phone'),kpi('Pessoas únicas',N(u),'','user'),kpi('Voltaram a acessar',P(rec,u),N(rec)+' pessoas com 2 ou mais acessos','repeat'),kpi('Acessos por pessoa',D1(R.length/u),'média','gauge')],4)+'<div class="g">'+chartCard('Acessos por hora','',{type:'bar',labels:HL,sets:[{l:'Acessos',d:hh(R)}]},280)+chartCard('Acessos por dia e universidade','',{type:'bar',st:1,labels:days.map(fdate),sets:['UJ','UVA',''].filter(x=>R.some(r=>r.un==x)).map(x=>({l:UN[x],d:days.map(d=>R.filter(r=>r.d==d&&r.un==x).length)}))},280)+'</div>'}
+if(NP.length){const np=NP.filter(r=>r.nt>0),dist=[1,2,3,4,5].map(n=>np.filter(r=>r.nt==n).length);
+const byO=new Map();for(const r of np){const k=r.og||'(sem organização)';const o=byO.get(k)||{n:0,s:0,t:0};o.n++;o.s+=r.nt;o.t+=r.nt>=4?1:0;byO.set(k,o)}
+const byT=new Map();for(const r of np){const k=r.tb||'(sem tabulação)';const o=byT.get(k)||{n:0,s:0};o.n++;o.s+=r.nt;byT.set(k,o)}
+const tb=[...byT.entries()].filter(x=>x[1].n>=3).sort((a,b)=>b[1].n-a[1].n).slice(0,12);
+h+=gt('Pesquisa de satisfação')+kk([kpi('Pesquisas',N(NP.length),'','msg'),kpi('Responderam',P(np.length,NP.length),N(np.length)+' notas','check'),kpi('Nota média',np.length?D1(sum(np,r=>r.nt)/np.length):'–','de 1 a 5','award'),kpi('Satisfeitos (4 e 5)',np.length?P(np.filter(r=>r.nt>=4).length,np.length):'–','','medal')],4)+'<div class="g">'+chartCard('Distribuição das notas','respostas',{type:'bar',labels:['1','2','3','4','5'],sets:[{l:'Respostas',d:dist}]},260)+card('Por organização','',tbl(['Organização','Respostas','Nota média','Satisfeitos'],[...byO.entries()].sort((a,b)=>b[1].n-a[1].n).map(([k,o])=>[ESC(k),N(o.n),D1(o.s/o.n),P(o.t,o.n)])))+card('Nota por tabulação do atendimento','tabulações com 3 ou mais respostas',tbl(['Tabulação','Respostas','Nota média'],tb.map(([k,o])=>[ESC(k),N(o.n),D1(o.s/o.n)])),'w')+'</div>'}
+return h}
+function pDi(){const AU=fX('aut'),DS=fX('dsc');let h=how('Resultado das tentativas de discagem automática e quem encerrou cada ligação (agente ou cliente).');if(!AU.length&&!DS.length)return h+empty('Discagem e desconexões');
+if(AU.length){const uq=new Set(AU.map(r=>r.hp)).size,cp=cnt(AU,r=>r.st),byC=new Map();for(const r of AU){const k=r.cp||'(sem campanha)';const o=byC.get(k)||{n:0,u:new Set(),c:0};o.n++;o.u.add(r.hp);if(r.hc)o.c++;byC.set(k,o)}
+h+=gt('Discagem automática')+kk([kpi('Tentativas',N(AU.length),'','zap'),kpi('Números únicos',N(uq),'','phone'),kpi('Tentativas por número',D1(AU.length/uq),'média','repeat'),kpi('Com CPF identificado',P(AU.filter(r=>r.hc).length,AU.length),'','user')],4)+'<div class="g">'+chartCard('Resultado das tentativas','status',hbar(top(cp,12)),360)+chartCard('Tentativas por hora','',{type:'bar',labels:HL,sets:[{l:'Tentativas',d:hh(AU)}]},360)+card('Campanhas','',tbl(['Campanha','Tentativas','Números únicos','Tentativas por número'],[...byC.entries()].sort((a,b)=>b[1].n-a[1].n).slice(0,20).map(([k,o])=>[ESC(k),N(o.n),N(o.u.size),D1(o.n/o.u.size)])),'w')+'</div>'}
+if(DS.length){const ag=DS.filter(r=>r.ow=='Agente').length,by=new Map();for(const r of DS){const o=by.get(r.ag)||{n:0,a:0};o.n++;if(r.ow=='Agente')o.a++;by.set(r.ag,o)}
+h+=gt('Desconexões')+kk([kpi('Desconexões',N(DS.length),'','x'),kpi('Pelo agente',P(ag,DS.length),N(ag),'headset'),kpi('Pelo cliente',P(DS.length-ag,DS.length),N(DS.length-ag),'user')],3)+'<div class="g">'+chartCard('Quem desconectou','',{type:'doughnut',labels:['Agente','Cliente'],sets:[{l:'Desconexões',d:[ag,DS.length-ag]}]},260,'s')+chartCard('Por hora','',{type:'bar',st:1,labels:HL,sets:[{l:'Agente',d:hh(DS.filter(r=>r.ow=='Agente'))},{l:'Cliente',d:hh(DS.filter(r=>r.ow=='Cliente'))}]},260)+card('Por operador','',tbl(['Operador','Desconexões','Pelo agente','Pelo cliente'],[...by.entries()].sort((a,b)=>b[1].n-a[1].n).slice(0,30).map(([k,o])=>[ESC(k),N(o.n),P(o.a,o.n),P(o.n-o.a,o.n)])),'w')+'</div>'}
+return h}
+function audit(){let bad=0,fields=0,rows=0;for(const k of['tab','pau','abn','dsc','nps','aut','ura'])for(const r of S[k]){rows++;for(const f in r){const v=r[f];if(typeof v=='string'){fields++;if(/\d{8,}/.test(v)||/\b\d{3}\.\d{3}\.\d{3}-\d{2}\b/.test(v))bad++}}}return{bad,fields,rows}}
+function pIm(){const a=audit();const fl=S.f.map(f=>`<tr><td>${ESC(KINDS[f.k])}${f.u?' · '+UN[f.u]:''}</td><td>${ESC(f.nm)}</td><td>${N(f.n)}</td><td>${f.dates.length?fdate(f.dates[0])+(f.dates.length>1?' a '+fdate(f.dates[f.dates.length-1]):''):''}</td><td>${f.skip?N(f.skip):'–'}</td><td><button data-rm="${f.id}">Remover</button></td></tr>`).join('');
+return`<div class="gt">Importar arquivos do Olos</div>${how('Arraste os arquivos exportados (.txt ou .csv). O modelo é reconhecido automaticamente: tabulações, pausas, abandonadas, desconexões, pesquisa NPS, discagem automática e acessos à URA. Tudo é lido e calculado <b>neste navegador</b>; nada é enviado nem salvo.')}
+<div class="dz" id="oldz"><p><b>Solte os arquivos aqui</b> ou clique para escolher</p><p style="font-size:11px">.txt ou .csv · até 60 MB por arquivo · vários de uma vez</p></div><input type="file" id="olfi" multiple accept=".txt,.csv,.TXT,.CSV" hidden>
+<p id="olst" style="min-height:20px;margin:8px 0;font-size:12px">${MSG}</p>
+<div class="g">${card('Arquivos carregados',S.f.length?N(S.f.length)+' arquivo(s)':'nenhum ainda',S.f.length?`<div class="ov"><table class="ot fl"><thead><tr><th>Modelo</th><th>Arquivo</th><th>Linhas</th><th>Período</th><th>Ignoradas</th><th></th></tr></thead><tbody>${fl}</tbody></table></div><p style="margin:10px 0 0"><button data-act="wipe">Apagar todos os dados agora</button></p>`:'<p style="color:var(--mu)">Nada na memória.</p>','w')}
+${card('Proteção dos dados sensíveis','como o módulo evita vazamento',`<ul style="margin:0;padding-left:18px;line-height:1.7">
+<li><b>Só no navegador:</b> os arquivos são lidos localmente. O módulo não faz nenhuma chamada de rede e a política de segurança da página só permite os endereços já usados pelo painel.</li>
+<li><b>Sem gravação:</b> nada vai para localStorage, sessionStorage, IndexedDB, cookies ou arquivos. Fica apenas na memória da aba.</li>
+<li><b>Descarte na leitura:</b> CPF, telefone, DDD, ID de cliente, ID de chamada e comentários livres não são guardados. Para contar pessoas e números únicos, usa-se um código irreversível com sal aleatório da sessão, que nunca é exibido.</li>
+<li><b>Limpeza do texto:</b> qualquer sequência de 8 ou mais dígitos em campos de texto é trocada por “#”.</li>
+<li><b>Sem exportação:</b> o módulo não tem botão de baixar, copiar ou publicar linhas. Só aparecem totais e médias.</li>
+<li><b>Apagamento automático:</b> ao sair, recarregar ou fechar a aba, e após 15 minutos sem uso.</li>
+<li><b>Exibição segura:</b> todo texto vindo dos arquivos é escapado antes de aparecer na tela.</li></ul>
+<div class="ov" style="margin-top:10px"><table class="ot"><thead><tr><th>Modelo</th><th>O que é descartado</th></tr></thead><tbody>${Object.keys(DROP).map(k=>`<tr><td>${ESC(KINDS[k])}</td><td>${ESC(DROP[k])}</td></tr>`).join('')}</tbody></table></div>
+<p style="margin:10px 0 0"><span class="tag ${a.bad?'dnt':'ok'}">Verificação agora: ${a.bad?N(a.bad)+' campos com padrão de CPF/telefone':'nenhum CPF ou telefone retido'}</span> <span style="font-size:11px;color:var(--mu)">${N(a.rows)} registros · ${N(a.fields)} campos de texto conferidos</span></p>`,'w')}</div>`}
+const PAN={ov:['Visão geral',pOv],at:['Atendimento e fila',pAt],op:['Operadores',pOp],pa:['Pausas',pPa],ur:['URA e satisfação',pUr],di:['Discagem e desconexões',pDi],imp:['Importar arquivos',pIm]};
+function render(){const mn=$o('#olmn');if(!mn||!$o('body').classList.contains('olos'))return;killCH();QD=[];CI=0;const y=scrollY;
+let h=`<div class="hero"><div class="ht"><h1>Olos · ${PAN[PNL][0]}</h1><p>Indicadores calculados dos arquivos importados nesta sessão ${cover()}</p></div></div>`;
+if(PNL!='imp')h+=filtros();h+=PAN[PNL][1]();mn.innerHTML=h;QD.forEach(f=>{try{f()}catch(e){}});QD=[];
+$$o('aside a[data-o]').forEach(a=>a.classList.toggle('on',a.dataset.o==PNL));
+if(PNL=='imp')bindImp();scrollTo(0,y)}
+function bindImp(){const dz=$o('#oldz'),fi=$o('#olfi');if(!dz)return;dz.onclick=()=>fi.click();fi.onchange=()=>{loadMany([...fi.files]);fi.value=''};dz.ondragover=e=>{e.preventDefault();dz.classList.add('o')};dz.ondragleave=()=>dz.classList.remove('o');dz.ondrop=e=>{e.preventDefault();dz.classList.remove('o');loadMany([...e.dataTransfer.files])}}
+/* ---------- estrutura: botões Botmaker / Olos, menu, eventos ---------- */
+function setMode(m){const b=document.body,on=m=='o';b.classList.toggle('olos',on);$o('#mn').style.display=on?'none':'';const tb=$o('.tb');if(tb)tb.style.display=on?'none':'';$o('#olmn').style.display=on?'':'none';$$o('#psw button').forEach(x=>x.classList.toggle('on',x.dataset.pr==m));document.title=on?'Olos · Central de Indicadores':'Botmaker · Central de Indicadores';
+if(on){render()}else{try{const a=$o('aside a[data-p].on')||$o('aside a[data-p="exec"]');a&&a.click()}catch(e){}if(typeof tbh=='function')tbh()}scrollTo(0,0)}
+const css=document.createElement('style');css.textContent=`#psw{display:flex;align-items:center;gap:12px;padding:10px 22px 0}#psw .seg button{padding:7px 20px;font-size:13px}#psw .pswt{font-size:11px;color:var(--mu)}body:not(.olos) aside .ol{display:none}body.olos aside a[data-p],body.olos aside>small:not(.ol){display:none}#olmn{padding:20px 22px 50px;max-width:1600px}.ot th,.ot td{text-align:right;padding:7px 9px;white-space:nowrap}.ot th:first-child,.ot td:first-child{text-align:left;white-space:normal;max-width:340px}.ot th{background:var(--acl);color:var(--tx)}.ot td{border-bottom:1px solid var(--bd)}.ot.fl th:nth-child(2),.ot.fl td:nth-child(2){text-align:left}#olfb select,#olfb input{max-width:150px}#olfb label{display:flex;align-items:center;gap:5px;font-size:12px}#olmn .hero{padding:10px 16px;border-radius:12px;box-shadow:none;margin-bottom:8px}#olmn .hero h1{font-size:16px}#olmn .hero p{font-size:11px;margin-top:1px;color:inherit;opacity:.9}#olmn .hero .ht{max-width:100%}#olmn .hero .pswt{color:#fff}`;document.head.appendChild(css);
+const ct=$o('.ct'),tb0=$o('#tb'),mn0=$o('#mn');
+ct.insertBefore(Object.assign(document.createElement('div'),{id:'psw',innerHTML:'<div class="seg"><button data-pr="b" class="on">Botmaker</button><button data-pr="o">Olos</button></div>'}),tb0);
+mn0.insertAdjacentHTML('afterend','<main id="olmn" style="display:none"></main>');
+const IC={ov:'layout',at:'headset',op:'users',pa:'hourglass',ur:'msg',di:'phone',imp:'upload'};
+const lgi=$o('#lgi');lgi.insertAdjacentHTML('afterend','<small class="ol">Olos</small>'+Object.keys(PAN).map(k=>`<a class="ol" data-o="${k}"><svg class="i"><use href="#ic-${IC[k]}"/></svg>${PAN[k][0]}</a>`).join(''));
+$o('#psw').addEventListener('click',e=>{const b=e.target.closest('button[data-pr]');if(b)setMode(b.dataset.pr)});
+$$o('aside a[data-o]').forEach(a=>a.onclick=()=>{PNL=a.dataset.o;if(!$o('body').classList.contains('olos'))setMode('o');else render();scrollTo(0,0)});
+$o('#lgo').addEventListener('click',()=>{if($o('body').classList.contains('olos'))setMode('b')});
+$o('#olmn').addEventListener('change',e=>{const f=e.target.dataset&&e.target.dataset.f;if(f){FL[f]=e.target.value;render()}});
+$o('#olmn').addEventListener('click',e=>{const t=e.target.closest('[data-act],[data-rm],[data-sk]');if(!t)return;if(t.dataset.act=='clr'){FL.un=FL.ar=FL.d0=FL.d1='';render()}else if(t.dataset.act=='wipe'){wipe();render()}else if(t.dataset.rm){const id=+t.dataset.rm,f=S.f.find(x=>x.id==id);if(f){S[f.k]=S[f.k].filter(r=>r.f!=id);S.f=S.f.filter(x=>x.id!=id);render()}}else if(t.dataset.sk){const k=t.dataset.sk;OS=OS.k==k?{k,d:-OS.d}:{k,d:k=='nm'?1:-1};render()}});
+/* apagamento por inatividade e ao sair */
+const bump=()=>{clearTimeout(idle);idle=setTimeout(()=>{if(S.f.length)wipe('Os dados foram apagados da memória após 15 minutos sem uso.')},IDLE)};
+['mousemove','keydown','click','scroll','touchstart'].forEach(ev=>addEventListener(ev,bump,{passive:true}));bump();
+addEventListener('pagehide',()=>{for(const k of Object.keys(S))S[k]=[]});
+if(window.AUTH&&AUTH.out){const o=AUTH.out;AUTH.out=function(){try{wipe()}catch(e){}return o.apply(this,arguments)}}
+/* o painel recarrega a página sozinho quando há dados novos da Botmaker; isso apagaria os dados do Olos */
+if(typeof window.reloadNow=='function'){const orig=window.reloadNow;let force=0;window.__olGo=m=>{force=1;orig(m)};window.reloadNow=function(m){if(!S.f.length||force)return orig(m);if(typeof nbar=='function')nbar('Há dados novos do Botmaker. Atualizar agora apaga os dados do Olos carregados nesta sessão. <button onclick="__olGo(\''+ESC(String(m))+'\')">Atualizar mesmo assim</button><button onclick="nbar(\'\')">Agora não</button>')}}
+}catch(e){console.error('Olos',e&&e.message)}})();
+/*OLOS-END*/
 </script>
 </body></html>
