@@ -905,9 +905,9 @@ function h53(str){let h1=0xdeadbeef^SEED[0],h2=0x41c6ce57^SEED[1];for(let i=0;i<
 const dg=s=>String(s||'').replace(/\D/g,''),hs=s=>{s=dg(s);return s?h53(s):0};
 /* ---------- armazenamento em memória ---------- */
 const S={f:[],tab:[],pau:[],abn:[],dsc:[],nps:[],aut:[],ura:[]};
-const FL={un:'',ar:'',d0:'',d1:''};const PUB={upd:'',dirty:0,busy:0,rm:new Set(),msg:'',err:0,try:0};let MSG='',PNL='ov',CH=[],QD=[],idle=0,FID=0,OS={k:'n',d:-1},BUSY=0;
+const FL={un:'',ar:'',d0:'',d1:'',tp:'',cp:'',op:'',wd:'',h0:'',h1:'',pr:''};const rst=()=>{for(const k in FL)FL[k]=''};const PUB={upd:'',dirty:0,busy:0,rm:new Set(),msg:'',err:0,try:0};let MSG='',PNL='ov',CH=[],QD=[],idle=0,FID=0,OS={k:'n',d:-1},BUSY=0;
 const KINDS={tab:'Tabulações (EAGLLE)',pau:'Pausas',abn:'Abandonadas e rejeitadas',dsc:'Desconexões',nps:'Pesquisa de satisfação (NPS)',aut:'Discagem automática (TabAuto)',ura:'Acessos à URA'};
-const DROP={tab:'telefone, ID do cliente, ID da chamada, comentários livres',pau:'fila (repetida por linha)',abn:'telefone, ID da chamada',dsc:'telefone (Dnis), ID da chamada',nps:'telefone, navegação da URA',aut:'CPF, telefone, DDD, ID do cliente (só contagem por hash)',ura:'CPF, telefone, identificador (só contagem por hash)'};
+const DROP={tab:'telefone e ID da chamada (só código irreversível, para cruzar as bases), ID do cliente, comentários livres',pau:'fila repetida por linha',abn:'telefone (só código irreversível e DDD), ID da chamada',dsc:'telefone (Dnis); ID da chamada só como código irreversível',nps:'telefone (só código irreversível), navegação da URA',aut:'CPF, telefone, DDD, ID do cliente (só contagem por hash)',ura:'CPF, telefone, identificador (só contagem por hash)'};
 /* ---------- texto, datas, normalização ---------- */
 const CP850='ÇüéâäàåçêëèïîìÄÅÉæÆôöòûùÿÖÜø£Ø×ƒáíóúñÑªº¿®¬½¼¡«»░▒▓│┤ÁÂÀ©╣║╗╝¢¥┐└┴┬├─┼ãÃ╚╔╩╦╠═╬¤ðÐÊËÈıÍÎÏ┘┌█▄¦Ì▀ÓßÔÒõÕµþÞÚÛÙýÝ¯´\u00ad±‗¾¶§÷¸°¨·¹³²■\u00a0';
 function dec(buf){const u=new Uint8Array(buf);let t;if(u[0]==255&&u[1]==254)t=new TextDecoder('utf-16le').decode(u);else{try{t=new TextDecoder('utf-8',{fatal:true}).decode(u)}catch(e){const o=[];for(let i=0;i<u.length;i+=32768){const a=[];const e2=Math.min(u.length,i+32768);for(let j=i;j<e2;j++){const b=u[j];a.push(b<128?String.fromCharCode(b):CP850[b-128])}o.push(a.join(''))}t=o.join('')}}return t.replace(/\u0000/g,'').replace(/^\uFEFF/,'')}
@@ -927,13 +927,13 @@ let hd=null;const hdr=lines[0].split(/[;|]/).map(x=>x.trim());const ix={};hdr.fo
 const sep=k=='pau'||k=='abn'||k=='aut'?'|':';';const pauK=new Map();
 for(let i=(k=='dsc'?0:1);i<lines.length;i++){const l=lines[i];if(!l)continue;const c=l.split(sep);let r=null;
 try{
-if(k=='tab'){if(c.length!=hdr.length){skip++;continue}const d=dBR(c[ix.STARTAGENTDATE]);if(!d){skip++;continue}const cp=cl(c[ix.CAMPAIGN]),ml=cl(c[ix.MAILINGNAME]);r={d,h:hOf(c[ix.STARTAGENTDATE]),ag:cl(c[ix.AGENT]),cp,un:uniOf(cp)||uniOf(ml),ar:areaOf(cp),ty:cl(c[ix.CALLTYPE]),n1:cl(c[ix.DISPOSITION_NIVEL_1]),n2:cl(c[ix.DISPOSITION_NIVEL_2]),ol:cl(c[ix.DISPOSITION_OLOS]),du:+c[ix.DURATION]||0,wr:+c[ix.DURATIONWRAP]||0,tr:c[ix.TRANSFERED]=='Y'?1:0,ok:c[ix.BUSINESSSUCCESS]=='Y'?1:0}}
+if(k=='tab'){if(c.length!=hdr.length){skip++;continue}const d=dBR(c[ix.STARTAGENTDATE]);if(!d){skip++;continue}const cp=cl(c[ix.CAMPAIGN]),ml=cl(c[ix.MAILINGNAME]);r={d,h:hOf(c[ix.STARTAGENTDATE]),ag:cl(c[ix.AGENT]),cp,ci:+c[ix.CAMPAIGNID]||0,tp:/^[ARM]$/.test(c[ix.CALLTYPE])?c[ix.CALLTYPE]:'',hc:hs(c[ix.CALLID]),hp:hs(c[ix.PHONENUMBER]),un:uniOf(cp)||uniOf(ml),ar:areaOf(cp),ty:cl(c[ix.CALLTYPE]),n1:cl(c[ix.DISPOSITION_NIVEL_1]),n2:cl(c[ix.DISPOSITION_NIVEL_2]),ol:cl(c[ix.DISPOSITION_OLOS]),du:+c[ix.DURATION]||0,wr:+c[ix.DURATIONWRAP]||0,tr:c[ix.TRANSFERED]=='Y'?1:0,ok:c[ix.BUSINESSSUCCESS]=='Y'?1:0}}
 else if(k=='pau'){if(c.length<8){skip++;continue}const d=dBR(c[3]);if(!d){skip++;continue}const key=c[1]+'|'+c[3]+'|'+c[4]+'|'+c[5]+'|'+c[7];const pv=pauK.get(key);if(pv){if(!pv.un)pv.un=uniOf(c[0]);if(!pv.ar)pv.ar=areaOf(c[0]);continue}r={d,lg:cl(c[1]).toLowerCase(),nm:cl(c[2]),h:hOf(c[4]),t:sec(c[6]),m:cl(c[7]),un:uniOf(c[0]),ar:areaOf(c[0])};pauK.set(key,r)}
-else if(k=='abn'){if(c.length<10){skip++;continue}const d=dBR(c[0]);if(!d){skip++;continue}const cp=cl(c[4]),dd=dg(c[2]).slice(0,2);r={d,h:hOf(c[1]),cp,un:uniOf(cp)||(dd=='71'?'UJ':dd?'UVA':''),ar:areaOf(cp),fn:cl(c[6]),tc:sec(c[7]),tf:sec(c[8])}}
-else if(k=='dsc'){const m=/^(\d{4}-\d\d-\d\d) (\d\d):\d\d:\d\d;\d+;([^;]*);(Agente|Cliente);/i.exec(l);if(!m){if(i>0&&!/^Data;/i.test(l))skip++;continue}r={d:m[1],h:+m[2],ag:cl(m[3]),ow:/ag/i.test(m[4])?'Agente':'Cliente'}}
-else if(k=='nps'){if(c.length<12){skip++;continue}const d=dBR(c[ix.DATA]);if(!d){skip++;continue}const og=cl(c[ix.ORGANIZACAO]),cp=cl(c[ix.CAMPANHA]);r={d,h:hOf(c[ix.HORARIO]),cp,og,un:uniOf(og)||uniOf(cp),ar:areaOf(og)||areaOf(cp),nt:+String(c[ix.Nota]).trim()||0,tb:cl(c[ix.Tabulacao]),lg:cl(c[ix.LOGIN]).toLowerCase(),ms:cl(c[ix.UltimoMilestone])}}
-else if(k=='aut'){if(c.length<10){skip++;continue}const d=(c[0]||'').slice(0,10);if(!/^\d{4}-\d\d-\d\d$/.test(d)){skip++;continue}const og=cl(c[1]),cp=cl(c[2]);r={d,h:hOf(c[0].slice(11)),og,cp,un:uniOf(og)||uniOf(cp),ar:areaOf(og)||areaOf(cp),st:cl(c[7]),hp:hs(c[5]+c[6]),hc:hs(c[4])}}
-else if(k=='ura'){if(c.length<5){skip++;continue}if(!/^\d{4}-\d\d-\d\d$/.test(c[1])){skip++;continue}r={d:c[1],h:hOf(c[2]),un:un0,hc:hs(c[0]),hp:hs(c[4])}}
+else if(k=='abn'){if(c.length<10){skip++;continue}const d=dBR(c[0]);if(!d){skip++;continue}const cp=cl(c[4]),dd=dg(c[2]).slice(0,2);r={d,h:hOf(c[1]),cp,ci:+c[3]||0,tp:/ativo/i.test(cp)&&!/hangup/i.test(cp)?'A':'R',hp:hs(c[2]),un:uniOf(cp)||(dd=='71'?'UJ':dd?'UVA':''),ar:areaOf(cp),fn:cl(c[6]),tc:sec(c[7]),tf:sec(c[8])}}
+else if(k=='dsc'){const m=/^(\d{4}-\d\d-\d\d) (\d\d):\d\d:\d\d;(\d+);([^;]*);(Agente|Cliente);/i.exec(l);if(!m){if(i>0&&!/^Data;/i.test(l))skip++;continue}r={d:m[1],h:+m[2],ag:cl(m[4]),ow:/ag/i.test(m[5])?'Agente':'Cliente',hc:hs(m[3]),un:'',ar:'',tp:''}}
+else if(k=='nps'){if(c.length<12){skip++;continue}const d=dBR(c[ix.DATA]);if(!d){skip++;continue}const og=cl(c[ix.ORGANIZACAO]),cp=cl(c[ix.CAMPANHA]);r={d,h:hOf(c[ix.HORARIO]),cp,og,tp:/ativo/i.test(cp)&&!/hangup/i.test(cp)?'A':'R',hp:hs(c[ix.TELEFONE]),un:uniOf(og)||uniOf(cp),ar:areaOf(og)||areaOf(cp),nt:+String(c[ix.Nota]).trim()||0,tb:cl(c[ix.Tabulacao]),lg:cl(c[ix.LOGIN]).toLowerCase(),ms:cl(c[ix.UltimoMilestone])}}
+else if(k=='aut'){if(c.length<10){skip++;continue}const d=(c[0]||'').slice(0,10);if(!/^\d{4}-\d\d-\d\d$/.test(d)){skip++;continue}const og=cl(c[1]),cp=cl(c[2]);r={d,h:hOf(c[0].slice(11)),og,cp,ci:+(/^(\d+) - /.exec(cp)||[])[1]||0,tp:/receptiv/i.test(og+cp)?'R':'A',un:uniOf(og)||uniOf(cp),ar:areaOf(og)||areaOf(cp),st:cl(c[7]),hp:hs(c[5]+c[6]),hc:hs(c[4])}}
+else if(k=='ura'){if(c.length<5){skip++;continue}if(!/^\d{4}-\d\d-\d\d$/.test(c[1])){skip++;continue}r={d:c[1],h:hOf(c[2]),un:un0,ar:'',tp:'R',hc:hs(c[0]),hp:hs(c[4])}}
 }catch(e){skip++;continue}
 if(r){dates.add(r.d);out.push(r)}
 if(i%25000==0)await yld()}
@@ -951,25 +951,49 @@ say('<b>'+ESC(nm)+'</b> carregado: '+N(p.out.length)+' linhas'+(p.skip?' ('+N(p.
 BUSY=0}
 async function loadMany(fs){for(const f of fs)await load(f);render(true)}
 const sig=f=>f.k+'|'+f.u+'|'+f.nm+'|'+(f.dates[0]||'')+'|'+f.dates.length;
-function wipe(why,all){const had=S.f.filter(f=>all||!f.pub).length;if(all){for(const k of Object.keys(S))S[k]=[];FID=0}else{const keep=new Set(S.f.filter(f=>f.pub).map(f=>f.id));for(const k of Object.keys(S))if(k!='f')S[k]=S[k].filter(r=>keep.has(r.f));S.f=S.f.filter(f=>f.pub)}PUB.dirty=S.f.some(f=>!f.pub)||PUB.rm.size?1:0;FL.un=FL.ar=FL.d0=FL.d1='';if(had){killCH();if(why&&$o('#olmn')){MSG=ESC(why);PNL='imp';render()}}else if($o('#olmn')&&$o('body').classList.contains('olos'))render()}
+function wipe(why,all){const had=S.f.filter(f=>all||!f.pub).length;if(all){for(const k of Object.keys(S))S[k]=[];FID=0}else{const keep=new Set(S.f.filter(f=>f.pub).map(f=>f.id));for(const k of Object.keys(S))if(k!='f')S[k]=S[k].filter(r=>keep.has(r.f));S.f=S.f.filter(f=>f.pub)}PUB.dirty=S.f.some(f=>!f.pub)||PUB.rm.size?1:0;rst();if(had){killCH();if(why&&$o('#olmn')){MSG=ESC(why);PNL='imp';render()}}else if($o('#olmn')&&$o('body').classList.contains('olos'))render()}
 /* ---------- universidade de quem não traz o dado: vem do operador (tabulações e fila das pausas) ---------- */
 const flk=n=>{const t=AX(n).split(' ').filter(Boolean);return t.length?t[0]+'.'+t[t.length-1]:''};
-let UMAP=new Map();
-function infer(){const M=new Map(),add=(k,u)=>{if(!k||!u)return;let o=M.get(k);if(!o)M.set(k,o={});o[u]=(o[u]||0)+1};const L2=new Map();
-for(const r of S.tab)add(flk(r.ag),r.un);for(const r of S.pau){add(flk(r.nm),r.un);if(r.lg&&r.nm)L2.set(r.lg,flk(r.nm))}
-for(const r of S.nps)if(r.lg)add(L2.get(r.lg)||flk(r.lg.replace(/\./g,' ')),r.un);
-const get=k=>{const o=M.get(k);if(!o)return'';return Object.entries(o).sort((a,b)=>b[1]-a[1])[0][0]};UMAP=new Map([...M.keys()].map(k=>[k,get(k)]));
-for(const r of S.tab)if(!r.un)r.un=get(flk(r.ag));for(const r of S.pau)if(!r.un)r.un=get(flk(r.nm));for(const r of S.dsc)if(!r.un)r.un=get(flk(r.ag));for(const r of S.nps)if(!r.un&&r.lg)r.un=get(L2.get(r.lg)||flk(r.lg.replace(/\./g,' ')))}
+let UMAP=new Map(),OPN=new Map(),INF={ar:0,un:0},L2G=new Map();
+const TPL={A:'Ativo',R:'Receptivo',M:'Manual'},TPC={A:'#c8102e',R:'#00487f',M:'#9ca3af'};
+const maj=o=>{let b='',n=0;if(o)for(const k in o)if(o[k]>n){n=o[k];b=k}return b};
+/* área, universidade e tipo (ativo/receptivo) de todo registro: do próprio dado; senão pelo id da campanha, pela chamada, pelo operador ou pelo telefone (código irreversível) */
+function infer(){const KS2=['tab','pau','nps','aut','abn','ura','dsc'];INF={ar:0,un:0};
+for(const k of KS2)for(const r of S[k]){if(r.ae){r.ar='';r.ae=0}if(r.ue){r.un='';r.ue=0}}
+const CM=new Map();for(const k of['tab','abn','aut'])for(const r of S[k])if(r.ci&&r.cp&&!CM.has(r.ci))CM.set(r.ci,r.cp);
+for(const r of S.tab)if(!r.cp&&r.ci&&CM.has(r.ci))r.cp=CM.get(r.ci);
+for(const k of['tab','abn','nps','aut'])for(const r of S[k]){if(!r.un)r.un=uniOf(r.cp);if(!r.ar)r.ar=areaOf(r.cp)}
+const L2=new Map(),mk=()=>({u:{},a:{},t:{}}),add=(m,key,r)=>{if(!key)return;let o=m.get(key);if(!o)m.set(key,o=mk());if(r.un)o.u[r.un]=(o.u[r.un]||0)+1;if(r.ar)o.a[r.ar]=(o.a[r.ar]||0)+1;if(r.tp)o.t[r.tp]=(o.t[r.tp]||0)+1};
+for(const r of S.pau)if(r.lg&&r.nm)L2.set(r.lg,flk(r.nm));L2G=L2;
+const opK=(r,k)=>k=='tab'||k=='dsc'?flk(r.ag):k=='pau'?flk(r.nm):k=='nps'&&r.lg?(L2.get(r.lg)||flk(r.lg.replace(/\./g,' '))):'';
+const OM=new Map(),PM=new Map(),CPM=new Map(),TH=new Map();OPN=new Map();
+const nm=(k,n)=>{if(k&&n&&(!OPN.has(k)||OPN.get(k).length<n.length))OPN.set(k,n)};
+for(const r of S.tab){add(OM,opK(r,'tab'),r);nm(opK(r,'tab'),r.ag);if(r.hp)add(PM,r.hp,r);if(r.cp)add(CPM,r.cp,r);if(r.hc&&r.ar)TH.set(r.hc,r)}
+for(const r of S.pau){add(OM,opK(r,'pau'),r);nm(opK(r,'pau'),r.nm)}
+for(const r of S.dsc)nm(opK(r,'dsc'),r.ag);
+for(const r of S.nps){add(OM,opK(r,'nps'),r);if(r.hp)add(PM,r.hp,r);if(r.cp)add(CPM,r.cp,r)}
+for(const r of S.aut){if(r.hp)add(PM,r.hp,r);if(r.cp)add(CPM,r.cp,r)}
+for(const r of S.abn){if(r.cp&&r.ar)add(CPM,r.cp,r)}
+/* dominantes, só como último recurso */
+const DU={},DA={},DG={a:{},u:{}};for(const k of['tab','abn','nps','aut'])for(const r of S[k]){if(r.ar){(DU[r.un]=DU[r.un]||{})[r.ar]=((DU[r.un]||{})[r.ar]||0)+1;DG.a[r.ar]=(DG.a[r.ar]||0)+1}if(r.un)DG.u[r.un]=(DG.u[r.un]||0)+1}
+const dom=(m,x)=>m[x]?{u:{},a:m[x],t:{}}:null;
+const AF=[['un','u','ue','un'],['ar','a','ae','ar'],['tp','t','',null]];
+for(const k of KS2)for(const r of S[k]){const jr=k=='dsc'&&r.hc?TH.get(r.hc):null,J=jr?{u:{[jr.un]:1},a:{[jr.ar]:1},t:{[jr.tp]:1}}:null,ok=OM.get(opK(r,k)),pm=r.hp?PM.get(r.hp):null,cm=r.cp?CPM.get(r.cp):null;
+const srcs=k=='abn'||k=='ura'||k=='aut'?[J,pm,cm,ok]:[J,ok,pm,cm];
+for(const[f,g,fl]of AF){if(r[f])continue;for(const sx of srcs){const v=sx&&maj(sx[g]);if(v){r[f]=v;if(fl){r[fl]=1;INF[f]++}break}}
+if(!r[f]){if(f=='ar'){const v=maj(DU[r.un])||maj(DG.a);if(v){r.ar=v;r.ae=1;INF.ar++}}else if(f=='un'){const v=maj(DG.u);if(v){r.un=v;r.ue=1;INF.un++}}else if(f=='tp'&&k=='ura')r.tp='R'}}}
+UMAP=new Map([...OM.entries()].map(([k,o])=>[k,maj(o.u)]))}
 const opUni=n=>UMAP.get(flk(n))||'';
 /* ---------- filtros e agregação ---------- */
 const allDates=()=>{const s=new Set();for(const k of['tab','pau','abn','dsc','nps','aut','ura'])for(const r of S[k])s.add(r.d);return[...s].sort()};
 const fD=r=>(!FL.d0||r.d>=FL.d0)&&(!FL.d1||r.d<=FL.d1);
-const fU=r=>fD(r)&&(!FL.un||r.un==FL.un)&&(!FL.ar||r.ar==FL.ar);
-const fX=k=>S[k].filter(k=='dsc'||k=='ura'?(r=>fD(r)&&(!FL.un||r.un==FL.un)):fU);
+const opKey=(r,k)=>k=='tab'||k=='dsc'?flk(r.ag):k=='pau'?flk(r.nm):k=='nps'&&r.lg?(L2G.get(r.lg)||flk(r.lg.replace(/\./g,' '))):'';
+const imp=r=>/improdut|^telefonia$/i.test(r.n1);
+function okr(r,k,nu){if(!fD(r))return false;if(!nu&&FL.un&&r.un!=FL.un)return false;if(FL.ar&&r.ar!=FL.ar)return false;if(FL.tp&&r.tp!=FL.tp)return false;if(FL.wd!==''&&wdOf(r.d)!=+FL.wd)return false;if(FL.h0!==''&&!(r.h>=+FL.h0))return false;if(FL.h1!==''&&!(r.h>=0&&r.h<=+FL.h1))return false;if(FL.cp&&r.cp!=FL.cp)return false;if(FL.op){const o=opKey(r,k);if(o!=FL.op)return false}if(FL.pr&&k=='tab'&&((FL.pr=='p')==imp(r)))return false;return true}
+const fX=k=>S[k].filter(r=>okr(r,k)),fU=r=>okr(r,'tab');
 const cnt=(a,kf)=>{const m=new Map();for(const r of a){const k=kf(r);m.set(k,(m.get(k)||0)+1)}return m};
 const top=(m,n)=>[...m.entries()].sort((a,b)=>b[1]-a[1]).slice(0,n);
 const sum=(a,f)=>{let s=0;for(const r of a)s+=f(r);return s};
-const imp=r=>/improdut|^telefonia$/i.test(r.n1);
 const HRS=[...Array(24).keys()],HL=HRS.map(h=>String(h).padStart(2,'0')+'h');
 const hh=(a)=>{const v=Array(24).fill(0);for(const r of a)if(r.h>=0)v[r.h]++;return v};
 const UN={UJ:'Unijorge',UVA:'UVA','':'Sem universidade'};
@@ -988,14 +1012,18 @@ function chart(id,cfg){const el=document.getElementById(id);if(!el||typeof Chart
 const o={responsive:true,maintainAspectRatio:false,indexAxis:cfg.h?'y':'x',plugins:{legend:{display:cfg.sets.length>1||type=='doughnut',position:type=='doughnut'?'right':'top',labels:{boxWidth:10,font:{size:11}}},tooltip:{callbacks:{label:c=>' '+c.dataset.label+': '+(cfg.pct?D1(c.parsed[cfg.h?'x':'y']??c.parsed)+'%':N(c.parsed[cfg.h?'x':'y']??c.parsed))}}}};
 if(type!='doughnut'){o.scales={x:{stacked:!!cfg.st,grid:{display:false},ticks:{font:{size:10},callback:cfg.h?undefined:function(v){const l=this.getLabelForValue(v);return String(l).length>18?String(l).slice(0,17)+'…':l}}},y:{stacked:!!cfg.st,beginAtZero:true,ticks:{font:{size:10},callback:cfg.h?function(v){const l=this.getLabelForValue(v);return String(l).length>34?String(l).slice(0,33)+'…':l}:undefined}}};if(cfg.h){o.scales.x.grid={display:true};o.scales.x.ticks={font:{size:10}};o.scales.y.grid={display:false};o.scales.y.beginAtZero=false}if(cfg.y2)o.scales.y1={position:'right',beginAtZero:true,grid:{display:false},ticks:{font:{size:10}}}}
 CH.push(new Chart(el,{type:type=='line'?'line':type,data:{labels:lab,datasets:dsx},options:o}))}
-const fXd=k=>S[k].filter(r=>fD(r)&&(!FL.ar||k=='ura'||k=='dsc'||r.ar==FL.ar));
+const fXd=k=>S[k].filter(r=>okr(r,k,1));
 const UC={UJ:'#c8102e',UVA:'#f5b800','':'#9ca3af'};
 const grpN1=r=>{const i=r.n1.indexOf(' - ');return i>0?r.n1.slice(0,i).toUpperCase():''};
 const NOCT=/^(anunciadora|impossivel completar|nao atende|silencio|numero invalido|mensagem de operadora|ocupado|caixa postal|fax|congestionamento interno|ligacao muda|discagem cancelada|fora de horario|improdutivo)$/i,FILA=/^(transferida a modulo|abandono em fila|sem agentes)$/i;
 const hbar=(a,fmt)=>({h:1,type:'bar',labels:a.map(x=>x[0]||'(vazio)'),sets:[{l:fmt||'Quantidade',d:a.map(x=>x[1])}]});
 /* ---------- painéis ---------- */
-function filtros(){const ds=allDates();const un=['','UJ','UVA'].map(v=>`<option value="${v}"${FL.un==v?' selected':''}>${v?UN[v]:'Todas'}</option>`).join('');const ar=['','Admissão','Serviços'].map(v=>`<option value="${v}"${FL.ar==v?' selected':''}>${v||'Todas'}</option>`).join('');
-return`<div class="fbar" id="olfb"><svg class="i"><use href="#ic-calendar"/></svg><label>Universidade <select data-f="un">${un}</select></label><label>Área <select data-f="ar">${ar}</select></label><label>De <input type="date" data-f="d0" value="${FL.d0}"${ds.length?` min="${ds[0]}" max="${ds[ds.length-1]}"`:''}></label><label>Até <input type="date" data-f="d1" value="${FL.d1}"${ds.length?` min="${ds[0]}" max="${ds[ds.length-1]}"`:''}></label><button data-act="clr">Limpar filtros</button>${FL.ar?'<span class="nt" style="font-size:11px">URA e desconexões não têm área: ficam só com os filtros de universidade e data.</span>':''}</div>`}
+function filtros(){const ds=allDates();const op=(arr,cur,lab)=>arr.map(([v,t])=>`<option value="${ESC(v)}"${String(cur)==String(v)?' selected':''}>${ESC(t)}</option>`).join('');
+const cps=[...new Set(['tab','abn','nps','aut'].flatMap(k=>S[k].map(r=>r.cp)).filter(Boolean))].sort((x,y)=>x.localeCompare(y,'pt-BR')),ops=[...OPN.entries()].sort((x,y)=>x[1].localeCompare(y[1],'pt-BR'));
+const hrs=HRS.map(h=>[String(h),String(h).padStart(2,'0')+'h']);
+const sel=(k,arr,all)=>`<select data-f="${k}"><option value="">${all||'Todas'}</option>${op(arr,FL[k])}</select>`;
+const act=Object.keys(FL).filter(k=>FL[k]!=='').length;
+return`<div class="fbar" id="olfb" style="flex-wrap:wrap;row-gap:8px"><svg class="i"><use href="#ic-calendar"/></svg><label>Universidade ${sel('un',[['UJ','Unijorge'],['UVA','UVA']])}</label><label>Área ${sel('ar',[['Admissão','Admissão'],['Serviços','Serviços']])}</label><label>Tipo ${sel('tp',[['A','Ativo'],['R','Receptivo'],['M','Manual']],'Todos')}</label><label>De <input type="date" data-f="d0" value="${FL.d0}"${ds.length?` min="${ds[0]}" max="${ds[ds.length-1]}"`:''}></label><label>Até <input type="date" data-f="d1" value="${FL.d1}"${ds.length?` min="${ds[0]}" max="${ds[ds.length-1]}"`:''}></label><label>Dia da semana ${sel('wd',WO.map(i=>[String(i),WD[i]]),'Todos')}</label><label>Hora de ${sel('h0',hrs,'–')}</label><label>até ${sel('h1',hrs,'–')}</label><label>Campanha ${sel('cp',cps.map(x=>[x,x]))}</label><label>Operador ${sel('op',ops)}</label><label>Resultado ${sel('pr',[['p','Produtivas'],['i','Improdutivas']],'Todos')}</label><button data-act="clr">Limpar filtros${act?' ('+act+')':''}</button>${FL.cp||FL.op||FL.pr?'<span class="nt" style="font-size:11px;flex-basis:100%">Campanha e operador valem para os dados que trazem esse campo (URA e parte das pausas e desconexões ficam de fora); Resultado vale só para tabulações.</span>':''}</div>`}
 function cover(){return S.f.length?`<span style="opacity:.85">· ${S.f.length} arquivo(s) · ${N(sum(S.f,f=>f.n))} linhas${PUB.upd?' · publicado em '+ESC(typeof fdt=='function'?fdt(PUB.upd):PUB.upd):''}${PUB.dirty?' · alterações não publicadas':''}</span>`:''}
 function pOv(){const T=fX('tab'),A=fX('abn'),R=fX('ura'),NP=fX('nps'),PA=fX('pau'),AU=fX('aut'),DS=fX('dsc');let h='';
 const prod=T.filter(r=>!imp(r)),np=NP.filter(r=>r.nt>0);const tm=prod.filter(r=>r.du>0);
@@ -1105,7 +1133,7 @@ ${card('Proteção dos dados sensíveis','como o módulo evita vazamento',`<ul s
 <li><b>Apagamento automático:</b> o que ainda não foi publicado é apagado da memória ao sair, recarregar, fechar a aba e após 15 minutos sem uso.</li>
 <li><b>Exibição segura:</b> todo texto vindo dos arquivos é escapado antes de aparecer na tela.</li></ul>
 <div class="ov" style="margin-top:10px"><table class="ot"><thead><tr><th>Modelo</th><th>O que é descartado</th></tr></thead><tbody>${Object.keys(DROP).map(k=>`<tr><td>${ESC(KINDS[k])}</td><td>${ESC(DROP[k])}</td></tr>`).join('')}</tbody></table></div>
-<p style="margin:10px 0 0"><span class="tag ${a.bad?'dnt':'ok'}">Verificação agora: ${a.bad?N(a.bad)+' campos com padrão de CPF/telefone':'nenhum CPF ou telefone retido'}</span> <span style="font-size:11px;color:var(--mu)">${N(a.rows)} registros · ${N(a.fields)} campos de texto conferidos</span></p>`,'w')}</div>`}
+<p style="margin:10px 0 0"><span class="tag ${a.bad?'dnt':'ok'}">Verificação agora: ${a.bad?N(a.bad)+' campos com padrão de CPF/telefone':'nenhum CPF ou telefone retido'}</span> <span style="font-size:11px;color:var(--mu)">${N(a.rows)} registros · ${N(a.fields)} campos de texto conferidos</span></p><p style="margin:8px 0 0;font-size:12px">Todo registro tem universidade e área (Admissão ou Serviços). Quando o arquivo não traz, o painel deduz pelo id da campanha, pela chamada, pelo operador ou pelo telefone (código irreversível): <b>${N(INF.ar)}</b> registros com área e <b>${N(INF.un)}</b> com universidade deduzidas.</p>`,'w')}</div>`}
 /* ---------- indicadores adicionais por guia ---------- */
 const WD=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'],WO=[1,2,3,4,5,6,0],wdOf=d=>new Date(d+'T12:00:00').getDay();
 const byWd=a=>{const v=Array(7).fill(0);for(const r of a)v[wdOf(r.d)]++;return WO.map(i=>v[i])};
@@ -1228,8 +1256,34 @@ return'<div class="g">'+(all.length&&dd.length>1?chartCard('Ligações por dia',
 +chartCard('Nota média por dia','',lineP(dset(...cols.map(np)).map(fdate),cols.filter(c=>np(c).length).map(c=>({l:nm(c),d:dset(...cols.map(np)).map(d=>av(np(c).filter(r=>r.d==d))),c:UC[c.u]}))),270)
 +card('Mais indicadores lado a lado','',tbl(['Indicador',...cols.map(nm)],M.map(m=>[m[0],...cols.map(c=>m[1](c))])),'w')+'</div>'}
 
+
+/* ---------- Ativo × Receptivo ---------- */
+const tpOf=a=>['A','R','M'].filter(t=>a.some(r=>r.tp==t));
+const tpS=(a,labels,f)=>tpOf(a).map(t=>({l:TPL[t],d:labels.map(x=>f(a.filter(r=>r.tp==t),x)),c:TPC[t]}));
+function xTp(){const T=fX('tab'),A=fX('abn'),AU=fX('aut'),NP=fX('nps'),R=fX('ura'),DS=fX('dsc');const ts=tpOf([...T,...A,...AU,...R,...NP]);if(!ts.length)return'';
+const cols=ts.map(t=>({t,T:T.filter(r=>r.tp==t),A:A.filter(r=>r.tp==t),AU:AU.filter(r=>r.tp==t),R:R.filter(r=>r.tp==t),NP:NP.filter(r=>r.tp==t)})),pr=c=>c.T.filter(r=>!imp(r)),tm=c=>pr(c).filter(r=>r.du>0),np=c=>c.NP.filter(r=>r.nt>0);
+const M=[['Ligações tabuladas',c=>c.T.length?N(c.T.length):'–'],['% das ligações tabuladas',c=>c.T.length?P(c.T.length,T.length):'–'],['Improdutivas',c=>c.T.length?P(c.T.length-pr(c).length,c.T.length):'–'],['Transferidas',c=>c.T.length?P(sum(c.T,r=>r.tr),c.T.length):'–'],['Sucesso de negócio',c=>c.T.length?N(sum(c.T,r=>r.ok)):'–'],['Duração média (produtivas)',c=>tm(c).length?TM(sum(tm(c),r=>r.du)/tm(c).length):'–'],['Wrap médio (produtivas)',c=>pr(c).length?TM(sum(pr(c),r=>r.wr)/pr(c).length):'–'],['Abandonadas e rejeitadas',c=>c.A.length?N(c.A.length):'–'],['Tempo médio de fila',c=>c.A.length?TM(sum(c.A,r=>r.tf)/c.A.length):'–'],['Tentativas de discagem',c=>c.AU.length?N(c.AU.length):'–'],['Acessos à URA',c=>c.R.length?N(c.R.length):'–'],['Pesquisas de satisfação',c=>c.NP.length?N(c.NP.length):'–'],['Nota média',c=>np(c).length?D1(sum(np(c),r=>r.nt)/np(c).length):'–']];
+const days=dset(T,A,AU),n1=top(cnt(T,r=>r.n1||'(sem classificação)'),8).map(x=>x[0]),cps=top(cnt(T,r=>r.cp||'(sem campanha)'),10).map(x=>x[0]);
+const ops=top(cnt(T.filter(r=>r.ag),r=>flk(r.ag)),12).map(x=>x[0]);
+const us=['UJ','UVA',''].filter(u=>T.some(r=>r.un==u)),ars=['Admissão','Serviços',''].filter(a=>T.some(r=>r.ar==a));
+const dn=(a,w)=>a.filter(r=>r.ow==w).length;
+return gt('Ativo × Receptivo')+how('<b>Ativo</b> = ligações originadas pelo Olos (discagem, campanhas); <b>Receptivo</b> = chamadas recebidas (URA, filas de atendimento); <b>Manual</b> = discagem manual do operador. O tipo vem do arquivo de tabulações; nas demais bases, do nome da campanha ou da chamada correspondente.')
++'<div class="g">'+(T.length?chartCard('Ligações por hora','tabulações por tipo',stk(HL,tpS(T,HRS,(a,h)=>a.filter(r=>r.h==h).length)),280,'w'):'')
++(T.length?chartCard('Distribuição por tipo','tabulações',{type:'doughnut',labels:ts.map(t=>TPL[t]),sets:[{l:'Ligações',d:ts.map(t=>T.filter(r=>r.tp==t).length)}]},260,'s'):'')
++(T.length?chartCard('Improdutivas, transferidas e sucesso','% das ligações de cada tipo',{type:'bar',pct:1,labels:['Improdutivas','Transferidas','Sucesso de negócio'],sets:cols.filter(c=>c.T.length).map(c=>({l:TPL[c.t],d:[+(100*(c.T.length-pr(c).length)/c.T.length).toFixed(1),+(100*sum(c.T,r=>r.tr)/c.T.length).toFixed(1),+(100*sum(c.T,r=>r.ok)/c.T.length).toFixed(1)],c:TPC[c.t]}))},260):'')
++(days.length>1&&T.length?chartCard('Ligações por dia','tabulações por tipo',stk(dset(T).map(fdate),tpS(T,dset(T),(a,d)=>a.filter(r=>r.d==d).length)),260):'')
++(T.length?chartCard('Duração média por hora','minutos, produtivas',lineP(HL,tpS(T.filter(r=>!imp(r)&&r.du>0),HRS,(a,h)=>{const x=a.filter(r=>r.h==h);return x.length?+(sum(x,r=>r.du)/x.length/60).toFixed(1):0})),260):'')
++(T.length?chartCard('Classificação (nível 1)','8 mais frequentes, por tipo',{h:1,type:'bar',st:1,labels:n1,sets:tpS(T,n1,(a,k)=>a.filter(r=>(r.n1||'(sem classificação)')==k).length)},340):'')
++(T.length?chartCard('Campanhas','10 com mais ligações, por tipo',{h:1,type:'bar',st:1,labels:cps,sets:tpS(T,cps,(a,k)=>a.filter(r=>(r.cp||'(sem campanha)')==k).length)},340):'')
++(ops.length?chartCard('Operadores','12 com mais ligações, por tipo',{h:1,type:'bar',st:1,labels:ops.map(k=>OPN.get(k)||k),sets:tpS(T.filter(r=>r.ag),ops,(a,k)=>a.filter(r=>flk(r.ag)==k).length)},340):'')
++(T.length?chartCard('Tipo por universidade','tabulações',stk(us.map(u=>UN[u]),tpS(T,us,(a,u)=>a.filter(r=>r.un==u).length)),260):'')
++(T.length?chartCard('Tipo por área','tabulações',stk(ars.map(a=>a||'Sem área'),tpS(T,ars,(a,x)=>a.filter(r=>r.ar==x).length)),260):'')
++(A.length?chartCard('Abandonadas por hora','por tipo',stk(HL,tpS(A,HRS,(a,h)=>a.filter(r=>r.h==h).length)),260):'')
++(AU.length?chartCard('Tentativas de discagem por hora','por tipo',stk(HL,tpS(AU,HRS,(a,h)=>a.filter(r=>r.h==h).length)),260):'')
++(DS.some(r=>r.tp)?chartCard('Desconexões por tipo','agente e cliente',stk(ts.filter(t=>DS.some(r=>r.tp==t)).map(t=>TPL[t]),['Agente','Cliente'].map(w=>({l:w,d:ts.filter(t=>DS.some(r=>r.tp==t)).map(t=>dn(DS.filter(r=>r.tp==t),w))}))),260):'')
++card('Ativo × Receptivo lado a lado','',tbl(['Indicador',...cols.map(c=>TPL[c.t])],M.map(m=>[m[0],...cols.map(c=>m[1](c))])),'w')+'</div>'}
 const WRAP=(f,x)=>()=>{let r=f();try{r+=x()}catch(e){console.error('Olos ext',e&&e.message)}return r};
-const PAN={ov:['Visão geral',WRAP(pOv,xOv)],cm:['Unijorge × UVA',WRAP(pCm,xCm)],at:['Atendimento e fila',WRAP(pAt,xAt)],op:['Operadores',WRAP(pOp,xOp)],pa:['Pausas',WRAP(pPa,xPa)],ur:['URA e satisfação',WRAP(pUr,xUr)],di:['Discagem e desconexões',WRAP(pDi,xDi)],imp:['Importar arquivos',pIm]};
+const PAN={ov:['Visão geral',WRAP(pOv,xOv)],cm:['Unijorge × UVA',WRAP(pCm,xCm)],tp:['Ativo × Receptivo',()=>xTp()||empty('Ativo × Receptivo')],at:['Atendimento e fila',WRAP(pAt,xAt)],op:['Operadores',WRAP(pOp,xOp)],pa:['Pausas',WRAP(pPa,xPa)],ur:['URA e satisfação',WRAP(pUr,xUr)],di:['Discagem e desconexões',WRAP(pDi,xDi)],imp:['Importar arquivos',pIm]};
 /* ---------- layout: cartões preenchem a linha inteira, sem espaços vazios ---------- */
 function layout(mn){const wide=innerWidth>900;mn.querySelectorAll('.g').forEach(g=>{const cs=[...g.children].filter(e=>e.classList&&e.classList.contains('c'));let run=[];
 const flush=()=>{const k=run.length;if(!k)return;const tail=k%2?(k==1?1:3):0,pairs=k-tail,rows=[];for(let i=0;i<pairs;i+=2)rows.push(run.slice(i,i+2).map(e=>[e,6]));if(tail)rows.push(run.slice(pairs).map(e=>[e,12/tail]));
@@ -1244,17 +1298,17 @@ function bindImp(){const dz=$o('#oldz'),fi=$o('#olfi');if(!dz)return;dz.onclick=
 /* ---------- estrutura: botões Botmaker / Olos, menu, eventos ---------- */
 function setMode(m){const b=document.body,on=m=='o';b.classList.toggle('olos',on);$o('#mn').style.display=on?'none':'';const tb=$o('.tb');if(tb)tb.style.display=on?'none':'';$o('#olmn').style.display=on?'':'none';$$o('#psw button').forEach(x=>x.classList.toggle('on',x.dataset.pr==m));document.title=on?'Olos · Central de Indicadores':'Botmaker · Central de Indicadores';
 if(on){render()}else{try{const a=$o('aside a[data-p].on')||$o('aside a[data-p="exec"]');a&&a.click()}catch(e){}if(typeof tbh=='function')tbh()}scrollTo(0,0)}
-const css=document.createElement('style');css.textContent=`#psw{display:flex;align-items:center;gap:12px;padding:10px 22px 0}#psw .seg button{padding:7px 20px;font-size:13px}#psw .pswt{font-size:11px;color:var(--mu)}body:not(.olos) aside .ol{display:none}body.olos aside a[data-p],body.olos aside>small:not(.ol){display:none}#olmn{padding:20px 22px 50px;max-width:1600px}.ot th,.ot td{text-align:right;padding:7px 9px;white-space:nowrap}.ot th:first-child,.ot td:first-child{text-align:left;white-space:normal;max-width:340px}.ot th{background:var(--acl);color:var(--tx)}.ot td{border-bottom:1px solid var(--bd)}.ot.fl th:nth-child(2),.ot.fl td:nth-child(2){text-align:left}.ot.hm th,.ot.hm td{text-align:center;padding:4px 5px;font-size:11px;min-width:30px}.ot.hm td:first-child,.ot.hm th:first-child{text-align:left;min-width:40px}#olfb select,#olfb input{max-width:150px}#olfb label{display:flex;align-items:center;gap:5px;font-size:12px}#olmn .hero{padding:10px 16px;border-radius:12px;box-shadow:none;margin-bottom:8px}#olmn .hero h1{font-size:16px}#olmn .hero p{font-size:11px;margin-top:1px;color:inherit;opacity:.9}#olmn .hero .ht{max-width:100%}#olmn .hero .pswt{color:#fff}`;document.head.appendChild(css);
+const css=document.createElement('style');css.textContent=`#psw{display:flex;align-items:center;gap:12px;padding:10px 22px 0}#psw .seg button{padding:7px 20px;font-size:13px}#psw .pswt{font-size:11px;color:var(--mu)}body:not(.olos) aside .ol{display:none}body.olos aside a[data-p],body.olos aside>small:not(.ol){display:none}#olmn{padding:20px 22px 50px;max-width:1600px}.ot th,.ot td{text-align:right;padding:7px 9px;white-space:nowrap}.ot th:first-child,.ot td:first-child{text-align:left;white-space:normal;max-width:340px}.ot th{background:var(--acl);color:var(--tx)}.ot td{border-bottom:1px solid var(--bd)}.ot.fl th:nth-child(2),.ot.fl td:nth-child(2){text-align:left}.ot.hm th,.ot.hm td{text-align:center;padding:4px 5px;font-size:11px;min-width:30px}.ot.hm td:first-child,.ot.hm th:first-child{text-align:left;min-width:40px}#olfb select,#olfb input{max-width:170px}#olfb label{display:flex;align-items:center;gap:5px;font-size:12px}#olmn .hero{padding:10px 16px;border-radius:12px;box-shadow:none;margin-bottom:8px}#olmn .hero h1{font-size:16px}#olmn .hero p{font-size:11px;margin-top:1px;color:inherit;opacity:.9}#olmn .hero .ht{max-width:100%}#olmn .hero .pswt{color:#fff}`;document.head.appendChild(css);
 const ct=$o('.ct'),tb0=$o('#tb'),mn0=$o('#mn');
 ct.insertBefore(Object.assign(document.createElement('div'),{id:'psw',innerHTML:'<div class="seg"><button data-pr="b" class="on">Botmaker</button><button data-pr="o">Olos</button></div>'}),tb0);
 mn0.insertAdjacentHTML('afterend','<main id="olmn" style="display:none"></main>');
-const IC={ov:'layout',cm:'compare',at:'headset',op:'users',pa:'hourglass',ur:'msg',di:'phone',imp:'upload'};
+const IC={ov:'layout',cm:'compare',tp:'shuffle',at:'headset',op:'users',pa:'hourglass',ur:'msg',di:'phone',imp:'upload'};
 const lgi=$o('#lgi');lgi.insertAdjacentHTML('afterend','<small class="ol">Olos</small>'+Object.keys(PAN).map(k=>`<a class="ol" data-o="${k}"><svg class="i"><use href="#ic-${IC[k]}"/></svg>${PAN[k][0]}</a>`).join(''));
 $o('#psw').addEventListener('click',e=>{const b=e.target.closest('button[data-pr]');if(b)setMode(b.dataset.pr)});
 $$o('aside a[data-o]').forEach(a=>a.onclick=()=>{PNL=a.dataset.o;if(!$o('body').classList.contains('olos'))setMode('o');else render();scrollTo(0,0)});
 $o('#lgo').addEventListener('click',()=>{if($o('body').classList.contains('olos'))setMode('b')});
 $o('#olmn').addEventListener('change',e=>{const f=e.target.dataset&&e.target.dataset.f;if(f){FL[f]=e.target.value;render()}});
-$o('#olmn').addEventListener('click',e=>{const t=e.target.closest('[data-act],[data-rm],[data-sk]');if(!t)return;if(t.dataset.act=='clr'){FL.un=FL.ar=FL.d0=FL.d1='';render()}else if(t.dataset.act=='wipe'){wipe();render()}else if(t.dataset.act=='pub'){pubGo()}else if(t.dataset.rm){if(RO())return;const id=+t.dataset.rm,f=S.f.find(x=>x.id==id);if(f){if(f.pub)PUB.rm.add(sig(f));PUB.dirty=1;S[f.k]=S[f.k].filter(r=>r.f!=id);S.f=S.f.filter(x=>x.id!=id);render()}}else if(t.dataset.sk){const k=t.dataset.sk;OS=OS.k==k?{k,d:-OS.d}:{k,d:k=='nm'?1:-1};render()}});
+$o('#olmn').addEventListener('click',e=>{const t=e.target.closest('[data-act],[data-rm],[data-sk]');if(!t)return;if(t.dataset.act=='clr'){rst();render()}else if(t.dataset.act=='wipe'){wipe();render()}else if(t.dataset.act=='pub'){pubGo()}else if(t.dataset.rm){if(RO())return;const id=+t.dataset.rm,f=S.f.find(x=>x.id==id);if(f){if(f.pub)PUB.rm.add(sig(f));PUB.dirty=1;S[f.k]=S[f.k].filter(r=>r.f!=id);S.f=S.f.filter(x=>x.id!=id);render()}}else if(t.dataset.sk){const k=t.dataset.sk;OS=OS.k==k?{k,d:-OS.d}:{k,d:k=='nm'?1:-1};render()}});
 /* apagamento por inatividade e ao sair */
 const bump=()=>{clearTimeout(idle);idle=setTimeout(()=>{if(S.f.some(f=>!f.pub))wipe('Os arquivos ainda não publicados foram apagados da memória após 15 minutos sem uso.')},IDLE)};
 ['mousemove','keydown','click','scroll','touchstart'].forEach(ev=>addEventListener(ev,bump,{passive:true}));bump();
