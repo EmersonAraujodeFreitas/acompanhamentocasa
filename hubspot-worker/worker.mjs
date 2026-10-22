@@ -15,7 +15,7 @@ export default {
     if (req.headers.get('Origin') && req.headers.get('Origin') != orig) return out({ erro: 'origem não permitida' }, 403);
     const chave = (req.headers.get('Authorization') || '').replace(/^Bearer /, '');
     if (!env.CHAVE_ACESSO || !igual(chave, env.CHAVE_ACESSO)) return out({ erro: 'acesso negado' }, 401);
-    const u = new URL(req.url); if (!['/buscar', '/estrutura', '/painel', '/campos', '/contar'].includes(u.pathname)) return out({ erro: 'rota inexistente' }, 404);
+    const u = new URL(req.url); if (!['/buscar', '/estrutura', '/painel', '/campos', '/contar', '/emails'].includes(u.pathname)) return out({ erro: 'rota inexistente' }, 404);
     const espera = ms => new Promise(r => setTimeout(r, ms));
     const api = async (p, o) => { for (let i = 0; ; i++) { const r = await fetch(H + p, { ...o, headers: { Authorization: 'Bearer ' + env.HUBSPOT_TOKEN, 'Content-Type': 'application/json' } }); if (r.status == 429 && i < 6) { await espera(1000 + 700 * i); continue } if (!r.ok) { const e = new Error('HubSpot ' + r.status + ' em ' + p.split('?')[0]); e.st = r.status; throw e } return r.json() } };
     const uniDe = t => { t = String(t || '').toLowerCase(); return /unijorge|\buj\b|jorge amado/.test(t) ? 'UNIJORGE' : /\buva\b|veiga de almeida/.test(t) ? 'UVA' : '' };
@@ -36,6 +36,21 @@ export default {
             opc[o] = {}; for (const n of (o == 'contacts' ? ['lifecyclestage', 'hs_lead_status', 'hs_analytics_source'] : ['hs_analytics_source'])) { const d = await def(o, n); opc[o][n] = d && d.options ? d.options.filter(x => !x.hidden).map(x => ({ v: x.value, l: x.label })) : [] }
             let nome = env.UNI_PROP || '', d = nome ? await def(o, nome) : await def(o, 'universidade');
             if (!d && !env.UNI_PROP) { const pr = (await api('/crm/v3/properties/' + o).catch(() => ({ results: [] }))).results, ach = pr.find(x => /^\s*universidade\s*$/i.test(x.label || '')) || pr.find(x => /^\s*(ies|institui)/i.test(x.label || '')); if (ach) d = await def(o, ach.name) }
+            if (o == 'contacts') {
+              const pr = (await api('/crm/v3/properties/contacts').catch(() => ({ results: [] }))).results;
+              const cand = pr.filter(x => /univers|^ies|institu|marca|unidade|polo|campus|curso|brand/i.test(x.name + ' ' + (x.label || '')) && !/email|phone|telefone/i.test(x.name)).slice(0, 6).map(x => ({ name: x.name, label: x.label, ops: (x.options || []).filter(z => !z.hidden) }));
+              for (const n of ['first_conversion_event_name', 'recent_conversion_event_name', 'hs_analytics_first_url', 'hs_analytics_source_data_2', 'hs_analytics_source_data_1']) if (!cand.some(c => c.name == n)) cand.push({ name: n, label: n, ops: [] });
+              const defs = [];
+              for (const c of cand) {
+                const v = { UVA: [], UNIJORGE: [] }; c.ops.forEach(z => { const k = uniDe(z.label + ' ' + z.value); if (k) v[k].push(z.value) });
+                const en = v.UVA.length || v.UNIJORGE.length, df = en ? { prop: c.name, rotulo: c.label, tipo: 'enum', val: v } : { prop: c.name, rotulo: c.label, tipo: 'texto', val: { UVA: ['uva'], UNIJORGE: ['unijorge'] } };
+                const q = async u => { const w = df.tipo == 'enum' ? (v[u].length ? { propertyName: c.name, operator: 'IN', values: v[u] } : null) : { propertyName: c.name, operator: 'CONTAINS_TOKEN', value: df.val[u][0] }; if (!w) return 0; try { return (await busca('/crm/v3/objects/contacts/search', { filterGroups: [{ filters: [w] }], limit: 1, properties: ['hs_object_id'] })).total } catch (e) { return 0 } };
+                df.n = (await q('UVA')) + (await q('UNIJORGE')); if (df.n > 0) defs.push(df)
+              }
+              defs.sort((a, b) => b.n - a.n);
+              uni[o] = defs.length ? { tipo: 'multi', defs: defs.slice(0, 3).map(x => ({ ...x, tipo: x.tipo })) } : { tipo: 'nenhuma' };
+              continue
+            }
             if (d) { const ops = (d.options || []).filter(x => !x.hidden), v = { UVA: [], UNIJORGE: [] }; ops.forEach(x => { const k = uniDe(x.label + ' ' + x.value); if (k) v[k].push(x.value) });
               uni[o] = ops.length && (v.UVA.length || v.UNIJORGE.length) ? { prop: d.name, rotulo: d.label, tipo: 'enum', val: v, opcoes: ops.map(x => x.label) } : { prop: d.name, rotulo: d.label, tipo: 'texto', val: { UVA: ['uva'], UNIJORGE: ['unijorge'] } } }
             else if (o == 'deals') { const v = { UVA: [], UNIJORGE: [] }; funis.forEach(f => { const k = uniDe(f.nome); if (k) v[k].push(f.id) }); uni[o] = v.UVA.length || v.UNIJORGE.length ? { prop: 'pipeline', tipo: 'pipeline', val: v } : { tipo: 'nenhuma' } }
@@ -43,14 +58,20 @@ export default {
           }
           return out({ funis, donos, uni, opc });
         }
+        if (u.pathname == '/emails') {
+          let after, all = [];
+          for (let i = 0; i < 10; i++) { const j = await api('/marketing/v3/emails?limit=100&includeStats=true&archived=false' + (after ? '&after=' + after : '')); all.push(...j.results); after = j.paging && j.paging.next && j.paging.next.after; if (!after) break }
+          return out({ e: all.map(x => { const c = (x.stats && x.stats.counters) || {}; return { n: x.name || '', t: x.type || '', s: x.state || '', p: x.publishDate || x.publishedAt || x.createdAt || '', c: { sent: c.sent || 0, delivered: c.delivered || 0, open: c.open || 0, click: c.click || 0, reply: c.reply || 0, bounce: c.bounce || 0, unsub: c.unsubscribed || 0, spam: c.spamreport || 0 } } }) });
+        }
         if (u.pathname == '/contar') {
           if (req.method != 'POST') return out({ erro: 'use POST' }, 405);
           const b = await req.json().catch(() => null); if (!b || !Array.isArray(b.q)) return out({ erro: 'pedido inválido' }, 400);
-          const ob = b.obj == 'contacts' ? 'contacts' : 'deals', OPS = ['EQ', 'NEQ', 'IN', 'NOT_IN', 'GTE', 'LTE', 'GT', 'LT', 'HAS_PROPERTY', 'NOT_HAS_PROPERTY', 'CONTAINS_TOKEN'];
+          const ob = ['contacts', 'deals', 'calls', 'emails', 'meetings', 'communications', 'notes', 'tasks'].includes(b.obj) ? b.obj : 'deals', OPS = ['EQ', 'NEQ', 'IN', 'NOT_IN', 'GTE', 'LTE', 'GT', 'LT', 'HAS_PROPERTY', 'NOT_HAS_PROPERTY', 'CONTAINS_TOKEN'];
           const qs = b.q.slice(0, 40), res = {};
           const um = async x => {
             const fl = (Array.isArray(x.f) ? x.f : []).slice(0, 12).map(f => { if (!/^[a-z0-9_]{1,80}$/.test(f.p || '') || !OPS.includes(f.op)) throw new Error('filtro inválido'); const o = { propertyName: f.p, operator: f.op }; if (Array.isArray(f.vs)) o.values = f.vs.slice(0, 100).map(String); else if (f.v != null) o.value = String(f.v); return o });
-            const j = await busca('/crm/v3/objects/' + ob + '/search', { filterGroups: [{ filters: fl }], limit: 1, properties: ['hs_object_id'] }); res[x.i] = j.total
+            const gr = Array.isArray(x.o) && x.o.length ? x.o.slice(0, 5).map(g => ({ filters: [...fl, ...(Array.isArray(g) ? g : []).slice(0, 3).map(f => { if (!/^[a-z0-9_]{1,80}$/.test(f.p || '') || !OPS.includes(f.op)) throw new Error('filtro inválido'); const o = { propertyName: f.p, operator: f.op }; if (Array.isArray(f.vs)) o.values = f.vs.slice(0, 100).map(String); else if (f.v != null) o.value = String(f.v); return o })] })) : [{ filters: fl }];
+            const j = await busca('/crm/v3/objects/' + ob + '/search', { filterGroups: gr, limit: 1, properties: ['hs_object_id'] }); res[x.i] = j.total
           };
           let k = 0; while (k < qs.length) { const x = qs[k++]; try { await um(x) } catch (e) { res[x.i] = -1; if (e.st == 401 || e.st == 403) throw e } await espera(120) }
           return out({ r: res });

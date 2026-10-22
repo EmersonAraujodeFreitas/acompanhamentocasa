@@ -30,3 +30,6 @@ Com milhões de contatos e negócios, o painel **não baixa registros**: o Worke
 A universidade vem da propriedade `universidade` (contatos e negócios) ou, se não houver, do nome do pipeline. Defina `UNI_PROP` no Worker para outro nome. **Atualize o código do Worker** com `hubspot-worker/worker.mjs` sempre que este arquivo mudar.
 
 > Atualização: a guia **Buscar** agora consulta **somente o HubSpot** (telefone ou CPF), sem cruzar Olos nem Botmaker.
+
+### Modelo executivo (guia Hubspot)
+Guias **Contatos**, **Negócios** e **E-mails e comunicação**, cada uma com faixa escura de números, leitura automática dos dados, **duelo UVA × Unijorge** (jornada passo a passo lado a lado), gráficos de comunicação (receberam, abriram, clicaram, responderam), mapa de calor por etapa/status/origem e **Modo apresentação** (tela cheia, setas do teclado). A guia de e-mails ranqueia os modelos de e-mail de marketing por entrega, abertura, clique e resposta (exige a permissão de e-mails de marketing no token do HubSpot). A universidade dos contatos é descoberta sozinha pelo Worker (propriedade `universidade`, nome do formulário, origem etc.).
