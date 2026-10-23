@@ -179,8 +179,21 @@ export default {
           const tipos = [['communications', ['hs_timestamp', 'hs_communication_channel_type', ...cdef.map(x => x.n), ...ctpl.map(x => x.n)], p => (/whats/i.test(p.hs_communication_channel_type || '') || ctpl.some(x => p[x.n])) ? (waResp(p) ? 'x' : 'w') : /sms/i.test(p.hs_communication_channel_type || '') ? 's' : 'o'], ['emails', ['hs_timestamp', 'hs_email_direction'], p => /incoming/i.test(p.hs_email_direction || '') ? 'r' : 'm'], ['calls', ['hs_timestamp'], () => 'l'], ['meetings', ['hs_timestamp'], () => 'u']];
           let trunc = 0;
           const tplC = ((R1 && R1.contacts) || []).filter(x => /template/i.test(x.rot + ' ' + x.name)).map(x => x.name).slice(0, 6);
-          if (cids.length) { try { for (let i = 0; i < cids.length; i += 100) { const rj = await api('/crm/v3/objects/contacts/batch/read', { method: 'POST', body: JSON.stringify({ properties: ['hs_email_last_email_name', ...tplC], propertiesWithHistory: ['hs_email_last_email_name', 'hs_email_last_reply_date', 'hs_sales_email_last_replied', ...tplC], inputs: cids.slice(i, i + 100).map(id => ({ id })) }) }); for (const x of (rj.results || [])) { const H = x.propertiesWithHistory || {}, L = ev[x.id] || (ev[x.id] = []); for (const v of (H.hs_email_last_email_name || [])) { const t = v.value ? +new Date(v.timestamp) || 0 : 0; if (t) L.push([t, 'm']) } for (const k of ['hs_email_last_reply_date', 'hs_sales_email_last_replied']) for (const v of (H[k] || [])) { const t = +new Date(v.value) || +v.value || 0; if (t) L.push([t, 'r']) } for (const tp of tplC) for (const v of (H[tp] || [])) { const t = v.value ? +new Date(v.timestamp) || 0 : 0; if (t) L.push([t, 'w']) } } } } catch (e) { if (e.st == 401 || e.st == 403) throw e } }
-          if (cids.length) for (const [ob, props, cod] of tipos) {
+          // contagem por NEGÓCIO: e-mails e comunicações associados ao próprio negócio e histórico dos campos de template do negócio
+          const evD = {}; let hasD = false;
+          if (!CT && deals.length) {
+            const tplD2 = ((R1 && R1.deals) || []).filter(x => /template/i.test(x.rot + ' ' + x.name)).map(x => x.name).slice(0, 6);
+            try { if (tplD2.length) for (let i = 0; i < deals.length; i += 100) { const rj = await api('/crm/v3/objects/deals/batch/read', { method: 'POST', body: JSON.stringify({ properties: tplD2, propertiesWithHistory: tplD2, inputs: deals.slice(i, i + 100).map(d => ({ id: d.id })) }) }); for (const x of (rj.results || [])) { const H = x.propertiesWithHistory || {}; for (const tp of tplD2) for (const v of (H[tp] || [])) { const tt = v.value ? +new Date(v.timestamp) || 0 : 0; if (tt) { (evD[x.id] || (evD[x.id] = [])).push([tt, 'w']); hasD = true } } } } } catch (e) { if (e.st == 401 || e.st == 403) throw e }
+            for (const [ob, props, cod] of tipos.filter(x => x[0] == 'communications' || x[0] == 'emails')) {
+              try {
+                const aj = await api('/crm/v4/associations/deals/' + ob + '/batch/read', { method: 'POST', body: JSON.stringify({ inputs: deals.map(d => ({ id: d.id })) }) }), dono = {}, ids = [];
+                for (const r of (aj.results || [])) for (const tt of (r.to || []).slice(0, 25)) { if (ids.length >= 400) break; const id = String(tt.toObjectId); dono[id] = String(r.from.id); ids.push(id) }
+                for (let i = 0; i < ids.length; i += 100) { const rj = await api('/crm/v3/objects/' + ob + '/batch/read', { method: 'POST', body: JSON.stringify({ properties: props, inputs: ids.slice(i, i + 100).map(id => ({ id })) }) }); for (const x of (rj.results || [])) { const tt = +new Date(x.properties.hs_timestamp) || 0; if (tt) { (evD[dono[x.id]] || (evD[dono[x.id]] = [])).push([tt, cod(x.properties)]); hasD = true } } }
+              } catch (e) { if (e.st == 401 || e.st == 403) throw e }
+            }
+          }
+          if (!hasD && cids.length) { try { for (let i = 0; i < cids.length; i += 100) { const rj = await api('/crm/v3/objects/contacts/batch/read', { method: 'POST', body: JSON.stringify({ properties: ['hs_email_last_email_name', ...tplC], propertiesWithHistory: ['hs_email_last_email_name', 'hs_email_last_reply_date', 'hs_sales_email_last_replied', ...tplC], inputs: cids.slice(i, i + 100).map(id => ({ id })) }) }); for (const x of (rj.results || [])) { const H = x.propertiesWithHistory || {}, L = ev[x.id] || (ev[x.id] = []); for (const v of (H.hs_email_last_email_name || [])) { const t = v.value ? +new Date(v.timestamp) || 0 : 0; if (t) L.push([t, 'm']) } for (const k of ['hs_email_last_reply_date', 'hs_sales_email_last_replied']) for (const v of (H[k] || [])) { const t = +new Date(v.value) || +v.value || 0; if (t) L.push([t, 'r']) } for (const tp of tplC) for (const v of (H[tp] || [])) { const t = v.value ? +new Date(v.timestamp) || 0 : 0; if (t) L.push([t, 'w']) } } } } catch (e) { if (e.st == 401 || e.st == 403) throw e } }
+          if (!hasD && cids.length) for (const [ob, props, cod] of tipos.filter(x => x[0] == 'communications' || x[0] == 'emails')) {
             try {
               const aj = await api('/crm/v4/associations/contacts/' + ob + '/batch/read', { method: 'POST', body: JSON.stringify({ inputs: cids.map(id => ({ id })) }) }), dono = {}, ids = [];
               for (const r of (aj.results || [])) for (const t of (r.to || []).slice(0, 25)) { if (ids.length >= 500) { trunc = 1; break } const id = String(t.toObjectId); dono[id] = String(r.from.id); ids.push(id) }
@@ -188,7 +201,7 @@ export default {
             } catch (e) { if (e.st == 401 || e.st == 403) throw e }
           }
           if (CT) return out({ d: deals.map(d => { const p = d.properties, e = {}; mp.forEach(x => { const v = p[x]; const t = v ? (+v || +new Date(v)) : 0; if (t) e[x] = t }); return { id: d.id, c: +new Date(p.createdate) || 0, e, o: op.map(k => p[k] || ''), ev: (ev[d.id] || []).sort((a, b) => a[0] - b[0]) } }), after: nx || '', trunc });
-          return out({ d: deals.map(d => { const p = d.properties, e = {}; ets.forEach((x, ix) => { const v = p[eprops[ix]]; const t = v ? (+v || +new Date(v)) : 0; if (t) e[x] = t }); return { id: d.id, pl: p.pipeline, c: +new Date(p.createdate) || 0, e, ev: (ev[ct[d.id]] || []).sort((a, b) => a[0] - b[0]), sc: ct[d.id] ? 0 : 1 } }), after: nx || '', trunc });
+          return out({ d: deals.map(d => { const p = d.properties, e = {}; ets.forEach((x, ix) => { const v = p[eprops[ix]]; const t = v ? (+v || +new Date(v)) : 0; if (t) e[x] = t }); return { id: d.id, pl: p.pipeline, c: +new Date(p.createdate) || 0, e, ev: ((hasD ? evD[d.id] : ev[ct[d.id]]) || []).sort((a, b) => a[0] - b[0]), sc: ct[d.id] ? 0 : 1, pd: hasD ? 1 : 0 } }), after: nx || '', trunc });
         }
         if (u.pathname == '/emails') {
           let after, all = [];
@@ -328,7 +341,7 @@ export default {
       { const o = ficha.contatos.map((_, i) => i).sort((a, b) => ficha.contatos[b].cr - ficha.contatos[a].cr); const R = (arr) => o.map(i => arr[i]); ficha.contatos = R(ficha.contatos); ident.contatos = R(ident.contatos); cts.splice(0, cts.length, ...R(cts)) }
       ficha.negocios.sort((a, b) => b.per - a.per || b.cr - a.cr); ficha.comunicacoes.sort((a, b) => b.t - a.t); ficha.comunicacoes = ficha.comunicacoes.slice(0, 20);
       ev.sort((a, b) => a.d < b.d ? -1 : a.d > b.d ? 1 : a.h - b.h);
-      return out({ contatos: cts, eventos: ev, ficha, ident, versao: 'cpf-estrito-2026-10-23w' });
+      return out({ contatos: cts, eventos: ev, ficha, ident, versao: 'cpf-estrito-2026-10-23x' });
     } catch (e) { return out({ erro: String(e.message || e).slice(0, 200) }, e.st == 401 || e.st == 403 ? 502 : 500) }
   }
 };
