@@ -35,6 +35,8 @@ const SPEC = {
   ]
 };
 let PCACHE = null; const PNOM = {};
+const nomesDe = async (api, ob) => { if (!PNOM[ob] || Date.now() - PNOM[ob].t > 36e5) { const pj = await api('/crm/v3/properties/' + ob).catch(() => null); PNOM[ob] = { t: Date.now(), s: pj && pj.results ? new Set(pj.results.map(x => x.name)) : null } } return PNOM[ob].s };
+const entrou = (S, id) => { if (!S) return 'hs_date_entered_' + id; const a = 'hs_date_entered_' + id, b = 'hs_v2_date_entered_' + id; return S.has(a) ? a : S.has(b) ? b : a };
 export default {
   async fetch(req, env) {
     const orig = env.ORIGEM_PERMITIDA || 'https://emersonaraujodefreitas.github.io';
@@ -149,7 +151,7 @@ export default {
           if (!CT && !pls.length) return out({ erro: 'informe os funis' }, 400);
           const base = [{ propertyName: 'createdate', operator: 'GTE', value: String(+b.d0 || 0) }, { propertyName: 'createdate', operator: 'LTE', value: String(+b.d1 || Date.now()) }, ...(CT ? [] : [{ propertyName: 'pipeline', operator: 'IN', values: pls }])];
           const ex = (Array.isArray(b.f) ? b.f : []).slice(0, 4).map(mk), og = Array.isArray(b.o) && b.o.length ? b.o.slice(0, 5).map(g => ({ filters: [...base, ...ex, ...(Array.isArray(g) ? g : []).slice(0, 3).map(mk)] })) : [{ filters: [...base, ...ex] }];
-          const eprops = ets.map(x => 'hs_date_entered_' + x);
+          const SN = CT ? null : await nomesDe(api, 'deals'), eprops = ets.map(x => entrou(SN, x));
           const dj = await busca('/crm/v3/objects/' + (CT ? 'contacts' : 'deals') + '/search', { filterGroups: og, sorts: [{ propertyName: 'createdate', direction: 'DESCENDING' }], properties: CT ? ['createdate', ...mp, ...op] : ['createdate', 'pipeline', 'dealstage', ...eprops], limit: n, ...(b.after ? { after: String(b.after) } : {}) });
           const deals = dj.results || [], nx = dj.paging && dj.paging.next ? dj.paging.next.after : '';
           const ct = {}; // deal -> contato
@@ -165,7 +167,7 @@ export default {
             } catch (e) { if (e.st == 401 || e.st == 403) throw e }
           }
           if (CT) return out({ d: deals.map(d => { const p = d.properties, e = {}; mp.forEach(x => { const v = p[x]; const t = v ? (+v || +new Date(v)) : 0; if (t) e[x] = t }); return { id: d.id, c: +new Date(p.createdate) || 0, e, o: op.map(k => p[k] || ''), ev: (ev[d.id] || []).sort((a, b) => a[0] - b[0]) } }), after: nx || '', trunc });
-          return out({ d: deals.map(d => { const p = d.properties, e = {}; ets.forEach(x => { const v = p['hs_date_entered_' + x]; const t = v ? (+v || +new Date(v)) : 0; if (t) e[x] = t }); return { id: d.id, pl: p.pipeline, c: +new Date(p.createdate) || 0, e, ev: (ev[ct[d.id]] || []).sort((a, b) => a[0] - b[0]), sc: ct[d.id] ? 0 : 1 } }), after: nx || '', trunc });
+          return out({ d: deals.map(d => { const p = d.properties, e = {}; ets.forEach((x, ix) => { const v = p[eprops[ix]]; const t = v ? (+v || +new Date(v)) : 0; if (t) e[x] = t }); return { id: d.id, pl: p.pipeline, c: +new Date(p.createdate) || 0, e, ev: (ev[ct[d.id]] || []).sort((a, b) => a[0] - b[0]), sc: ct[d.id] ? 0 : 1 } }), after: nx || '', trunc });
         }
         if (u.pathname == '/emails') {
           let after, all = [];
@@ -179,6 +181,8 @@ export default {
           const qs = b.q.slice(0, 40), res = {}, erros = [];
           if (!PNOM[ob] || Date.now() - PNOM[ob].t > 36e5) { const pj = await api('/crm/v3/properties/' + ob).catch(() => null); PNOM[ob] = { t: Date.now(), s: pj && pj.results ? new Set(pj.results.map(x => x.name)) : null } }
           const conhece = n => !PNOM[ob].s || PNOM[ob].s.has(n);
+          const tr = f => (ob == 'deals' && f && /^hs_date_entered_/.test(f.p || '')) ? { ...f, p: entrou(PNOM[ob].s, f.p.slice(16)) } : f;
+          for (const x of qs) { if (Array.isArray(x.f)) x.f = x.f.map(tr); if (Array.isArray(x.o)) x.o = x.o.map(g => Array.isArray(g) ? g.map(tr) : g) }
           const um = async x => {
             const fl = (Array.isArray(x.f) ? x.f : []).slice(0, 12).map(f => { if (!/^[a-z0-9_]{1,80}$/.test(f.p || '') || !OPS.includes(f.op)) throw new Error('filtro inválido'); const o = { propertyName: f.p, operator: f.op }; if (Array.isArray(f.vs)) o.values = f.vs.slice(0, 100).map(String); else if (f.v != null) o.value = String(f.v); return o });
             const gr = Array.isArray(x.o) && x.o.length ? x.o.slice(0, 5).map(g => ({ filters: [...fl, ...(Array.isArray(g) ? g : []).slice(0, 3).map(f => { if (!/^[a-z0-9_]{1,80}$/.test(f.p || '') || !OPS.includes(f.op)) throw new Error('filtro inválido'); const o = { propertyName: f.p, operator: f.op }; if (Array.isArray(f.vs)) o.values = f.vs.slice(0, 100).map(String); else if (f.v != null) o.value = String(f.v); return o })] })) : [{ filters: fl }];
@@ -269,7 +273,7 @@ export default {
       { const o = ficha.contatos.map((_, i) => i).sort((a, b) => ficha.contatos[b].cr - ficha.contatos[a].cr); const R = (arr) => o.map(i => arr[i]); ficha.contatos = R(ficha.contatos); ident.contatos = R(ident.contatos); cts.splice(0, cts.length, ...R(cts)) }
       ficha.negocios.sort((a, b) => b.per - a.per || b.cr - a.cr); ficha.comunicacoes.sort((a, b) => b.t - a.t); ficha.comunicacoes = ficha.comunicacoes.slice(0, 20);
       ev.sort((a, b) => a.d < b.d ? -1 : a.d > b.d ? 1 : a.h - b.h);
-      return out({ contatos: cts, eventos: ev, ficha, ident, versao: 'cpf-estrito-2026-10-23k' });
+      return out({ contatos: cts, eventos: ev, ficha, ident, versao: 'cpf-estrito-2026-10-23l' });
     } catch (e) { return out({ erro: String(e.message || e).slice(0, 200) }, e.st == 401 || e.st == 403 ? 502 : 500) }
   }
 };
