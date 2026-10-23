@@ -197,7 +197,7 @@ export default {
           }
           if (!hasD && cids.length) { try { for (let i = 0; i < cids.length; i += 100) { const rj = await api('/crm/v3/objects/contacts/batch/read', { method: 'POST', body: JSON.stringify({ properties: ['hs_email_last_email_name'], propertiesWithHistory: ['hs_email_last_email_name', 'hs_email_last_reply_date', 'hs_sales_email_last_replied'], inputs: cids.slice(i, i + 100).map(id => ({ id })) }) }); for (const x of (rj.results || [])) { const H = x.propertiesWithHistory || {}, L = ev[x.id] || (ev[x.id] = []); for (const v of (H.hs_email_last_email_name || [])) { const t = v.value ? +new Date(v.timestamp) || 0 : 0; if (t) L.push([t, 'm']) } for (const k of ['hs_email_last_reply_date', 'hs_sales_email_last_replied']) for (const v of (H[k] || [])) { const t = +new Date(v.value) || +v.value || 0; if (t) L.push([t, 'r']) } } } } catch (e) { if (e.st == 401 || e.st == 403) throw e } }
           const evT = {}; // templates de WhatsApp no contato (usado quando o negócio não tem os campos de template)
-          if (cids.length && tplC.length && !dtD.length) { try { for (let i = 0; i < cids.length; i += 100) { const rj = await api('/crm/v3/objects/contacts/batch/read', { method: 'POST', body: JSON.stringify({ properties: tplC.slice(0, 1), propertiesWithHistory: tplC, inputs: cids.slice(i, i + 100).map(id => ({ id })) }) }); for (const x of (rj.results || [])) { const H = x.propertiesWithHistory || {}; for (const tp of tplC) for (const v of (H[tp] || [])) { const e = tmC(tp, v); if (e) (evT[x.id] || (evT[x.id] = [])).push(e) } } } } catch (e) { if (e.st == 401 || e.st == 403) throw e } }
+          if (cids.length && tplC.length) { try { for (let i = 0; i < cids.length; i += 100) { const rj = await api('/crm/v3/objects/contacts/batch/read', { method: 'POST', body: JSON.stringify({ properties: tplC.slice(0, 1), propertiesWithHistory: tplC, inputs: cids.slice(i, i + 100).map(id => ({ id })) }) }); for (const x of (rj.results || [])) { const H = x.propertiesWithHistory || {}; for (const tp of tplC) for (const v of (H[tp] || [])) { const e = tmC(tp, v); if (e) (evT[x.id] || (evT[x.id] = [])).push(e) } } } } catch (e) { if (e.st == 401 || e.st == 403) throw e } }
           if (!hasD && cids.length) for (const [ob, props, cod] of tipos.filter(x => x[0] == 'communications' || x[0] == 'emails')) {
             try {
               const aj = await api('/crm/v4/associations/contacts/' + ob + '/batch/read', { method: 'POST', body: JSON.stringify({ inputs: cids.map(id => ({ id })) }) }), dono = {}, ids = [];
@@ -206,7 +206,7 @@ export default {
             } catch (e) { if (e.st == 401 || e.st == 403) throw e }
           }
           if (CT) return out({ d: deals.map(d => { const p = d.properties, e = {}; mp.forEach(x => { const v = p[x]; const t = v ? (+v || +new Date(v)) : 0; if (t) e[x] = t }); return { id: d.id, c: +new Date(p.createdate) || 0, e, o: op.map(k => p[k] || ''), ev: [...(ev[d.id] || []), ...(evT[d.id] || [])].sort((a, b) => a[0] - b[0]) } }), after: nx || '', trunc });
-          return out({ d: deals.map(d => { const p = d.properties, e = {}; ets.forEach((x, ix) => { const v = p[eprops[ix]]; const t = v ? (+v || +new Date(v)) : 0; if (t) e[x] = t }); return { id: d.id, pl: p.pipeline, c: +new Date(p.createdate) || 0, e, ev: [...((hasD ? evD[d.id] : ev[ct[d.id]]) || []), ...(!dtD.length ? (evT[ct[d.id]] || []) : [])].sort((a, b) => a[0] - b[0]), sc: ct[d.id] ? 0 : 1, pd: hasD ? 1 : 0 } }), after: nx || '', trunc });
+          return out({ d: deals.map(d => { const p = d.properties, e = {}; ets.forEach((x, ix) => { const v = p[eprops[ix]]; const t = v ? (+v || +new Date(v)) : 0; if (t) e[x] = t }); return { id: d.id, pl: p.pipeline, c: +new Date(p.createdate) || 0, e, ev: (() => { const base = (hasD ? evD[d.id] : ev[ct[d.id]]) || []; return [...base, ...(!base.some(x => 'wdvx'.includes(x[1])) ? (evT[ct[d.id]] || []) : [])] })().sort((a, b) => a[0] - b[0]), sc: ct[d.id] ? 0 : 1, pd: hasD ? 1 : 0 } }), after: nx || '', trunc });
         }
         if (u.pathname == '/emails') {
           let after, all = [];
@@ -348,7 +348,7 @@ export default {
       { const o = ficha.contatos.map((_, i) => i).sort((a, b) => ficha.contatos[b].cr - ficha.contatos[a].cr); const R = (arr) => o.map(i => arr[i]); ficha.contatos = R(ficha.contatos); ident.contatos = R(ident.contatos); cts.splice(0, cts.length, ...R(cts)) }
       ficha.negocios.sort((a, b) => b.per - a.per || b.cr - a.cr); ficha.comunicacoes.sort((a, b) => b.t - a.t); ficha.comunicacoes = ficha.comunicacoes.slice(0, 20);
       ev.sort((a, b) => a.d < b.d ? -1 : a.d > b.d ? 1 : a.h - b.h);
-      return out({ contatos: cts, eventos: ev, ficha, ident, versao: 'cpf-estrito-2026-10-23z' });
+      return out({ contatos: cts, eventos: ev, ficha, ident, versao: 'cpf-estrito-2026-10-23za' });
     } catch (e) { return out({ erro: String(e.message || e).slice(0, 200) }, e.st == 401 || e.st == 403 ? 502 : 500) }
   }
 };
