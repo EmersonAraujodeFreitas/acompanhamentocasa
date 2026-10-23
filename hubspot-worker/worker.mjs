@@ -44,7 +44,7 @@ export default {
     if (req.headers.get('Origin') && req.headers.get('Origin') != orig) return out({ erro: 'origem não permitida' }, 403);
     const chave = (req.headers.get('Authorization') || '').replace(/^Bearer /, '');
     if (!env.CHAVE_ACESSO || !igual(chave, env.CHAVE_ACESSO)) return out({ erro: 'acesso negado' }, 401);
-    const u = new URL(req.url); if (!['/buscar', '/estrutura', '/painel', '/campos', '/contar', '/emails', '/propriedades', '/amostra'].includes(u.pathname)) return out({ erro: 'rota inexistente' }, 404);
+    const u = new URL(req.url); if (!['/buscar', '/estrutura', '/painel', '/campos', '/contar', '/jornada', '/emails', '/propriedades', '/amostra'].includes(u.pathname)) return out({ erro: 'rota inexistente' }, 404);
     const espera = ms => new Promise(r => setTimeout(r, ms));
     const api = async (p, o) => { for (let i = 0; ; i++) { const r = await fetch(H + p, { ...o, headers: { Authorization: 'Bearer ' + env.HUBSPOT_TOKEN, 'Content-Type': 'application/json' } }); if (r.status == 429 && i < 6) { await espera(1000 + 700 * i); continue } if (!r.ok) { const e = new Error('HubSpot ' + r.status + ' em ' + p.split('?')[0]); e.st = r.status; throw e } return r.json() } };
     const resolver = async () => {
@@ -102,7 +102,8 @@ export default {
             else if (o == 'deals') { const v = { UVA: [], UNIJORGE: [] }; funis.forEach(f => { const k = uniDe(f.nome); if (k) v[k].push(f.id) }); uni[o] = v.UVA.length || v.UNIJORGE.length ? { prop: 'pipeline', tipo: 'pipeline', val: v } : { tipo: 'nenhuma' } }
             else uni[o] = { tipo: 'nenhuma' }
           }
-          return out({ funis, donos, uni, opc });
+          let mat = null; try { const pr = (await api('/crm/v3/properties/contacts')).results, c = pr.filter(p => !p.hidden && !/desuso|nao utilizad|obsolet/.test(norm(p.label + ' ' + p.name)) && /(ja|aluno).*(aluno|matricul)|matriculad/.test(norm(p.label))).sort((a, b) => a.label.length - b.label.length)[0]; if (c) { if (c.type == 'bool' || c.fieldType == 'booleancheckbox') mat = { p: c.name, op: 'EQ', v: 'true' }; else { const vs = (c.options || []).filter(o => !o.hidden && /^(sim|s|true)$|matricul|ativo/.test(norm(o.label))).map(o => o.value); mat = vs.length ? { p: c.name, op: 'IN', vs } : { p: c.name, op: 'EQ', v: 'Sim' } } } } catch (e) { }
+          return out({ funis, donos, uni, opc, mat });
         }
         if (u.pathname == '/propriedades') {
           const ob = u.searchParams.get('obj') == 'deals' ? 'deals' : 'contacts', j = await api('/crm/v3/properties/' + ob);
@@ -113,6 +114,33 @@ export default {
           const rows = []; let after;
           while (rows.length < n) { const j = await busca('/crm/v3/objects/' + ob + '/search', { filterGroups: [{ filters: [{ propertyName: 'createdate', operator: 'GTE', value: String(s0) }, { propertyName: 'createdate', operator: 'LTE', value: String(e0) }] }], sorts: [{ propertyName: 'createdate', direction: 'ASCENDING' }], properties: props, limit: 200, ...(after ? { after } : {}) }); for (const x of j.results) rows.push(props.map(p => x.properties[p] == null ? '' : String(x.properties[p]).slice(0, 200))); after = j.paging && j.paging.next && j.paging.next.after; if (!after) break }
           return out({ r: rows.slice(0, n) });
+        }
+        if (u.pathname == '/jornada') {
+          if (req.method != 'POST') return out({ erro: 'use POST' }, 405);
+          const b = await req.json().catch(() => null); if (!b) return out({ erro: 'pedido inválido' }, 400);
+          const OPS2 = ['EQ', 'IN', 'GTE', 'LTE', 'CONTAINS_TOKEN'], mk = f => { if (!/^[a-z0-9_]{1,80}$/.test(f.p || '') || !OPS2.includes(f.op)) throw new Error('filtro inválido'); const o = { propertyName: f.p, operator: f.op }; if (Array.isArray(f.vs)) o.values = f.vs.slice(0, 100).map(String); else if (f.v != null) o.value = String(f.v); return o };
+          const pls = (Array.isArray(b.pls) ? b.pls : []).map(String).filter(x => /^[\w-]{1,40}$/.test(x)).slice(0, 12), ets = (Array.isArray(b.et) ? b.et : []).map(String).filter(x => /^[\w-]{1,40}$/.test(x)).slice(0, 60), n = Math.min(+b.n || 50, 60);
+          const CT = b.obj == 'contacts', mp = (Array.isArray(b.mp) ? b.mp : []).map(String).filter(x => /^[a-z0-9_]{1,80}$/.test(x)).slice(0, 12), op = ['hs_analytics_source', 'hs_analytics_source_data_1', 'utm_source', 'utm_medium', 'utm_campaign', 'first_conversion_event_name'];
+          if (!CT && !pls.length) return out({ erro: 'informe os funis' }, 400);
+          const base = [{ propertyName: 'createdate', operator: 'GTE', value: String(+b.d0 || 0) }, { propertyName: 'createdate', operator: 'LTE', value: String(+b.d1 || Date.now()) }, ...(CT ? [] : [{ propertyName: 'pipeline', operator: 'IN', values: pls }])];
+          const ex = (Array.isArray(b.f) ? b.f : []).slice(0, 4).map(mk), og = Array.isArray(b.o) && b.o.length ? b.o.slice(0, 5).map(g => ({ filters: [...base, ...ex, ...(Array.isArray(g) ? g : []).slice(0, 3).map(mk)] })) : [{ filters: [...base, ...ex] }];
+          const eprops = ets.map(x => 'hs_date_entered_' + x);
+          const dj = await busca('/crm/v3/objects/' + (CT ? 'contacts' : 'deals') + '/search', { filterGroups: og, sorts: [{ propertyName: 'createdate', direction: 'DESCENDING' }], properties: CT ? ['createdate', ...mp, ...op] : ['createdate', 'pipeline', 'dealstage', ...eprops], limit: n, ...(b.after ? { after: String(b.after) } : {}) });
+          const deals = dj.results || [], nx = dj.paging && dj.paging.next ? dj.paging.next.after : '';
+          const ct = {}; // deal -> contato
+          if (CT) deals.forEach(d => ct[d.id] = String(d.id)); else if (deals.length) { const aj = await api('/crm/v4/associations/deals/contacts/batch/read', { method: 'POST', body: JSON.stringify({ inputs: deals.map(d => ({ id: d.id })) }) }).catch(() => ({ results: [] })); (aj.results || []).forEach(r => { if (r.to && r.to[0]) ct[r.from.id] = String(r.to[0].toObjectId) }) }
+          const cids = [...new Set(Object.values(ct))], ev = {}; // contato -> [[ts,codigo]]
+          const tipos = [['communications', ['hs_timestamp', 'hs_communication_channel_type'], p => /whats/i.test(p.hs_communication_channel_type || '') ? 'w' : /sms/i.test(p.hs_communication_channel_type || '') ? 's' : 'o'], ['emails', ['hs_timestamp', 'hs_email_direction'], p => /incoming/i.test(p.hs_email_direction || '') ? 'r' : 'm'], ['calls', ['hs_timestamp'], () => 'l'], ['meetings', ['hs_timestamp'], () => 'u']];
+          let trunc = 0;
+          if (cids.length) for (const [ob, props, cod] of tipos) {
+            try {
+              const aj = await api('/crm/v4/associations/contacts/' + ob + '/batch/read', { method: 'POST', body: JSON.stringify({ inputs: cids.map(id => ({ id })) }) }), dono = {}, ids = [];
+              for (const r of (aj.results || [])) for (const t of (r.to || []).slice(0, 40)) { if (ids.length >= 500) { trunc = 1; break } const id = String(t.toObjectId); dono[id] = String(r.from.id); ids.push(id) }
+              for (let i = 0; i < ids.length; i += 100) { const rj = await api('/crm/v3/objects/' + ob + '/batch/read', { method: 'POST', body: JSON.stringify({ properties: props, inputs: ids.slice(i, i + 100).map(id => ({ id })) }) }); for (const x of (rj.results || [])) { const t = +new Date(x.properties.hs_timestamp) || 0; if (t) (ev[dono[x.id]] || (ev[dono[x.id]] = [])).push([t, cod(x.properties)]) } }
+            } catch (e) { if (e.st == 401 || e.st == 403) throw e }
+          }
+          if (CT) return out({ d: deals.map(d => { const p = d.properties, e = {}; mp.forEach(x => { const v = p[x]; const t = v ? (+v || +new Date(v)) : 0; if (t) e[x] = t }); return { id: d.id, c: +new Date(p.createdate) || 0, e, o: op.map(k => p[k] || ''), ev: (ev[d.id] || []).sort((a, b) => a[0] - b[0]) } }), after: nx || '', trunc });
+          return out({ d: deals.map(d => { const p = d.properties, e = {}; ets.forEach(x => { const v = p['hs_date_entered_' + x]; const t = v ? (+v || +new Date(v)) : 0; if (t) e[x] = t }); return { id: d.id, pl: p.pipeline, c: +new Date(p.createdate) || 0, e, ev: (ev[ct[d.id]] || []).sort((a, b) => a[0] - b[0]), sc: ct[d.id] ? 0 : 1 } }), after: nx || '', trunc });
         }
         if (u.pathname == '/emails') {
           let after, all = [];
@@ -216,7 +244,7 @@ export default {
       { const o = ficha.contatos.map((_, i) => i).sort((a, b) => ficha.contatos[b].cr - ficha.contatos[a].cr); const R = (arr) => o.map(i => arr[i]); ficha.contatos = R(ficha.contatos); ident.contatos = R(ident.contatos); cts.splice(0, cts.length, ...R(cts)) }
       ficha.negocios.sort((a, b) => b.per - a.per || b.cr - a.cr); ficha.comunicacoes.sort((a, b) => b.t - a.t); ficha.comunicacoes = ficha.comunicacoes.slice(0, 20);
       ev.sort((a, b) => a.d < b.d ? -1 : a.d > b.d ? 1 : a.h - b.h);
-      return out({ contatos: cts, eventos: ev, ficha, ident, versao: 'cpf-estrito-2026-10-23i' });
+      return out({ contatos: cts, eventos: ev, ficha, ident, versao: 'cpf-estrito-2026-10-23j' });
     } catch (e) { return out({ erro: String(e.message || e).slice(0, 200) }, e.st == 401 || e.st == 403 ? 502 : 500) }
   }
 };
