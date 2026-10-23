@@ -44,3 +44,4 @@ Guias **Contatos**, **Negócios** e **E-mails e comunicação**, cada uma com fa
 ## Jornada média da base (Contatos e Negócios)
 - Mesmo modelo da jornada do Buscar, mas com a média da base inteira: blocos em sequência com seta animada, quantidade que chegou em cada etapa, % sem comunicação, média de comunicações e tempo médio desde a etapa anterior (ingresso e rematrícula; contatos do cadastro ao cliente).
 - Universidade pelo vínculo (rota `/vinculo` do Worker): para contatos com negócio, usa a universidade do cadastro e, se faltar, deduz pelos negócios ligados (funil, nome, campos). Somente leitura — nada é gravado no HubSpot.
+- Cruzamento por CPF: contatos sem universidade são cruzados com os negócios de mesmo CPF; a taxa de resolução da amostra é aplicada como estimativa ao "Não identificada" dos gráficos e da visão executiva de Contatos.

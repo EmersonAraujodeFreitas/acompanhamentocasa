@@ -126,11 +126,12 @@ export default {
           if (req.method != 'POST') return out({ erro: 'use POST' }, 405);
           const b = await req.json().catch(() => null); if (!b) return out({ erro: 'pedido inválido' }, 400);
           const nm = x => (Array.isArray(x) ? x : []).map(String).filter(z => /^[a-z0-9_]{1,80}$/.test(z)).slice(0, 10), cp = nm(b.cp), dp = nm(b.dp), n = Math.min(+b.n || 80, 100);
+          const R0 = await resolver().catch(() => null), cpfC = R0 && R0.cpf ? (R0.cpfp.contacts.length ? R0.cpfp.contacts : R0.cpf.contacts).slice(0, 2) : [], cpfD = R0 && R0.cpf ? (R0.cpfp.deals.length ? R0.cpfp.deals : R0.cpf.deals).slice(0, 2) : [];
           const fl = [{ propertyName: 'createdate', operator: 'GTE', value: String(+b.d0 || 0) }, { propertyName: 'createdate', operator: 'LTE', value: String(+b.d1 || Date.now()) }, { propertyName: 'num_associated_deals', operator: 'GTE', value: '1' }];
-          const cj = await busca('/crm/v3/objects/contacts/search', { filterGroups: [{ filters: fl }], sorts: [{ propertyName: 'createdate', direction: 'DESCENDING' }], properties: ['createdate', ...cp], limit: n, ...(b.after ? { after: String(b.after) } : {}) });
+          const cj = await busca('/crm/v3/objects/contacts/search', { filterGroups: [{ filters: fl }], sorts: [{ propertyName: 'createdate', direction: 'DESCENDING' }], properties: ['createdate', ...cp, ...cpfC], limit: n, ...(b.after ? { after: String(b.after) } : {}) });
           const cs = cj.results || [], nx = cj.paging && cj.paging.next ? cj.paging.next.after : '';
           const cls = vals => { const f = new Set(); for (const v of vals) { const k = uniDe(v); if (k) f.add(k) } return f.size == 1 ? [...f][0] : f.size > 1 ? 'AMBOS' : '' };
-          const res = { total: cs.length, cad: { UVA: 0, UNIJORGE: 0, AMBOS: 0 }, neg: { UVA: 0, UNIJORGE: 0, AMBOS: 0 }, sem: 0, semNeg: 0 }, pend = [];
+          const res = { total: cs.length, cad: { UVA: 0, UNIJORGE: 0, AMBOS: 0 }, neg: { UVA: 0, UNIJORGE: 0, AMBOS: 0 }, cpf: { UVA: 0, UNIJORGE: 0, AMBOS: 0 }, sem: 0, semNeg: 0 }, pend = [];
           for (const c of cs) { const k = cls(cp.map(p => c.properties[p] || '')); if (k) res.cad[k]++; else pend.push(c.id) }
           if (pend.length) {
             const pl = await api('/crm/v3/pipelines/deals').catch(() => ({ results: [] })), pn = {}; (pl.results || []).forEach(p => pn[p.id] = p.label);
@@ -138,7 +139,21 @@ export default {
             for (const r of (aj.results || [])) for (const t of (r.to || []).slice(0, 4)) { const id = String(t.toObjectId); (dono[String(r.from.id)] || (dono[String(r.from.id)] = [])).push(id); ids.push(id) }
             const dv = {};
             for (let i = 0; i < ids.length && i < 400; i += 100) { const rj = await api('/crm/v3/objects/deals/batch/read', { method: 'POST', body: JSON.stringify({ properties: ['pipeline', 'dealname', ...dp], inputs: ids.slice(i, i + 100).map(id => ({ id })) }) }).catch(() => ({ results: [] })); for (const d of (rj.results || [])) dv[d.id] = [pn[d.properties.pipeline] || '', d.properties.dealname || '', ...dp.map(p => d.properties[p] || '')] }
-            for (const id of pend) { const ds = dono[id] || []; if (!ds.length) { res.semNeg++; continue } const k = cls(ds.flatMap(d => dv[d] || [])); if (k) res.neg[k]++; else res.sem++ }
+            const rest = [];
+            for (const id of pend) { const ds = dono[id] || []; const k = ds.length ? cls(ds.flatMap(d => dv[d] || [])) : ''; if (k) res.neg[k]++; else rest.push([id, ds.length ? 1 : 0]) }
+            // cruza por CPF: negócios de qualquer contato com o mesmo CPF
+            const cc = {}; for (const c of cs) { for (const p of cpfC) { const d = dig(c.properties[p]); if (cpfOk(d)) { cc[c.id] = d; break } } }
+            const cvals = [...new Set(rest.map(([id]) => cc[id]).filter(Boolean))].slice(0, 100), cm = {};
+            if (cvals.length && cpfD.length) for (let i = 0; i < cvals.length; i += 50) {
+              const ch = cvals.slice(i, i + 50), vs = ch.flatMap(d => [d, d.slice(0, 3) + '.' + d.slice(3, 6) + '.' + d.slice(6, 9) + '-' + d.slice(9)]);
+              for (const p of cpfD) {
+                try {
+                  const rj = await busca('/crm/v3/objects/deals/search', { filterGroups: [{ filters: [{ propertyName: p, operator: 'IN', values: vs }] }], properties: ['pipeline', 'dealname', ...dp, ...cpfD], limit: 100 });
+                  for (const d of (rj.results || [])) { const pr = d.properties || {}, k = cls([pn[pr.pipeline] || '', pr.dealname || '', ...dp.map(x => pr[x] || '')]); if (!k) continue; for (const q of cpfD) { const dd = dig(pr[q]); if (dd) (cm[dd] || (cm[dd] = new Set())).add(k) } }
+                } catch (e) { if (e.st == 401 || e.st == 403 || e.st == 429) throw e }
+              }
+            }
+            for (const [id, tem] of rest) { const st = cc[id] && cm[cc[id]] ? cm[cc[id]] : null; if (st && st.size) res.cpf[st.size > 1 ? 'AMBOS' : [...st][0]]++; else if (tem) res.sem++; else res.semNeg++ }
           }
           return out({ ...res, after: nx || '' });
         }
@@ -273,7 +288,7 @@ export default {
       { const o = ficha.contatos.map((_, i) => i).sort((a, b) => ficha.contatos[b].cr - ficha.contatos[a].cr); const R = (arr) => o.map(i => arr[i]); ficha.contatos = R(ficha.contatos); ident.contatos = R(ident.contatos); cts.splice(0, cts.length, ...R(cts)) }
       ficha.negocios.sort((a, b) => b.per - a.per || b.cr - a.cr); ficha.comunicacoes.sort((a, b) => b.t - a.t); ficha.comunicacoes = ficha.comunicacoes.slice(0, 20);
       ev.sort((a, b) => a.d < b.d ? -1 : a.d > b.d ? 1 : a.h - b.h);
-      return out({ contatos: cts, eventos: ev, ficha, ident, versao: 'cpf-estrito-2026-10-23l' });
+      return out({ contatos: cts, eventos: ev, ficha, ident, versao: 'cpf-estrito-2026-10-23m' });
     } catch (e) { return out({ erro: String(e.message || e).slice(0, 200) }, e.st == 401 || e.st == 403 ? 502 : 500) }
   }
 };
