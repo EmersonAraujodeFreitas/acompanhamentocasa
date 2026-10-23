@@ -183,7 +183,7 @@ export default {
           if (cids.length) for (const [ob, props, cod] of tipos) {
             try {
               const aj = await api('/crm/v4/associations/contacts/' + ob + '/batch/read', { method: 'POST', body: JSON.stringify({ inputs: cids.map(id => ({ id })) }) }), dono = {}, ids = [];
-              for (const r of (aj.results || [])) for (const t of (r.to || []).slice(0, 25)) { if (ids.length >= 300) { trunc = 1; break } const id = String(t.toObjectId); dono[id] = String(r.from.id); ids.push(id) }
+              for (const r of (aj.results || [])) for (const t of (r.to || []).slice(0, 25)) { if (ids.length >= 500) { trunc = 1; break } const id = String(t.toObjectId); dono[id] = String(r.from.id); ids.push(id) }
               for (let i = 0; i < ids.length; i += 100) { const rj = await api('/crm/v3/objects/' + ob + '/batch/read', { method: 'POST', body: JSON.stringify({ properties: props, inputs: ids.slice(i, i + 100).map(id => ({ id })) }) }); for (const x of (rj.results || [])) { const t = +new Date(x.properties.hs_timestamp) || 0; if (t) (ev[dono[x.id]] || (ev[dono[x.id]] = [])).push([t, cod(x.properties)]) } }
             } catch (e) { if (e.st == 401 || e.st == 403) throw e }
           }
@@ -305,7 +305,7 @@ export default {
       { const o = ficha.contatos.map((_, i) => i).sort((a, b) => ficha.contatos[b].cr - ficha.contatos[a].cr); const R = (arr) => o.map(i => arr[i]); ficha.contatos = R(ficha.contatos); ident.contatos = R(ident.contatos); cts.splice(0, cts.length, ...R(cts)) }
       ficha.negocios.sort((a, b) => b.per - a.per || b.cr - a.cr); ficha.comunicacoes.sort((a, b) => b.t - a.t); ficha.comunicacoes = ficha.comunicacoes.slice(0, 20);
       ev.sort((a, b) => a.d < b.d ? -1 : a.d > b.d ? 1 : a.h - b.h);
-      return out({ contatos: cts, eventos: ev, ficha, ident, versao: 'cpf-estrito-2026-10-23u' });
+      return out({ contatos: cts, eventos: ev, ficha, ident, versao: 'cpf-estrito-2026-10-23v' });
     } catch (e) { return out({ erro: String(e.message || e).slice(0, 200) }, e.st == 401 || e.st == 403 ? 502 : 500) }
   }
 };
