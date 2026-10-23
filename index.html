@@ -1454,8 +1454,8 @@ return a.join(' · ')};
 
 const BGC=()=>window.__bgCard?window.__bgCard():'';function pBs(){return '<div class="tk"><div class="tkh"><i></i>HUBSPOT · BUSCA DE JORNADA<span>live</span></div>'+pBs0()+'</div>'}
 function pBs0(){const form=`<div class="c w"><h3>Buscar contato <i>jornada completa no HubSpot</i></h3><p class="ex">Preencha o CPF, o telefone ou os dois (o painel busca pelos dois e reúne os contatos encontrados). O painel consulta o HubSpot na hora e monta toda a jornada do contato em ordem de data: cadastro, formulários, mudanças de etapa, e-mails, ligações, reuniões, WhatsApp, negócios, notas e tarefas. O número digitado é enviado ao serviço seguro do HubSpot e não é guardado.</p><div class="bsf"><input id="bsc" type="text" inputmode="numeric" autocomplete="off" placeholder="CPF" value="${ESC(BC)}"><input id="bst" type="text" inputmode="numeric" autocomplete="off" placeholder="Telefone com DDD" value="${ESC(BT)}"><button data-act="bs" class="p">Buscar</button>${BQ?'<button data-act="bsx">Limpar</button>':''}</div></div>`;
-if(!BSR)return BGC()+form;if(BSR.err)return BGC()+form+`<div class="c w"><p style="color:#b91c1c;margin:0">${ESC(BSR.err)}</p></div>`;
-const E=BSR.E,O=E.filter(e=>e.src=='Olos'),B=E.filter(e=>e.src=='Botmaker'),HU=E.filter(e=>e.src=='HubSpot');let h=BGC()+form;
+if(!BSR)return form+BGC();if(BSR.err)return form+BGC()+`<div class="c w"><p style="color:#b91c1c;margin:0">${ESC(BSR.err)}</p></div>`;
+const E=BSR.E,O=E.filter(e=>e.src=='Olos'),B=E.filter(e=>e.src=='Botmaker'),HU=E.filter(e=>e.src=='HubSpot');let h=form+BGC();
 const warn=[];
 if(!S.hs.length&&!hsKey())warn.push('Ainda não há dados do HubSpot. Na guia <b>Hubspot › Importações e chave</b>, informe a chave de acesso para consultar o HubSpot ao vivo.');
 if(HSL&&HSL.carregando)warn.push('Consultando o HubSpot ao vivo…');else if(HSL&&HSL.err)warn.push('HubSpot ao vivo: '+ESC(HSL.err)+'.');else if(HSL&&HSL.ev&&!HSL.ct.length)warn.push('HubSpot ao vivo: nenhum contato encontrado com esse telefone ou CPF (o HubSpot precisa ter o número no mesmo formato ou na propriedade cpf).');
