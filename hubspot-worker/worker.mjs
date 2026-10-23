@@ -35,7 +35,7 @@ const SPEC = {
   ]
 };
 let PCACHE = null; const PNOM = {};
-const nomesDe = async (api, ob) => { if (!PNOM[ob] || Date.now() - PNOM[ob].t > 36e5) { const pj = await api('/crm/v3/properties/' + ob).catch(() => null); PNOM[ob] = { t: Date.now(), s: pj && pj.results ? new Set(pj.results.map(x => x.name)) : null } } return PNOM[ob].s };
+const nomesDe = async (api, ob) => { if (!PNOM[ob] || Date.now() - PNOM[ob].t > 36e5) { const CK = new Request('https://cache.interno/nomes-' + ob); let lista = null; try { const hit = await caches.default.match(CK); if (hit) lista = await hit.json() } catch (e) { } if (!lista) { const pj = await api('/crm/v3/properties/' + ob).catch(() => null); lista = pj && pj.results ? pj.results.map(x => x.name) : null; if (lista) { try { await caches.default.put(CK, new Response(JSON.stringify(lista), { headers: { 'Cache-Control': 'max-age=3600' } })) } catch (e) { } } } PNOM[ob] = { t: Date.now(), s: lista ? new Set(lista) : null } } return PNOM[ob].s };
 const entrou = (S, id) => { if (!S) return 'hs_date_entered_' + id; const a = 'hs_date_entered_' + id, b = 'hs_v2_date_entered_' + id; return S.has(a) ? a : S.has(b) ? b : a };
 export default {
   async fetch(req, env) {
@@ -51,20 +51,24 @@ export default {
     const api = async (p, o) => { for (let i = 0; ; i++) { const r = await fetch(H + p, { ...o, headers: { Authorization: 'Bearer ' + env.HUBSPOT_TOKEN, 'Content-Type': 'application/json' } }); if (r.status == 429 && i < 6) { await espera(1000 + 700 * i); continue } if (!r.ok) { const e = new Error('HubSpot ' + r.status + ' em ' + p.split('?')[0]); e.st = r.status; throw e } return r.json() } };
     const resolver = async () => {
       if (PCACHE && Date.now() - PCACHE.t < 36e5) return PCACHE.v;
+      // cache compartilhado entre instâncias (evita refazer a análise pesada das propriedades a cada instância nova e estourar o limite de CPU)
+      const CK = new Request('https://cache.interno/resolver-v2');
+      try { const hit = await caches.default.match(CK); if (hit) { const v0 = await hit.json(); PCACHE = { t: Date.now(), v: v0 }; return v0 } } catch (e) { }
       const v = { contacts: [], deals: [], faltam: { contacts: [], deals: [] }, cpf: {}, cpfp: {}, comm: [] };
       for (const o of ['contacts', 'deals']) {
         const pr = (await api('/crm/v3/properties/' + o)).results;
+        for (const p of pr) { p._l = norm(p.label); p._n = norm(p.name); p._x = /desuso|nao utilizad|obsolet|descontinuad|\bold\b|\(antigo|legado/.test(p._l + ' ' + p._n) } // pré-calcula uma vez por propriedade
         const gj = await api('/crm/v3/properties/' + o + '/groups').catch(() => ({ results: [] })), gl = {}; (gj.results || []).forEach(x => gl[x.name] = x.label);
         { const lc = pr.filter(x => /cpf/i.test(x.name + ' ' + x.label) && !/respons|dependent/i.test(x.label)), od = x => /^cpf$/i.test(x.label.trim()) ? 0 : /desuso|utilizado|antigo/i.test(x.label) ? 2 : 1; lc.sort((a, b) => od(a) - od(b)); v.cpf[o] = lc.map(x => x.name).slice(0, 6); v.cpfp[o] = lc.filter(x => od(x) < 2).map(x => x.name) }
         for (const [g, rot, rx, hint, ev, pii] of SPEC[o]) {
           let best = null, bs = 0; const re = new RegExp(rx);
-          for (const p of pr) { if (p.hidden) continue; const l = norm(p.label), n = norm(p.name); if (/desuso|nao utilizad|obsolet|descontinuad|\bold\b|\(antigo|legado/.test(l + ' ' + n)) continue; let sc = 0; if (hint && p.name == hint) sc = 4; else if (l == norm(rot)) sc = 3; else if (re.test(l)) sc = 2; else if (!/ /.test(rx) && re.test(n)) sc = 1; if (sc > bs || (sc == bs && sc > 0 && best && sc < 4 && l.length < norm(best.label).length)) { best = p; bs = sc } }
+          const rot0 = norm(rot); for (const p of pr) { if (p.hidden || p._x) continue; const l = p._l, n = p._n; let sc = 0; if (hint && p.name == hint) sc = 4; else if (l == rot0) sc = 3; else if (re.test(l)) sc = 2; else if (!/ /.test(rx) && re.test(n)) sc = 1; if (sc > bs || (sc == bs && sc > 0 && best && sc < 4 && l.length < best._l.length)) { best = p; bs = sc } }
           if (best) v[o].push({ g, rot, name: best.name, tipo: best.type, ft: best.fieldType, ev: ev || '', pii: pii ? 1 : 0, op: (best.options || []).filter(x => !x.hidden).map(x => [x.value, x.label]) }); else v.faltam[o].push(rot)
         }
         { const ja = new Set(v[o].map(x => x.name)); let ne = 0; for (const p of pr) { if (p.hidden || ja.has(p.name) || ne >= 120) continue; const gB = /botmaker/i.test((gl[p.groupName] || '') + ' ' + p.groupName), gT = /template|whats/i.test(p.name + ' ' + p.label); if (!gB && !gT) continue; ne++; v[o].push({ g: gB ? 'Botmaker · ' + (gl[p.groupName] || p.groupName) : 'Template e WhatsApp', rot: p.label, name: p.name, tipo: p.type, ft: p.fieldType, ev: '', pii: 0, op: (p.options || []).filter(x => !x.hidden).map(x => [x.value, x.label]) }) } }
       }
       try { const gj = await api('/crm/v3/properties/communications/groups').catch(() => ({ results: [] })), gl = {}; (gj.results || []).forEach(x => gl[x.name] = x.label); const pc = (await api('/crm/v3/properties/communications')).results; v.comm = pc.filter(p => !p.hidden && !['hs_timestamp', 'hs_communication_channel_type', 'hs_communication_body'].includes(p.name) && (/botmaker/i.test((gl[p.groupName] || '') + ' ' + p.groupName) || /template|whats|botmaker/i.test(p.name + ' ' + p.label))).slice(0, 40).map(p => ({ n: p.name, r: p.label, op: (p.options || []).filter(x => !x.hidden).map(x => [x.value, x.label]) })) } catch (e) { }
-      PCACHE = { t: Date.now(), v }; return v
+      PCACHE = { t: Date.now(), v }; try { await caches.default.put(CK, new Response(JSON.stringify(v), { headers: { 'Cache-Control': 'max-age=3600' } })) } catch (e) { }; return v
     };
     const tplCat = lista => { const o = { w: [], d: [], v: [], x: [] }; for (const x of lista || []) { const l = norm(x.rot || ''); if (!/template/.test(l) || !/^data/.test(l) || !/date/.test(x.tipo || '')) continue; const c = /respond/.test(l) ? 'x' : /\blid/.test(l) ? 'v' : /receb|entreg/.test(l) ? 'd' : /envi/.test(l) ? 'w' : ''; if (c) o[c].push(x.name) } return o };
     const tplQtd = lista => { const o = { w: '', d: '', v: '' }; for (const x of lista || []) { const l = norm(x.rot || ''); if (!/^quantidade de whats/.test(l)) continue; const c = /\blid/.test(l) ? 'v' : /receb|entreg/.test(l) ? 'd' : /envi/.test(l) ? 'w' : ''; if (c && !o[c]) o[c] = x.name } return o };
@@ -361,7 +365,7 @@ export default {
       { const o = ficha.contatos.map((_, i) => i).sort((a, b) => ficha.contatos[b].cr - ficha.contatos[a].cr); const R = (arr) => o.map(i => arr[i]); ficha.contatos = R(ficha.contatos); ident.contatos = R(ident.contatos); cts.splice(0, cts.length, ...R(cts)) }
       ficha.negocios.sort((a, b) => b.per - a.per || b.cr - a.cr); ficha.comunicacoes.sort((a, b) => b.t - a.t); ficha.comunicacoes = ficha.comunicacoes.slice(0, 20);
       ev.sort((a, b) => a.d < b.d ? -1 : a.d > b.d ? 1 : a.h - b.h);
-      return out({ contatos: cts, eventos: ev, ficha, ident, versao: 'cpf-estrito-2026-10-23zk' });
+      return out({ contatos: cts, eventos: ev, ficha, ident, versao: 'cpf-estrito-2026-10-23zl' });
     } catch (e) { return out({ erro: String(e.message || e).slice(0, 200) }, e.st == 401 || e.st == 403 ? 502 : 500) }
   }
 };
