@@ -162,7 +162,7 @@ export default {
         if (u.pathname == '/jornada') {
           if (req.method != 'POST') return out({ erro: 'use POST' }, 405);
           const b = await req.json().catch(() => null); if (!b) return out({ erro: 'pedido inválido' }, 400);
-          const OPS2 = ['EQ', 'IN', 'GTE', 'LTE', 'CONTAINS_TOKEN'], mk = f => { if (!/^[a-z0-9_]{1,80}$/.test(f.p || '') || !OPS2.includes(f.op)) throw new Error('filtro inválido'); const o = { propertyName: f.p, operator: f.op }; if (Array.isArray(f.vs)) o.values = f.vs.slice(0, 100).map(String); else if (f.v != null) o.value = String(f.v); return o };
+          const OPS2 = ['EQ', 'IN', 'GTE', 'LTE', 'CONTAINS_TOKEN', 'HAS_PROPERTY'], mk = f => { if (!/^[a-z0-9_]{1,80}$/.test(f.p || '') || !OPS2.includes(f.op)) throw new Error('filtro inválido'); const o = { propertyName: f.p, operator: f.op }; if (Array.isArray(f.vs)) o.values = f.vs.slice(0, 100).map(String); else if (f.v != null) o.value = String(f.v); return o };
           const pls = (Array.isArray(b.pls) ? b.pls : []).map(String).filter(x => /^[\w-]{1,40}$/.test(x)).slice(0, 12), ets = (Array.isArray(b.et) ? b.et : []).map(String).filter(x => /^[\w-]{1,40}$/.test(x)).slice(0, 60), n = Math.min(+b.n || 50, 60);
           const CT = b.obj == 'contacts', mp = (Array.isArray(b.mp) ? b.mp : []).map(String).filter(x => /^[a-z0-9_]{1,80}$/.test(x)).slice(0, 12), op = ['hs_analytics_source', 'hs_analytics_source_data_1', 'utm_source', 'utm_medium', 'utm_campaign', 'first_conversion_event_name', 'lifecyclestage'];
           if (!CT && !pls.length) return out({ erro: 'informe os funis' }, 400);
@@ -182,7 +182,7 @@ export default {
           if (cids.length) for (const [ob, props, cod] of tipos) {
             try {
               const aj = await api('/crm/v4/associations/contacts/' + ob + '/batch/read', { method: 'POST', body: JSON.stringify({ inputs: cids.map(id => ({ id })) }) }), dono = {}, ids = [];
-              for (const r of (aj.results || [])) for (const t of (r.to || []).slice(0, 40)) { if (ids.length >= 500) { trunc = 1; break } const id = String(t.toObjectId); dono[id] = String(r.from.id); ids.push(id) }
+              for (const r of (aj.results || [])) for (const t of (r.to || []).slice(0, 25)) { if (ids.length >= 300) { trunc = 1; break } const id = String(t.toObjectId); dono[id] = String(r.from.id); ids.push(id) }
               for (let i = 0; i < ids.length; i += 100) { const rj = await api('/crm/v3/objects/' + ob + '/batch/read', { method: 'POST', body: JSON.stringify({ properties: props, inputs: ids.slice(i, i + 100).map(id => ({ id })) }) }); for (const x of (rj.results || [])) { const t = +new Date(x.properties.hs_timestamp) || 0; if (t) (ev[dono[x.id]] || (ev[dono[x.id]] = [])).push([t, cod(x.properties)]) } }
             } catch (e) { if (e.st == 401 || e.st == 403) throw e }
           }
@@ -300,7 +300,7 @@ export default {
       { const o = ficha.contatos.map((_, i) => i).sort((a, b) => ficha.contatos[b].cr - ficha.contatos[a].cr); const R = (arr) => o.map(i => arr[i]); ficha.contatos = R(ficha.contatos); ident.contatos = R(ident.contatos); cts.splice(0, cts.length, ...R(cts)) }
       ficha.negocios.sort((a, b) => b.per - a.per || b.cr - a.cr); ficha.comunicacoes.sort((a, b) => b.t - a.t); ficha.comunicacoes = ficha.comunicacoes.slice(0, 20);
       ev.sort((a, b) => a.d < b.d ? -1 : a.d > b.d ? 1 : a.h - b.h);
-      return out({ contatos: cts, eventos: ev, ficha, ident, versao: 'cpf-estrito-2026-10-23q' });
+      return out({ contatos: cts, eventos: ev, ficha, ident, versao: 'cpf-estrito-2026-10-23r' });
     } catch (e) { return out({ erro: String(e.message || e).slice(0, 200) }, e.st == 401 || e.st == 403 ? 502 : 500) }
   }
 };
