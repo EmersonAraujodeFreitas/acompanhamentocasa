@@ -88,16 +88,17 @@ export default {
               const pr = (await api('/crm/v3/properties/contacts').catch(() => ({ results: [] }))).results;
               const cand = pr.filter(x => /univers|^ies|institu|marca|unidade|polo|campus|curso|brand/i.test(x.name + ' ' + (x.label || '')) && !/email|phone|telefone/i.test(x.name)).slice(0, 6).map(x => ({ name: x.name, label: x.label, ops: (x.options || []).filter(z => !z.hidden) }));
               for (const n of ['first_conversion_event_name', 'recent_conversion_event_name', 'hs_analytics_first_url', 'hs_analytics_source_data_2', 'hs_analytics_source_data_1', 'utm_campaign', 'hs_analytics_last_url']) if (!cand.some(c => c.name == n)) cand.push({ name: n, label: n, ops: [] });
-              const defs = [], TK = { UVA: 'uva*', UNIJORGE: 'unijorge*', UJ: 'uj*' };
+              const defs = [], TKU = ['uva*', 'veiga*'], TKJ = ['unijorge*', 'uj'];
               for (const c of cand.slice(0, 12)) {
                 const v = { UVA: [], UNIJORGE: [] }; c.ops.forEach(z => { const k = uniDe(z.label + ' ' + z.value); if (k) v[k].push(z.value) });
                 const en = v.UVA.length || v.UNIJORGE.length;
                 if (en) { const w = []; if (v.UVA.length) w.push({ filters: [{ propertyName: c.name, operator: 'IN', values: v.UVA }] }); if (v.UNIJORGE.length) w.push({ filters: [{ propertyName: c.name, operator: 'IN', values: v.UNIJORGE }] }); let n = 0; try { n = (await busca('/crm/v3/objects/contacts/search', { filterGroups: w, limit: 1, properties: ['hs_object_id'] })).total } catch (e) { } if (n > 0) defs.push({ prop: c.name, rotulo: c.label, tipo: 'enum', val: v, n }); continue }
-                let n = 0; try { n = (await busca('/crm/v3/objects/contacts/search', { filterGroups: [{ filters: [{ propertyName: c.name, operator: 'CONTAINS_TOKEN', value: TK.UVA }] }, { filters: [{ propertyName: c.name, operator: 'CONTAINS_TOKEN', value: TK.UNIJORGE }] }, { filters: [{ propertyName: c.name, operator: 'CONTAINS_TOKEN', value: TK.UJ }] }], limit: 1, properties: ['hs_object_id'] })).total } catch (e) { }
-                if (n > 0) { defs.push({ prop: c.name, rotulo: c.label, tipo: 'texto', val: { UVA: [TK.UVA], UNIJORGE: [TK.UNIJORGE, TK.UJ] }, n }) }
+                const cnt = async toks => { try { return (await busca('/crm/v3/objects/contacts/search', { filterGroups: toks.map(t => ({ filters: [{ propertyName: c.name, operator: 'CONTAINS_TOKEN', value: t }] })), limit: 1, properties: ['hs_object_id'] })).total || 0 } catch (e) { return 0 } };
+                const nU = await cnt(TKU), nJ = await cnt(TKJ);
+                if (nU > 0 || nJ > 0) defs.push({ prop: c.name, rotulo: c.label, tipo: 'texto', val: { UVA: nU > 0 ? TKU : [], UNIJORGE: nJ > 0 ? TKJ : [] }, nU, nJ, n: nU + nJ });
               }
               defs.sort((a, b) => b.n - a.n);
-              { const cu = { UVA: 0, UNIJORGE: 0 }, fin = defs.filter(x => { const g = { UVA: x.val.UVA.length, UNIJORGE: x.val.UNIJORGE.length }; if ((g.UVA && cu.UVA + g.UVA > 5) || (g.UNIJORGE && cu.UNIJORGE + g.UNIJORGE > 5)) return false; cu.UVA += g.UVA; cu.UNIJORGE += g.UNIJORGE; return true }); uni[o] = fin.length ? { tipo: 'multi', defs: fin } : { tipo: 'nenhuma' } }
+              { const pick = (k, nk) => { let cu = 0; const set = new Set(); defs.filter(x => x.val[k].length).sort((p, q) => (q[nk] ?? q.n) - (p[nk] ?? p.n)).forEach(x => { if (cu + x.val[k].length <= 5) { cu += x.val[k].length; set.add(x) } }); return set }, su = pick('UVA', 'nU'), sj = pick('UNIJORGE', 'nJ'), fin = defs.filter(x => su.has(x) || sj.has(x)).map(x => ({ ...x, val: { UVA: su.has(x) ? x.val.UVA : [], UNIJORGE: sj.has(x) ? x.val.UNIJORGE : [] } })); uni[o] = fin.length ? { tipo: 'multi', defs: fin } : { tipo: 'nenhuma' } }
               continue
             }
             { const defs = [];
@@ -105,7 +106,7 @@ export default {
                 defs.push(ops.length && (v.UVA.length || v.UNIJORGE.length) ? { prop: d.name, rotulo: d.label, tipo: 'enum', val: v, opcoes: ops.map(x => x.label) } : { prop: d.name, rotulo: d.label, tipo: 'texto', val: { UVA: ['uva*'], UNIJORGE: ['unijorge*'] } }) }
               if (o == 'deals') {
                 const pv = { UVA: [], UNIJORGE: [] }; funis.forEach(f => { const k = uniDe(f.nome); if (k) pv[k].push(f.id) }); if (pv.UVA.length || pv.UNIJORGE.length) defs.push({ prop: 'pipeline', rotulo: 'Nome do funil', tipo: 'pipeline', val: pv });
-                defs.push({ prop: 'dealname', rotulo: 'Nome do negócio', tipo: 'texto', val: { UVA: ['uva*'], UNIJORGE: ['unijorge*', 'uj*'] } });
+                defs.push({ prop: 'dealname', rotulo: 'Nome do negócio', tipo: 'texto', val: { UVA: ['uva*', 'veiga*'], UNIJORGE: ['unijorge*', 'uj'] } });
               }
               uni[o] = defs.length ? { tipo: 'multi', defs: defs.slice(0, 5) } : { tipo: 'nenhuma' }; continue }
           }
@@ -288,7 +289,7 @@ export default {
       { const o = ficha.contatos.map((_, i) => i).sort((a, b) => ficha.contatos[b].cr - ficha.contatos[a].cr); const R = (arr) => o.map(i => arr[i]); ficha.contatos = R(ficha.contatos); ident.contatos = R(ident.contatos); cts.splice(0, cts.length, ...R(cts)) }
       ficha.negocios.sort((a, b) => b.per - a.per || b.cr - a.cr); ficha.comunicacoes.sort((a, b) => b.t - a.t); ficha.comunicacoes = ficha.comunicacoes.slice(0, 20);
       ev.sort((a, b) => a.d < b.d ? -1 : a.d > b.d ? 1 : a.h - b.h);
-      return out({ contatos: cts, eventos: ev, ficha, ident, versao: 'cpf-estrito-2026-10-23m' });
+      return out({ contatos: cts, eventos: ev, ficha, ident, versao: 'cpf-estrito-2026-10-23n' });
     } catch (e) { return out({ erro: String(e.message || e).slice(0, 200) }, e.st == 401 || e.st == 403 ? 502 : 500) }
   }
 };

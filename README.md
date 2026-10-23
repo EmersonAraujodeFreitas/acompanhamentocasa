@@ -46,3 +46,5 @@ Guias **Contatos**, **Negócios** e **E-mails e comunicação**, cada uma com fa
 - Universidade pelo vínculo (rota `/vinculo` do Worker): para contatos com negócio, usa a universidade do cadastro e, se faltar, deduz pelos negócios ligados (funil, nome, campos). Somente leitura — nada é gravado no HubSpot.
 - Cruzamento por CPF: contatos sem universidade são cruzados com os negócios de mesmo CPF; a taxa de resolução da amostra é aplicada como estimativa ao "Não identificada" dos gráficos e da visão executiva de Contatos.
 - Jornada da base inteira (sem amostra): médias por etapa calculadas por faixas de contagem exatas (`GTE 1,2,3…`) sobre `num_contacted_notes` nos negócios e sobre `hs_email_delivered/open/replied` e `num_contacted_notes` nos contatos por etapa do ciclo de vida.
+- Universidade nos contatos: UVA = `uva*` + `veiga*`; Unijorge = `unijorge*` + token exato `uj` (sem curinga). Cada universidade escolhe seus 5 melhores campos separadamente.
+- Jornada por etapa: média de e-mails (enviados/respondidos) e WhatsApp/templates recebidos enquanto o negócio/contato estava na etapa, antes de avançar (40 mais recentes por etapa).
