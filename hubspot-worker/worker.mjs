@@ -92,10 +92,10 @@ export default {
                 const en = v.UVA.length || v.UNIJORGE.length;
                 if (en) { const w = []; if (v.UVA.length) w.push({ filters: [{ propertyName: c.name, operator: 'IN', values: v.UVA }] }); if (v.UNIJORGE.length) w.push({ filters: [{ propertyName: c.name, operator: 'IN', values: v.UNIJORGE }] }); let n = 0; try { n = (await busca('/crm/v3/objects/contacts/search', { filterGroups: w, limit: 1, properties: ['hs_object_id'] })).total } catch (e) { } if (n > 0) defs.push({ prop: c.name, rotulo: c.label, tipo: 'enum', val: v, n }); continue }
                 let n = 0; try { n = (await busca('/crm/v3/objects/contacts/search', { filterGroups: [{ filters: [{ propertyName: c.name, operator: 'CONTAINS_TOKEN', value: TK.UVA }] }, { filters: [{ propertyName: c.name, operator: 'CONTAINS_TOKEN', value: TK.UNIJORGE }] }, { filters: [{ propertyName: c.name, operator: 'CONTAINS_TOKEN', value: TK.UJ }] }], limit: 1, properties: ['hs_object_id'] })).total } catch (e) { }
-                if (n > 0) { defs.push({ prop: c.name, rotulo: c.label, tipo: 'texto', val: { UVA: [TK.UVA], UNIJORGE: [TK.UNIJORGE] }, n }); defs.push({ prop: c.name, rotulo: c.label + ' (UJ)', tipo: 'texto', val: { UVA: [], UNIJORGE: [TK.UJ] }, n: n - 0.1 }) }
+                if (n > 0) { defs.push({ prop: c.name, rotulo: c.label, tipo: 'texto', val: { UVA: [TK.UVA], UNIJORGE: [TK.UNIJORGE, TK.UJ] }, n }) }
               }
               defs.sort((a, b) => b.n - a.n);
-              { const pk = new Set([...defs.filter(x => x.val.UVA.length).slice(0, 5), ...defs.filter(x => x.val.UNIJORGE.length).slice(0, 5)]), fin = defs.filter(x => pk.has(x)); uni[o] = fin.length ? { tipo: 'multi', defs: fin } : { tipo: 'nenhuma' } }
+              { const cu = { UVA: 0, UNIJORGE: 0 }, fin = defs.filter(x => { const g = { UVA: x.val.UVA.length, UNIJORGE: x.val.UNIJORGE.length }; if ((g.UVA && cu.UVA + g.UVA > 5) || (g.UNIJORGE && cu.UNIJORGE + g.UNIJORGE > 5)) return false; cu.UVA += g.UVA; cu.UNIJORGE += g.UNIJORGE; return true }); uni[o] = fin.length ? { tipo: 'multi', defs: fin } : { tipo: 'nenhuma' } }
               continue
             }
             { const defs = [];
@@ -103,7 +103,7 @@ export default {
                 defs.push(ops.length && (v.UVA.length || v.UNIJORGE.length) ? { prop: d.name, rotulo: d.label, tipo: 'enum', val: v, opcoes: ops.map(x => x.label) } : { prop: d.name, rotulo: d.label, tipo: 'texto', val: { UVA: ['uva*'], UNIJORGE: ['unijorge*'] } }) }
               if (o == 'deals') {
                 const pv = { UVA: [], UNIJORGE: [] }; funis.forEach(f => { const k = uniDe(f.nome); if (k) pv[k].push(f.id) }); if (pv.UVA.length || pv.UNIJORGE.length) defs.push({ prop: 'pipeline', rotulo: 'Nome do funil', tipo: 'pipeline', val: pv });
-                defs.push({ prop: 'dealname', rotulo: 'Nome do negócio', tipo: 'texto', val: { UVA: ['uva*'], UNIJORGE: ['unijorge*'] } }, { prop: 'dealname', rotulo: 'Nome do negócio (UJ)', tipo: 'texto', val: { UVA: [], UNIJORGE: ['uj*'] } });
+                defs.push({ prop: 'dealname', rotulo: 'Nome do negócio', tipo: 'texto', val: { UVA: ['uva*'], UNIJORGE: ['unijorge*', 'uj*'] } });
               }
               uni[o] = defs.length ? { tipo: 'multi', defs: defs.slice(0, 5) } : { tipo: 'nenhuma' }; continue }
           }
