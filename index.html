@@ -1828,7 +1828,7 @@ if(B.err)h+=how('Não foi possível analisar: '+ESC(B.err));if(BG.V==null&&!BG.v
 if(!B.R){h+=B.busy?how('Contando negócios na base inteira…'):'';return h+'</div>'}
 const R=B.R;h+=`<div class="jk"><div><small>Negócios${BG.un?' · '+(BG.un=='UVA'?'UVA':'UJ'):' · todas as IES'}${BG.pers.length?' · período '+ESC(BG.pers.map(v=>(per.v.find(x=>x[0]==v)||[0,v])[1]).join(', ')):''}</small><b>${R.t==null?'–':N(R.t)}</b><em>total na base</em></div></div>`;
 if(B.serr&&!B.sbusy)h+=how('E-mails e WhatsApp por etapa: '+ESC(B.serr));for(const[k,tt,defs]of[['I','Ingresso (candidato → matriculado)',JING],['R','Rematrícula',JREM]]){const rs=R[k];if(!rs.some(x=>x.r))continue;const r0=rs[0].r;h+=gt(tt)+bgCharts(defs,rs,k,B)+bgGrid(defs.map((d,i)=>{const f=rs[i],z=B.ST[k+'|'+i];const es=x=>z&&z.n&&f.r&&!f.bad?'≈ '+N(Math.round(x/z.n*f.r)):N(x);return{t:d[0],n:f.bad?null:f.r,s:i&&rs[i-1].r?P(f.r,rs[i-1].r)+' da etapa anterior':(r0?'100% da 1ª etapa':''),l:z&&z.n?[]:[B.sbusy?'✉ calculando…':(z?'✉ sem amostra':(B.serr?'✉ sem dados · veja o aviso acima':'✉ –'))],tb:bgTb(z,f,es,B.WT&&B.WT[k+'|'+i],B.WQ&&B.WQ[k+'|'+i])}}))}
-{const zs=Object.values(B.ST||{});if(!B.sbusy&&zs.some(z=>z.m>0)&&!zs.some(z=>z.r>0))h+=how('Nenhuma resposta de e-mail foi detectada nas amostras. Se você sabe que existem respostas, publique no Cloudflare a versão mais recente do Worker (hubspot-worker/worker.mjs, versão …23v), que lê o histórico de respostas dos contatos.')}return h+'</div>'}
+return h+'</div>'}
 
 window.__bgCard=bgCard;
 let VINC={};
