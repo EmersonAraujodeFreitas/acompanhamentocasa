@@ -48,3 +48,4 @@ Guias **Contatos**, **Negócios** e **E-mails e comunicação**, cada uma com fa
 - Jornada da base inteira (sem amostra): médias por etapa calculadas por faixas de contagem exatas (`GTE 1,2,3…`) sobre `num_contacted_notes` nos negócios e sobre `hs_email_delivered/open/replied` e `num_contacted_notes` nos contatos por etapa do ciclo de vida.
 - Universidade nos contatos: UVA = `uva*` + `veiga*`; Unijorge = `unijorge*` + token exato `uj` (sem curinga). Cada universidade escolhe seus 5 melhores campos separadamente.
 - Jornada por etapa: média de e-mails (enviados/respondidos) e WhatsApp/templates recebidos enquanto o negócio/contato estava na etapa, antes de avançar (40 mais recentes por etapa).
+- Filtro "Captação e Serviços" em Negócios: pipelines de rematrícula (UVA/Unijorge) e transferência interna = Serviços; os demais = Captação.
