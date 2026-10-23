@@ -46,7 +46,7 @@ export default {
     if (req.headers.get('Origin') && req.headers.get('Origin') != orig) return out({ erro: 'origem não permitida' }, 403);
     const chave = (req.headers.get('Authorization') || '').replace(/^Bearer /, '');
     if (!env.CHAVE_ACESSO || !igual(chave, env.CHAVE_ACESSO)) return out({ erro: 'acesso negado' }, 401);
-    const u = new URL(req.url); if (!['/buscar', '/estrutura', '/painel', '/campos', '/contar', '/vinculo', '/jornada', '/emails', '/propriedades', '/amostra'].includes(u.pathname)) return out({ erro: 'rota inexistente' }, 404);
+    const u = new URL(req.url); if (!['/buscar', '/estrutura', '/painel', '/campos', '/contar', '/vinculo', '/jornada', '/emails', '/propriedades', '/amostra', '/volume'].includes(u.pathname)) return out({ erro: 'rota inexistente' }, 404);
     const espera = ms => new Promise(r => setTimeout(r, ms));
     const api = async (p, o) => { for (let i = 0; ; i++) { const r = await fetch(H + p, { ...o, headers: { Authorization: 'Bearer ' + env.HUBSPOT_TOKEN, 'Content-Type': 'application/json' } }); if (r.status == 429 && i < 6) { await espera(1000 + 700 * i); continue } if (!r.ok) { const e = new Error('HubSpot ' + r.status + ' em ' + p.split('?')[0]); e.st = r.status; throw e } return r.json() } };
     const resolver = async () => {
@@ -195,6 +195,29 @@ export default {
           for (let i = 0; i < 10; i++) { const j = await api('/marketing/v3/emails?limit=100&includeStats=true&archived=false' + (after ? '&after=' + after : '')); all.push(...j.results); after = j.paging && j.paging.next && j.paging.next.after; if (!after) break }
           return out({ e: all.map(x => { const c = (x.stats && x.stats.counters) || {}; return { n: x.name || '', t: x.type || '', s: x.state || '', p: x.publishDate || x.publishedAt || x.createdAt || '', c: { sent: c.sent || 0, delivered: c.delivered || 0, open: c.open || 0, click: c.click || 0, reply: c.reply || 0, bounce: c.bounce || 0, unsub: c.unsubscribed || 0, spam: c.spamreport || 0 } } }) });
         }
+        if (u.pathname == '/volume') {
+          // totais reais (contagem exata do HubSpot) de e-mails e templates de WhatsApp enviados, entregues, lidos e respondidos
+          const R1 = await resolver().catch(() => null), cdef = ((R1 && R1.comm) || []).filter(x => /respond|repl|status|lid|visual|entreg|direc|receb|sentido/i.test(x.r + ' ' + x.n)).slice(0, 8), ctpl = ((R1 && R1.comm) || []).filter(x => /template|whats|botmaker/i.test(x.r + ' ' + x.n)).slice(0, 8);
+          const tplC = ((R1 && R1.contacts) || []).filter(x => /template/i.test(x.rot + ' ' + x.name)).map(x => x.name).slice(0, 4), tplD = ((R1 && R1.deals) || []).filter(x => /template/i.test(x.rot + ' ' + x.name)).map(x => x.name).slice(0, 4);
+          const cnt = async (ob, grupos) => { try { const j = await busca('/crm/v3/objects/' + ob + '/search', { filterGroups: grupos.map(f => ({ filters: f })), limit: 1, properties: ['hs_object_id'] }); await espera(80); return typeof j.total == 'number' ? j.total : null } catch (e) { if (e.st == 401 || e.st == 403) throw e; return null } };
+          const R = {}, wa = { propertyName: 'hs_communication_channel_type', operator: 'IN', values: ['WHATS_APP', 'WHATSAPP', 'WhatsApp'] };
+          R.em_env = await cnt('emails', [[{ propertyName: 'hs_email_direction', operator: 'EQ', value: 'EMAIL' }]]);
+          R.em_rec = await cnt('emails', [[{ propertyName: 'hs_email_direction', operator: 'EQ', value: 'INCOMING_EMAIL' }]]);
+          R.em_ent = await cnt('emails', [[{ propertyName: 'hs_email_direction', operator: 'EQ', value: 'EMAIL' }, { propertyName: 'hs_email_status', operator: 'EQ', value: 'SENT' }]]);
+          R.em_ab = await cnt('emails', [[{ propertyName: 'hs_email_direction', operator: 'EQ', value: 'EMAIL' }, { propertyName: 'hs_email_open_count', operator: 'GT', value: '0' }]]);
+          R.ct_resp_mkt = await cnt('contacts', [[{ propertyName: 'hs_email_last_reply_date', operator: 'HAS_PROPERTY' }]]);
+          R.ct_resp_vd = await cnt('contacts', [[{ propertyName: 'hs_sales_email_last_replied', operator: 'HAS_PROPERTY' }]]);
+          R.wa_tot = await cnt('communications', [[wa]]);
+          if (ctpl.length) R.wa_tpl = await cnt('communications', ctpl.map(x => [wa, { propertyName: x.n, operator: 'HAS_PROPERTY' }]));
+          const cat = { resp: /respond|repl|receb|inbound|incoming|do cliente|do contato/i, ent: /entreg|deliver/i, lid: /\blid|read|visual/i };
+          for (const [k, rx] of Object.entries(cat)) { const gr = []; for (const x of cdef) { const vs = x.op.filter(o => rx.test(o[0] + ' ' + o[1])).map(o => o[0]).slice(0, 50); if (vs.length) gr.push([wa, { propertyName: x.n, operator: 'IN', values: vs }]) } if (gr.length) R['wa_' + k] = await cnt('communications', gr.slice(0, 5)) }
+          if (tplC.length) { R.ct_tpl = await cnt('contacts', tplC.map(n => [{ propertyName: n, operator: 'HAS_PROPERTY' }])) }
+          if (tplD.length) { R.dl_tpl = await cnt('deals', tplD.map(n => [{ propertyName: n, operator: 'HAS_PROPERTY' }])) }
+          R.dl_tot = await cnt('deals', [[{ propertyName: 'createdate', operator: 'GTE', value: '1' }]]);
+          R.ct_tot = await cnt('contacts', [[{ propertyName: 'createdate', operator: 'GTE', value: '1' }]]);
+          let mk = null; try { let after, s = { sent: 0, delivered: 0, open: 0, click: 0, reply: 0, bounce: 0, n: 0 }; for (let i = 0; i < 10; i++) { const j = await api('/marketing/v3/emails?limit=100&includeStats=true&archived=false' + (after ? '&after=' + after : '')); for (const x of j.results || []) { const c = (x.stats && x.stats.counters) || {}; s.n++; for (const k of ['sent', 'delivered', 'open', 'click', 'reply', 'bounce']) s[k] += c[k] || 0 } after = j.paging && j.paging.next && j.paging.next.after; if (!after) break } mk = s } catch (e) { if (e.st == 401 || e.st == 403) throw e }
+          return out({ r: R, mk, props: { cdef: cdef.map(x => x.n), ctpl: ctpl.map(x => x.n), tplC, tplD } });
+        }
         if (u.pathname == '/contar') {
           if (req.method != 'POST') return out({ erro: 'use POST' }, 405);
           const b = await req.json().catch(() => null); if (!b || !Array.isArray(b.q)) return out({ erro: 'pedido inválido' }, 400);
@@ -305,7 +328,7 @@ export default {
       { const o = ficha.contatos.map((_, i) => i).sort((a, b) => ficha.contatos[b].cr - ficha.contatos[a].cr); const R = (arr) => o.map(i => arr[i]); ficha.contatos = R(ficha.contatos); ident.contatos = R(ident.contatos); cts.splice(0, cts.length, ...R(cts)) }
       ficha.negocios.sort((a, b) => b.per - a.per || b.cr - a.cr); ficha.comunicacoes.sort((a, b) => b.t - a.t); ficha.comunicacoes = ficha.comunicacoes.slice(0, 20);
       ev.sort((a, b) => a.d < b.d ? -1 : a.d > b.d ? 1 : a.h - b.h);
-      return out({ contatos: cts, eventos: ev, ficha, ident, versao: 'cpf-estrito-2026-10-23v' });
+      return out({ contatos: cts, eventos: ev, ficha, ident, versao: 'cpf-estrito-2026-10-23w' });
     } catch (e) { return out({ erro: String(e.message || e).slice(0, 200) }, e.st == 401 || e.st == 403 ? 502 : 500) }
   }
 };
