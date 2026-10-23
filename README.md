@@ -33,3 +33,5 @@ A universidade vem da propriedade `universidade` (contatos e negócios) ou, se n
 
 ### Modelo executivo (guia Hubspot)
 Guias **Contatos**, **Negócios** e **E-mails e comunicação**, cada uma com faixa escura de números, leitura automática dos dados, **duelo UVA × Unijorge** (jornada passo a passo lado a lado), gráficos de comunicação (receberam, abriram, clicaram, responderam), mapa de calor por etapa/status/origem e **Modo apresentação** (tela cheia, setas do teclado). A guia de e-mails ranqueia os modelos de e-mail de marketing por entrega, abertura, clique e resposta (exige a permissão de e-mails de marketing no token do HubSpot). A universidade dos contatos é descoberta sozinha pelo Worker (propriedade `universidade`, nome do formulário, origem etc.).
+
+- **Comunicações em detalhe** (Buscar › Jornada completa): tabela com data, hora, tipo, direção, situação (lido, não lido/sem leitura registrada, respondeu, atendida, falhou), etapa do negócio na época e todos os detalhes de cada ligação, e-mail, WhatsApp/mensagem e reunião. Requer o Worker `cpf-estrito-2026-10-22g`.
