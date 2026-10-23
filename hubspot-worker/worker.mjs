@@ -212,7 +212,7 @@ export default {
           // totais reais (contagem exata do HubSpot) de e-mails e templates de WhatsApp enviados, entregues, lidos e respondidos
           const R1 = await resolver().catch(() => null), cdef = ((R1 && R1.comm) || []).filter(x => /respond|repl|status|lid|visual|entreg|direc|receb|sentido/i.test(x.r + ' ' + x.n)).slice(0, 8), ctpl = ((R1 && R1.comm) || []).filter(x => /template|whats|botmaker/i.test(x.r + ' ' + x.n)).slice(0, 8);
           const tplC = ((R1 && R1.contacts) || []).filter(x => /template/i.test(x.rot + ' ' + x.name)).map(x => x.name).slice(0, 4), tplD = ((R1 && R1.deals) || []).filter(x => /template/i.test(x.rot + ' ' + x.name)).map(x => x.name).slice(0, 4);
-          const cnt = async (ob, grupos) => { try { const j = await busca('/crm/v3/objects/' + ob + '/search', { filterGroups: grupos.map(f => ({ filters: f })), limit: 1, properties: ['hs_object_id'] }); await espera(80); return typeof j.total == 'number' ? j.total : null } catch (e) { if (e.st == 401 || e.st == 403) throw e; return null } };
+          const sem = new Set(); const cnt = async (ob, grupos) => { try { const j = await busca('/crm/v3/objects/' + ob + '/search', { filterGroups: grupos.map(f => ({ filters: f })), limit: 1, properties: ['hs_object_id'] }); await espera(80); return typeof j.total == 'number' ? j.total : null } catch (e) { if (e.st == 401) throw e; if (e.st == 403) sem.add(ob); return null } };
           const R = {}, wa = { propertyName: 'hs_communication_channel_type', operator: 'IN', values: ['WHATS_APP', 'WHATSAPP', 'WhatsApp'] };
           R.em_env = await cnt('emails', [[{ propertyName: 'hs_email_direction', operator: 'EQ', value: 'EMAIL' }]]);
           R.em_rec = await cnt('emails', [[{ propertyName: 'hs_email_direction', operator: 'EQ', value: 'INCOMING_EMAIL' }]]);
@@ -228,8 +228,8 @@ export default {
           if (tplD.length) { R.dl_tpl = await cnt('deals', tplD.map(n => [{ propertyName: n, operator: 'HAS_PROPERTY' }])) }
           R.dl_tot = await cnt('deals', [[{ propertyName: 'createdate', operator: 'GTE', value: '1' }]]);
           R.ct_tot = await cnt('contacts', [[{ propertyName: 'createdate', operator: 'GTE', value: '1' }]]);
-          let mk = null; try { let after, s = { sent: 0, delivered: 0, open: 0, click: 0, reply: 0, bounce: 0, n: 0 }; for (let i = 0; i < 10; i++) { const j = await api('/marketing/v3/emails?limit=100&includeStats=true&archived=false' + (after ? '&after=' + after : '')); for (const x of j.results || []) { const c = (x.stats && x.stats.counters) || {}; s.n++; for (const k of ['sent', 'delivered', 'open', 'click', 'reply', 'bounce']) s[k] += c[k] || 0 } after = j.paging && j.paging.next && j.paging.next.after; if (!after) break } mk = s } catch (e) { if (e.st == 401 || e.st == 403) throw e }
-          return out({ r: R, mk, props: { cdef: cdef.map(x => x.n), ctpl: ctpl.map(x => x.n), tplC, tplD } });
+          let mk = null; try { let after, s = { sent: 0, delivered: 0, open: 0, click: 0, reply: 0, bounce: 0, n: 0 }; for (let i = 0; i < 10; i++) { const j = await api('/marketing/v3/emails?limit=100&includeStats=true&archived=false' + (after ? '&after=' + after : '')); for (const x of j.results || []) { const c = (x.stats && x.stats.counters) || {}; s.n++; for (const k of ['sent', 'delivered', 'open', 'click', 'reply', 'bounce']) s[k] += c[k] || 0 } after = j.paging && j.paging.next && j.paging.next.after; if (!after) break } mk = s } catch (e) { if (e.st == 401) throw e; if (e.st == 403) sem.add('marketing-email') }
+          return out({ r: R, mk, sem: [...sem], props: { cdef: cdef.map(x => x.n), ctpl: ctpl.map(x => x.n), tplC, tplD } });
         }
         if (u.pathname == '/contar') {
           if (req.method != 'POST') return out({ erro: 'use POST' }, 405);
@@ -341,7 +341,7 @@ export default {
       { const o = ficha.contatos.map((_, i) => i).sort((a, b) => ficha.contatos[b].cr - ficha.contatos[a].cr); const R = (arr) => o.map(i => arr[i]); ficha.contatos = R(ficha.contatos); ident.contatos = R(ident.contatos); cts.splice(0, cts.length, ...R(cts)) }
       ficha.negocios.sort((a, b) => b.per - a.per || b.cr - a.cr); ficha.comunicacoes.sort((a, b) => b.t - a.t); ficha.comunicacoes = ficha.comunicacoes.slice(0, 20);
       ev.sort((a, b) => a.d < b.d ? -1 : a.d > b.d ? 1 : a.h - b.h);
-      return out({ contatos: cts, eventos: ev, ficha, ident, versao: 'cpf-estrito-2026-10-23x' });
+      return out({ contatos: cts, eventos: ev, ficha, ident, versao: 'cpf-estrito-2026-10-23y' });
     } catch (e) { return out({ erro: String(e.message || e).slice(0, 200) }, e.st == 401 || e.st == 403 ? 502 : 500) }
   }
 };
