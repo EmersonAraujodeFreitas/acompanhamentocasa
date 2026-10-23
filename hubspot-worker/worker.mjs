@@ -253,8 +253,9 @@ export default {
           if (req.method != 'POST') return out({ erro: 'use POST' }, 405);
           const b = await req.json().catch(() => null); if (!b || !Array.isArray(b.q)) return out({ erro: 'pedido inválido' }, 400);
           const ob = ['contacts', 'deals', 'calls', 'emails', 'meetings', 'communications', 'notes', 'tasks'].includes(b.obj) ? b.obj : 'deals', OPS = ['EQ', 'NEQ', 'IN', 'NOT_IN', 'GTE', 'LTE', 'GT', 'LT', 'HAS_PROPERTY', 'NOT_HAS_PROPERTY', 'CONTAINS_TOKEN'];
-          const qs = b.q.slice(0, 40), res = {}, erros = [];
-          if (!PNOM[ob] || Date.now() - PNOM[ob].t > 36e5) { const pj = await api('/crm/v3/properties/' + ob).catch(() => null); PNOM[ob] = { t: Date.now(), s: pj && pj.results ? new Set(pj.results.map(x => x.name)) : null } }
+          if (b.q.length > 14) return out({ erro: 'lote grande demais (máx. 14 contagens por pedido)' }, 400); // mantém o uso de CPU dentro do limite
+          const qs = b.q.slice(0, 14), res = {}, erros = [];
+          await nomesDe(api, ob);
           const conhece = n => !PNOM[ob].s || PNOM[ob].s.has(n);
           const tr = f => (ob == 'deals' && f && /^hs_date_entered_/.test(f.p || '')) ? { ...f, p: entrou(PNOM[ob].s, f.p.slice(16)) } : f;
           for (const x of qs) { if (Array.isArray(x.f)) x.f = x.f.map(tr); if (Array.isArray(x.o)) x.o = x.o.map(g => Array.isArray(g) ? g.map(tr) : g) }
@@ -365,7 +366,7 @@ export default {
       { const o = ficha.contatos.map((_, i) => i).sort((a, b) => ficha.contatos[b].cr - ficha.contatos[a].cr); const R = (arr) => o.map(i => arr[i]); ficha.contatos = R(ficha.contatos); ident.contatos = R(ident.contatos); cts.splice(0, cts.length, ...R(cts)) }
       ficha.negocios.sort((a, b) => b.per - a.per || b.cr - a.cr); ficha.comunicacoes.sort((a, b) => b.t - a.t); ficha.comunicacoes = ficha.comunicacoes.slice(0, 20);
       ev.sort((a, b) => a.d < b.d ? -1 : a.d > b.d ? 1 : a.h - b.h);
-      return out({ contatos: cts, eventos: ev, ficha, ident, versao: 'cpf-estrito-2026-10-23zl' });
+      return out({ contatos: cts, eventos: ev, ficha, ident, versao: 'cpf-estrito-2026-10-23zm' });
     } catch (e) { return out({ erro: String(e.message || e).slice(0, 200) }, e.st == 401 || e.st == 403 ? 502 : 500) }
   }
 };
