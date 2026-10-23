@@ -1497,7 +1497,8 @@ const urlS=v=>{try{if(/^https?:\/\//i.test(v)){const u=new URL(v);return (u.host
 const sitCl=t=>/respond/i.test(t)?'#25a244':/^lid|clicou|atendida$/i.test(t)&&!/n[aã]o/i.test(t)?'#0ea5e9':/falh|n[aã]o atend/i.test(t)?'#e5484d':'#64748b';
 const COMS=E.filter(COM),NOW=Date.now()/36e5;
 const dmap=new Map();for(const e of HU.filter(e=>e.did)){if(!dmap.has(e.did))dmap.set(e.did,[]);dmap.get(e.did).push(e)}
-const evoOf=(did)=>{const es=dmap.get(did)||[],ss=es.filter(e=>e.ty=='etapa').sort((a,b)=>tsE(a)-tsE(b)),cr=es.find(e=>e.ty=='neg'),fc2=es.find(e=>e.ty=='fech');if(!ss.length&&cr)ss.push({...cr});const st=[];for(const e of ss){const p=st[st.length-1];if(p&&p.n==e.st)continue;st.push({n:e.st||'–',t:tsE(e),d:e.d,h:e.h})}
+const STO=[/formul[aá]rio/i,/inscrit/i,/convocad/i,/contrato.*aceit/i,/pagamento.*realiz/i,/enturmad/i,/matricul/i],stRk=n=>{const i=STO.findIndex(r=>r.test(String(n||'')));return i<0?50:i};
+const evoOf=(did)=>{const es=dmap.get(did)||[],ss=es.filter(e=>e.ty=='etapa').map((e,i)=>[e,i]).sort((a,b)=>tsE(a[0])-tsE(b[0])||stRk(a[0].st)-stRk(b[0].st)||a[1]-b[1]).map(x=>x[0]),cr=es.find(e=>e.ty=='neg'),fc2=es.find(e=>e.ty=='fech');if(!ss.length&&cr)ss.push({...cr});const st=[];for(const e of ss){const p=st[st.length-1];if(p&&p.n==e.st)continue;st.push({n:e.st||'–',t:tsE(e),d:e.d,h:e.h})}
  const endT=fc2&&tsE(fc2)>=(st.length?st[st.length-1].t:0)?tsE(fc2):NOW;const rows=[];const t00=tsE(E[0]);
  if(st.length&&st[0].t>t00)rows.push({n:'Antes do negócio',pre:1,a:t00,b:st[0].t});
  st.forEach((s0,i)=>rows.push({n:s0.n,d:s0.d,h:s0.h,a:s0.t,b:i<st.length-1?st[i+1].t:endT,cur:i==st.length-1}));
