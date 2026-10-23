@@ -111,7 +111,8 @@ export default {
               uni[o] = defs.length ? { tipo: 'multi', defs: defs.slice(0, 5) } : { tipo: 'nenhuma' }; continue }
           }
           let mat = null; try { const pr = (await api('/crm/v3/properties/contacts')).results, c = pr.filter(p => !p.hidden && !/desuso|nao utilizad|obsolet/.test(norm(p.label + ' ' + p.name)) && /(ja|aluno).*(aluno|matricul)|matriculad/.test(norm(p.label))).sort((a, b) => a.label.length - b.label.length)[0]; if (c) { if (c.type == 'bool' || c.fieldType == 'booleancheckbox') mat = { p: c.name, op: 'EQ', v: 'true' }; else { const vs = (c.options || []).filter(o => !o.hidden && /^(sim|s|true)$|matricul|ativo/.test(norm(o.label))).map(o => o.value); mat = vs.length ? { p: c.name, op: 'IN', vs } : { p: c.name, op: 'EQ', v: 'Sim' } } } } catch (e) { }
-          return out({ funis, donos, uni, opc, mat });
+          let per = null; try { const R0 = await resolver(), f = (R0.deals || []).find(x => x.rot == 'Período letivo'); if (f) { let vs = f.op.map(x => [String(x[0]), String(x[1] || x[0])]); if (!vs.length) { const sj = await busca('/crm/v3/objects/deals/search', { filterGroups: [{ filters: [{ propertyName: f.name, operator: 'HAS_PROPERTY' }] }], sorts: [{ propertyName: 'createdate', direction: 'DESCENDING' }], properties: [f.name], limit: 100 }); vs = [...new Set((sj.results || []).map(r => String(r.properties[f.name] || '')).filter(Boolean))].map(x => [x, x]) } per = { p: f.name, v: vs.sort((a, b) => b[1].localeCompare(a[1])).slice(0, 30) } } } catch (e) { }
+          return out({ funis, donos, uni, opc, mat, per });
         }
         if (u.pathname == '/propriedades') {
           const ob = u.searchParams.get('obj') == 'deals' ? 'deals' : 'contacts', j = await api('/crm/v3/properties/' + ob);
@@ -296,7 +297,7 @@ export default {
       { const o = ficha.contatos.map((_, i) => i).sort((a, b) => ficha.contatos[b].cr - ficha.contatos[a].cr); const R = (arr) => o.map(i => arr[i]); ficha.contatos = R(ficha.contatos); ident.contatos = R(ident.contatos); cts.splice(0, cts.length, ...R(cts)) }
       ficha.negocios.sort((a, b) => b.per - a.per || b.cr - a.cr); ficha.comunicacoes.sort((a, b) => b.t - a.t); ficha.comunicacoes = ficha.comunicacoes.slice(0, 20);
       ev.sort((a, b) => a.d < b.d ? -1 : a.d > b.d ? 1 : a.h - b.h);
-      return out({ contatos: cts, eventos: ev, ficha, ident, versao: 'cpf-estrito-2026-10-23o' });
+      return out({ contatos: cts, eventos: ev, ficha, ident, versao: 'cpf-estrito-2026-10-23p' });
     } catch (e) { return out({ erro: String(e.message || e).slice(0, 200) }, e.st == 401 || e.st == 403 ? 502 : 500) }
   }
 };

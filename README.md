@@ -49,3 +49,4 @@ Guias **Contatos**, **Negócios** e **E-mails e comunicação**, cada uma com fa
 - Universidade nos contatos: UVA = `uva*` + `veiga*`; Unijorge = `unijorge*` + token exato `uj` (sem curinga). Cada universidade escolhe seus 5 melhores campos separadamente.
 - Jornada por etapa: média de e-mails (enviados/respondidos) e WhatsApp/templates recebidos enquanto o negócio/contato estava na etapa, antes de avançar (40 mais recentes por etapa).
 - Filtro "Captação e Serviços" em Negócios: pipelines de rematrícula (UVA/Unijorge) e transferência interna = Serviços; os demais = Captação.
+- Buscar: "Análise geral" no topo, com contagem da base inteira por etapa (ingresso e rematrícula) e filtro por período letivo (propriedade descoberta pelo Worker em `/estrutura` → `per`).
