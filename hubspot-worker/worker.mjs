@@ -66,6 +66,8 @@ export default {
       try { const gj = await api('/crm/v3/properties/communications/groups').catch(() => ({ results: [] })), gl = {}; (gj.results || []).forEach(x => gl[x.name] = x.label); const pc = (await api('/crm/v3/properties/communications')).results; v.comm = pc.filter(p => !p.hidden && !['hs_timestamp', 'hs_communication_channel_type', 'hs_communication_body'].includes(p.name) && (/botmaker/i.test((gl[p.groupName] || '') + ' ' + p.groupName) || /template|whats|botmaker/i.test(p.name + ' ' + p.label))).slice(0, 40).map(p => ({ n: p.name, r: p.label, op: (p.options || []).filter(x => !x.hidden).map(x => [x.value, x.label]) })) } catch (e) { }
       PCACHE = { t: Date.now(), v }; return v
     };
+    const tplCat = lista => { const o = { w: [], d: [], v: [], x: [] }; for (const x of lista || []) { const l = norm(x.rot || ''); if (!/template/.test(l) || !/^data/.test(l) || !/date/.test(x.tipo || '')) continue; const c = /respond/.test(l) ? 'x' : /\blid/.test(l) ? 'v' : /receb|entreg/.test(l) ? 'd' : /envi/.test(l) ? 'w' : ''; if (c) o[c].push(x.name) } return o };
+    const cdOf = (cat, n) => Object.keys(cat).find(k => cat[k].includes(n)) || 'w';
     const uniDe = t => { t = String(t || '').toLowerCase(); return /unijorge|jorge amado|(^|[^a-z0-9])uj([^a-z0-9]|$)/.test(t) ? 'UNIJORGE' : /veiga de almeida|(^|[^a-z0-9])uva([^a-z0-9]|$)/.test(t) ? 'UVA' : '' };
     const busca = (p, corpo) => api(p, { method: 'POST', body: JSON.stringify(corpo) });
     if (u.pathname != '/buscar') {
@@ -178,12 +180,13 @@ export default {
           const waResp = p => cdef.some(x => p[x.n] && /respond|repl|receb|inbound|incoming|do cliente|do contato/i.test(String(p[x.n]) + ' ' + lbl(x, p[x.n])));
           const tipos = [['communications', ['hs_timestamp', 'hs_communication_channel_type', ...cdef.map(x => x.n), ...ctpl.map(x => x.n)], p => (/whats/i.test(p.hs_communication_channel_type || '') || ctpl.some(x => p[x.n])) ? (waResp(p) ? 'x' : 'w') : /sms/i.test(p.hs_communication_channel_type || '') ? 's' : 'o'], ['emails', ['hs_timestamp', 'hs_email_direction'], p => /incoming/i.test(p.hs_email_direction || '') ? 'r' : 'm'], ['calls', ['hs_timestamp'], () => 'l'], ['meetings', ['hs_timestamp'], () => 'u']];
           let trunc = 0;
-          const tplC = ((R1 && R1.contacts) || []).filter(x => /template/i.test(x.rot + ' ' + x.name)).map(x => x.name).slice(0, 6);
+          const catC = tplCat(R1 && R1.contacts), catD = tplCat(R1 && R1.deals), dtC = Object.values(catC).flat().slice(0, 12), dtD = Object.values(catD).flat().slice(0, 12), tplC = dtC.length ? dtC : ((R1 && R1.contacts) || []).filter(x => /template/i.test(x.rot + ' ' + x.name)).map(x => x.name).slice(0, 6);
+          const tmC = (n, v) => { const c = cdOf(catC, n), tt = dtC.length ? (+new Date(v.value) || +v.value || 0) : (v.value ? +new Date(v.timestamp) || 0 : 0); return tt ? [tt, c] : null };
           // contagem por NEGÓCIO: e-mails e comunicações associados ao próprio negócio e histórico dos campos de template do negócio
           const evD = {}; let hasD = false;
           if (!CT && deals.length) {
-            const tplD2 = ((R1 && R1.deals) || []).filter(x => /template/i.test(x.rot + ' ' + x.name)).map(x => x.name).slice(0, 6);
-            try { if (tplD2.length) for (let i = 0; i < deals.length; i += 100) { const rj = await api('/crm/v3/objects/deals/batch/read', { method: 'POST', body: JSON.stringify({ properties: tplD2, propertiesWithHistory: tplD2, inputs: deals.slice(i, i + 100).map(d => ({ id: d.id })) }) }); for (const x of (rj.results || [])) { const H = x.propertiesWithHistory || {}; for (const tp of tplD2) for (const v of (H[tp] || [])) { const tt = v.value ? +new Date(v.timestamp) || 0 : 0; if (tt) { (evD[x.id] || (evD[x.id] = [])).push([tt, 'w']); hasD = true } } } } } catch (e) { if (e.st == 401 || e.st == 403) throw e }
+            const tplD2 = dtD.length ? dtD : ((R1 && R1.deals) || []).filter(x => /template/i.test(x.rot + ' ' + x.name)).map(x => x.name).slice(0, 6);
+            try { if (tplD2.length) for (let i = 0; i < deals.length; i += 100) { const rj = await api('/crm/v3/objects/deals/batch/read', { method: 'POST', body: JSON.stringify({ properties: tplD2, propertiesWithHistory: tplD2, inputs: deals.slice(i, i + 100).map(d => ({ id: d.id })) }) }); for (const x of (rj.results || [])) { const H = x.propertiesWithHistory || {}; for (const tp of tplD2) for (const v of (H[tp] || [])) { const tt = dtD.length ? (+new Date(v.value) || +v.value || 0) : (v.value ? +new Date(v.timestamp) || 0 : 0); if (tt) { (evD[x.id] || (evD[x.id] = [])).push([tt, dtD.length ? cdOf(catD, tp) : 'w']); hasD = true } } } } } catch (e) { if (e.st == 401 || e.st == 403) throw e }
             for (const [ob, props, cod] of tipos.filter(x => x[0] == 'communications' || x[0] == 'emails')) {
               try {
                 const aj = await api('/crm/v4/associations/deals/' + ob + '/batch/read', { method: 'POST', body: JSON.stringify({ inputs: deals.map(d => ({ id: d.id })) }) }), dono = {}, ids = [];
@@ -192,7 +195,9 @@ export default {
               } catch (e) { if (e.st == 401 || e.st == 403) throw e }
             }
           }
-          if (!hasD && cids.length) { try { for (let i = 0; i < cids.length; i += 100) { const rj = await api('/crm/v3/objects/contacts/batch/read', { method: 'POST', body: JSON.stringify({ properties: ['hs_email_last_email_name', ...tplC], propertiesWithHistory: ['hs_email_last_email_name', 'hs_email_last_reply_date', 'hs_sales_email_last_replied', ...tplC], inputs: cids.slice(i, i + 100).map(id => ({ id })) }) }); for (const x of (rj.results || [])) { const H = x.propertiesWithHistory || {}, L = ev[x.id] || (ev[x.id] = []); for (const v of (H.hs_email_last_email_name || [])) { const t = v.value ? +new Date(v.timestamp) || 0 : 0; if (t) L.push([t, 'm']) } for (const k of ['hs_email_last_reply_date', 'hs_sales_email_last_replied']) for (const v of (H[k] || [])) { const t = +new Date(v.value) || +v.value || 0; if (t) L.push([t, 'r']) } for (const tp of tplC) for (const v of (H[tp] || [])) { const t = v.value ? +new Date(v.timestamp) || 0 : 0; if (t) L.push([t, 'w']) } } } } catch (e) { if (e.st == 401 || e.st == 403) throw e } }
+          if (!hasD && cids.length) { try { for (let i = 0; i < cids.length; i += 100) { const rj = await api('/crm/v3/objects/contacts/batch/read', { method: 'POST', body: JSON.stringify({ properties: ['hs_email_last_email_name'], propertiesWithHistory: ['hs_email_last_email_name', 'hs_email_last_reply_date', 'hs_sales_email_last_replied'], inputs: cids.slice(i, i + 100).map(id => ({ id })) }) }); for (const x of (rj.results || [])) { const H = x.propertiesWithHistory || {}, L = ev[x.id] || (ev[x.id] = []); for (const v of (H.hs_email_last_email_name || [])) { const t = v.value ? +new Date(v.timestamp) || 0 : 0; if (t) L.push([t, 'm']) } for (const k of ['hs_email_last_reply_date', 'hs_sales_email_last_replied']) for (const v of (H[k] || [])) { const t = +new Date(v.value) || +v.value || 0; if (t) L.push([t, 'r']) } } } } catch (e) { if (e.st == 401 || e.st == 403) throw e } }
+          const evT = {}; // templates de WhatsApp no contato (usado quando o negócio não tem os campos de template)
+          if (cids.length && tplC.length && !dtD.length) { try { for (let i = 0; i < cids.length; i += 100) { const rj = await api('/crm/v3/objects/contacts/batch/read', { method: 'POST', body: JSON.stringify({ properties: tplC.slice(0, 1), propertiesWithHistory: tplC, inputs: cids.slice(i, i + 100).map(id => ({ id })) }) }); for (const x of (rj.results || [])) { const H = x.propertiesWithHistory || {}; for (const tp of tplC) for (const v of (H[tp] || [])) { const e = tmC(tp, v); if (e) (evT[x.id] || (evT[x.id] = [])).push(e) } } } } catch (e) { if (e.st == 401 || e.st == 403) throw e } }
           if (!hasD && cids.length) for (const [ob, props, cod] of tipos.filter(x => x[0] == 'communications' || x[0] == 'emails')) {
             try {
               const aj = await api('/crm/v4/associations/contacts/' + ob + '/batch/read', { method: 'POST', body: JSON.stringify({ inputs: cids.map(id => ({ id })) }) }), dono = {}, ids = [];
@@ -200,8 +205,8 @@ export default {
               for (let i = 0; i < ids.length; i += 100) { const rj = await api('/crm/v3/objects/' + ob + '/batch/read', { method: 'POST', body: JSON.stringify({ properties: props, inputs: ids.slice(i, i + 100).map(id => ({ id })) }) }); for (const x of (rj.results || [])) { const t = +new Date(x.properties.hs_timestamp) || 0; if (t) (ev[dono[x.id]] || (ev[dono[x.id]] = [])).push([t, cod(x.properties)]) } }
             } catch (e) { if (e.st == 401 || e.st == 403) throw e }
           }
-          if (CT) return out({ d: deals.map(d => { const p = d.properties, e = {}; mp.forEach(x => { const v = p[x]; const t = v ? (+v || +new Date(v)) : 0; if (t) e[x] = t }); return { id: d.id, c: +new Date(p.createdate) || 0, e, o: op.map(k => p[k] || ''), ev: (ev[d.id] || []).sort((a, b) => a[0] - b[0]) } }), after: nx || '', trunc });
-          return out({ d: deals.map(d => { const p = d.properties, e = {}; ets.forEach((x, ix) => { const v = p[eprops[ix]]; const t = v ? (+v || +new Date(v)) : 0; if (t) e[x] = t }); return { id: d.id, pl: p.pipeline, c: +new Date(p.createdate) || 0, e, ev: ((hasD ? evD[d.id] : ev[ct[d.id]]) || []).sort((a, b) => a[0] - b[0]), sc: ct[d.id] ? 0 : 1, pd: hasD ? 1 : 0 } }), after: nx || '', trunc });
+          if (CT) return out({ d: deals.map(d => { const p = d.properties, e = {}; mp.forEach(x => { const v = p[x]; const t = v ? (+v || +new Date(v)) : 0; if (t) e[x] = t }); return { id: d.id, c: +new Date(p.createdate) || 0, e, o: op.map(k => p[k] || ''), ev: [...(ev[d.id] || []), ...(evT[d.id] || [])].sort((a, b) => a[0] - b[0]) } }), after: nx || '', trunc });
+          return out({ d: deals.map(d => { const p = d.properties, e = {}; ets.forEach((x, ix) => { const v = p[eprops[ix]]; const t = v ? (+v || +new Date(v)) : 0; if (t) e[x] = t }); return { id: d.id, pl: p.pipeline, c: +new Date(p.createdate) || 0, e, ev: [...((hasD ? evD[d.id] : ev[ct[d.id]]) || []), ...(!dtD.length ? (evT[ct[d.id]] || []) : [])].sort((a, b) => a[0] - b[0]), sc: ct[d.id] ? 0 : 1, pd: hasD ? 1 : 0 } }), after: nx || '', trunc });
         }
         if (u.pathname == '/emails') {
           let after, all = [];
@@ -224,12 +229,14 @@ export default {
           if (ctpl.length) R.wa_tpl = await cnt('communications', ctpl.map(x => [wa, { propertyName: x.n, operator: 'HAS_PROPERTY' }]));
           const cat = { resp: /respond|repl|receb|inbound|incoming|do cliente|do contato/i, ent: /entreg|deliver/i, lid: /\blid|read|visual/i };
           for (const [k, rx] of Object.entries(cat)) { const gr = []; for (const x of cdef) { const vs = x.op.filter(o => rx.test(o[0] + ' ' + o[1])).map(o => o[0]).slice(0, 50); if (vs.length) gr.push([wa, { propertyName: x.n, operator: 'IN', values: vs }]) } if (gr.length) R['wa_' + k] = await cnt('communications', gr.slice(0, 5)) }
+          const cC = tplCat(R1 && R1.contacts), cD = tplCat(R1 && R1.deals), TP = { contacts: cC, deals: cD }, TC = { contacts: {}, deals: {} };
+          for (const [ob, cat] of Object.entries(TP)) for (const [k, ns] of Object.entries(cat)) if (ns.length) TC[ob][k] = await cnt(ob, ns.slice(0, 5).map(n => [{ propertyName: n, operator: 'HAS_PROPERTY' }]));
           if (tplC.length) { R.ct_tpl = await cnt('contacts', tplC.map(n => [{ propertyName: n, operator: 'HAS_PROPERTY' }])) }
           if (tplD.length) { R.dl_tpl = await cnt('deals', tplD.map(n => [{ propertyName: n, operator: 'HAS_PROPERTY' }])) }
           R.dl_tot = await cnt('deals', [[{ propertyName: 'createdate', operator: 'GTE', value: '1' }]]);
           R.ct_tot = await cnt('contacts', [[{ propertyName: 'createdate', operator: 'GTE', value: '1' }]]);
           let mk = null; try { let after, s = { sent: 0, delivered: 0, open: 0, click: 0, reply: 0, bounce: 0, n: 0 }; for (let i = 0; i < 10; i++) { const j = await api('/marketing/v3/emails?limit=100&includeStats=true&archived=false' + (after ? '&after=' + after : '')); for (const x of j.results || []) { const c = (x.stats && x.stats.counters) || {}; s.n++; for (const k of ['sent', 'delivered', 'open', 'click', 'reply', 'bounce']) s[k] += c[k] || 0 } after = j.paging && j.paging.next && j.paging.next.after; if (!after) break } mk = s } catch (e) { if (e.st == 401) throw e; if (e.st == 403) sem.add('marketing-email') }
-          return out({ r: R, mk, sem: [...sem], props: { cdef: cdef.map(x => x.n), ctpl: ctpl.map(x => x.n), tplC, tplD } });
+          return out({ r: R, mk, sem: [...sem], tpl: { cat: TP, n: TC }, props: { cdef: cdef.map(x => x.n), ctpl: ctpl.map(x => x.n), tplC, tplD } });
         }
         if (u.pathname == '/contar') {
           if (req.method != 'POST') return out({ erro: 'use POST' }, 405);
@@ -341,7 +348,7 @@ export default {
       { const o = ficha.contatos.map((_, i) => i).sort((a, b) => ficha.contatos[b].cr - ficha.contatos[a].cr); const R = (arr) => o.map(i => arr[i]); ficha.contatos = R(ficha.contatos); ident.contatos = R(ident.contatos); cts.splice(0, cts.length, ...R(cts)) }
       ficha.negocios.sort((a, b) => b.per - a.per || b.cr - a.cr); ficha.comunicacoes.sort((a, b) => b.t - a.t); ficha.comunicacoes = ficha.comunicacoes.slice(0, 20);
       ev.sort((a, b) => a.d < b.d ? -1 : a.d > b.d ? 1 : a.h - b.h);
-      return out({ contatos: cts, eventos: ev, ficha, ident, versao: 'cpf-estrito-2026-10-23y' });
+      return out({ contatos: cts, eventos: ev, ficha, ident, versao: 'cpf-estrito-2026-10-23z' });
     } catch (e) { return out({ erro: String(e.message || e).slice(0, 200) }, e.st == 401 || e.st == 403 ? 502 : 500) }
   }
 };
