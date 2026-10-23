@@ -36,3 +36,4 @@ Guias **Contatos**, **Negócios** e **E-mails e comunicação**, cada uma com fa
 
 - **Comunicações em detalhe** (Buscar › Jornada completa): tabela com data, hora, tipo, direção, situação (lido, não lido/sem leitura registrada, respondeu, atendida, falhou), etapa do negócio na época e todos os detalhes de cada ligação, e-mail, WhatsApp/mensagem e reunião. Requer o Worker `cpf-estrito-2026-10-22g`.
 - Em **Etapas da jornada por negócio**, cada etapa lista abaixo as comunicações dela (data, hora, tipo, direção, situação e todos os dados).
+- **Matrículas e candidaturas** (Buscar › Visão geral): um cartão por negócio do CPF com situação acadêmica, situação do aluno, curso, período, etapa, RA e todos os campos; sinaliza quando há mais de uma matrícula. Também há o painel "Visão executiva" e "Leitura rápida", e gráficos de atividade por mês, canal e situação na Jornada completa.
