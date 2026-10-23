@@ -174,8 +174,11 @@ export default {
           const ct = {}; // deal -> contato
           if (CT) deals.forEach(d => ct[d.id] = String(d.id)); else if (deals.length) { const aj = await api('/crm/v4/associations/deals/contacts/batch/read', { method: 'POST', body: JSON.stringify({ inputs: deals.map(d => ({ id: d.id })) }) }).catch(() => ({ results: [] })); (aj.results || []).forEach(r => { if (r.to && r.to[0]) ct[r.from.id] = String(r.to[0].toObjectId) }) }
           const cids = [...new Set(Object.values(ct))], ev = {}; // contato -> [[ts,codigo]]
-          const tipos = [['communications', ['hs_timestamp', 'hs_communication_channel_type'], p => /whats/i.test(p.hs_communication_channel_type || '') ? 'w' : /sms/i.test(p.hs_communication_channel_type || '') ? 's' : 'o'], ['emails', ['hs_timestamp', 'hs_email_direction'], p => /incoming/i.test(p.hs_email_direction || '') ? 'r' : 'm'], ['calls', ['hs_timestamp'], () => 'l'], ['meetings', ['hs_timestamp'], () => 'u']];
+          const R1 = await resolver().catch(() => null), cdef = ((R1 && R1.comm) || []).filter(x => /respond|repl|status|lid|visual|entreg|direc|receb|sentido/i.test(x.r + ' ' + x.n)).slice(0, 8), lbl = (x, v) => ((x.op.find(z => z[0] == v) || [])[1]) || v;
+          const waResp = p => cdef.some(x => p[x.n] && /respond|repl|receb|inbound|incoming|do cliente|do contato/i.test(String(p[x.n]) + ' ' + lbl(x, p[x.n])));
+          const tipos = [['communications', ['hs_timestamp', 'hs_communication_channel_type', ...cdef.map(x => x.n)], p => /whats/i.test(p.hs_communication_channel_type || '') ? (waResp(p) ? 'x' : 'w') : /sms/i.test(p.hs_communication_channel_type || '') ? 's' : 'o'], ['emails', ['hs_timestamp', 'hs_email_direction'], p => /incoming/i.test(p.hs_email_direction || '') ? 'r' : 'm'], ['calls', ['hs_timestamp'], () => 'l'], ['meetings', ['hs_timestamp'], () => 'u']];
           let trunc = 0;
+          if (cids.length) { try { for (let i = 0; i < cids.length; i += 100) { const rj = await api('/crm/v3/objects/contacts/batch/read', { method: 'POST', body: JSON.stringify({ properties: ['hs_email_last_email_name'], propertiesWithHistory: ['hs_email_last_email_name', 'hs_email_last_reply_date'], inputs: cids.slice(i, i + 100).map(id => ({ id })) }) }); for (const x of (rj.results || [])) { const H = x.propertiesWithHistory || {}, L = ev[x.id] || (ev[x.id] = []); for (const v of (H.hs_email_last_email_name || [])) { const t = v.value ? +new Date(v.timestamp) || 0 : 0; if (t) L.push([t, 'm']) } for (const v of (H.hs_email_last_reply_date || [])) { const t = +new Date(v.value) || +v.value || 0; if (t) L.push([t, 'r']) } } } } catch (e) { if (e.st == 401 || e.st == 403) throw e } }
           if (cids.length) for (const [ob, props, cod] of tipos) {
             try {
               const aj = await api('/crm/v4/associations/contacts/' + ob + '/batch/read', { method: 'POST', body: JSON.stringify({ inputs: cids.map(id => ({ id })) }) }), dono = {}, ids = [];
@@ -297,7 +300,7 @@ export default {
       { const o = ficha.contatos.map((_, i) => i).sort((a, b) => ficha.contatos[b].cr - ficha.contatos[a].cr); const R = (arr) => o.map(i => arr[i]); ficha.contatos = R(ficha.contatos); ident.contatos = R(ident.contatos); cts.splice(0, cts.length, ...R(cts)) }
       ficha.negocios.sort((a, b) => b.per - a.per || b.cr - a.cr); ficha.comunicacoes.sort((a, b) => b.t - a.t); ficha.comunicacoes = ficha.comunicacoes.slice(0, 20);
       ev.sort((a, b) => a.d < b.d ? -1 : a.d > b.d ? 1 : a.h - b.h);
-      return out({ contatos: cts, eventos: ev, ficha, ident, versao: 'cpf-estrito-2026-10-23p' });
+      return out({ contatos: cts, eventos: ev, ficha, ident, versao: 'cpf-estrito-2026-10-23q' });
     } catch (e) { return out({ erro: String(e.message || e).slice(0, 200) }, e.st == 401 || e.st == 403 ? 502 : 500) }
   }
 };
