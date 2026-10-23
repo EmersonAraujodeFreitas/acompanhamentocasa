@@ -213,7 +213,7 @@ export default {
             } catch (e) { if (e.st == 401 || e.st == 403) throw e }
           }
           if (CT) return out({ d: deals.map(d => { const p = d.properties, e = {}; mp.forEach(x => { const v = p[x]; const t = v ? (+v || +new Date(v)) : 0; if (t) e[x] = t }); return { id: d.id, c: +new Date(p.createdate) || 0, e, o: op.map(k => p[k] || ''), ev: [...(ev[d.id] || []), ...(evT[d.id] || [])].sort((a, b) => a[0] - b[0]) } }), after: nx || '', trunc });
-          return out({ d: deals.map(d => { const p = d.properties, e = {}; ets.forEach((x, ix) => { const v = p[eprops[ix]]; const t = v ? (+v || +new Date(v)) : 0; if (t) e[x] = t }); return { id: d.id, pl: p.pipeline, c: +new Date(p.createdate) || 0, e, ev: (() => { const bd = hasD ? (evD[d.id] || []) : (ev[ct[d.id]] || []), base = hasD && !bd.some(x => x[1] == 'm' || x[1] == 'r') ? [...bd, ...(ev[ct[d.id]] || [])] : bd; return [...base, ...(!base.some(x => 'wdvx'.includes(x[1])) ? (evT[ct[d.id]] || []) : [])] })().sort((a, b) => a[0] - b[0]), ec: ecC[ct[d.id]] || null, sc: ct[d.id] ? 0 : 1, pd: hasD ? 1 : 0, q: (qDn.w || qDn.d || qDn.v) ? { w: +d.properties[qDn.w] || 0, d: +d.properties[qDn.d] || 0, v: +d.properties[qDn.v] || 0 } : (qCt[ct[d.id]] || null) } }), after: nx || '', trunc });
+          return out({ d: deals.map(d => { const p = d.properties, e = {}; ets.forEach((x, ix) => { const v = p[eprops[ix]]; const t = v ? (+v || +new Date(v)) : 0; if (t) e[x] = t }); return { id: d.id, pl: p.pipeline, c: +new Date(p.createdate) || 0, e, ev: (() => { const bd = hasD ? (evD[d.id] || []) : (ev[ct[d.id]] || []), base = hasD && !bd.some(x => x[1] == 'm' || x[1] == 'r') ? [...bd, ...(ev[ct[d.id]] || [])] : bd; return [...base, ...(!base.some(x => 'wdvx'.includes(x[1])) ? (evT[ct[d.id]] || []) : [])] })().sort((a, b) => a[0] - b[0]), ec: ecC[ct[d.id]] || null, sc: ct[d.id] ? 0 : 1, pd: hasD ? 1 : 0, q: (() => { const qd = (qDn.w || qDn.d || qDn.v) ? { w: +d.properties[qDn.w] || 0, d: +d.properties[qDn.d] || 0, v: +d.properties[qDn.v] || 0 } : null, qc = qCt[ct[d.id]] || null; return qd && (qd.w || qd.d || qd.v) ? qd : (qc && (qc.w || qc.d || qc.v) ? qc : (qd || qc)) })() } }), after: nx || '', trunc });
         }
         if (u.pathname == '/emails') {
           let after, all = [];
@@ -361,7 +361,7 @@ export default {
       { const o = ficha.contatos.map((_, i) => i).sort((a, b) => ficha.contatos[b].cr - ficha.contatos[a].cr); const R = (arr) => o.map(i => arr[i]); ficha.contatos = R(ficha.contatos); ident.contatos = R(ident.contatos); cts.splice(0, cts.length, ...R(cts)) }
       ficha.negocios.sort((a, b) => b.per - a.per || b.cr - a.cr); ficha.comunicacoes.sort((a, b) => b.t - a.t); ficha.comunicacoes = ficha.comunicacoes.slice(0, 20);
       ev.sort((a, b) => a.d < b.d ? -1 : a.d > b.d ? 1 : a.h - b.h);
-      return out({ contatos: cts, eventos: ev, ficha, ident, versao: 'cpf-estrito-2026-10-23zj' });
+      return out({ contatos: cts, eventos: ev, ficha, ident, versao: 'cpf-estrito-2026-10-23zk' });
     } catch (e) { return out({ erro: String(e.message || e).slice(0, 200) }, e.st == 401 || e.st == 403 ? 502 : 500) }
   }
 };
