@@ -44,7 +44,7 @@ export default {
     if (req.headers.get('Origin') && req.headers.get('Origin') != orig) return out({ erro: 'origem não permitida' }, 403);
     const chave = (req.headers.get('Authorization') || '').replace(/^Bearer /, '');
     if (!env.CHAVE_ACESSO || !igual(chave, env.CHAVE_ACESSO)) return out({ erro: 'acesso negado' }, 401);
-    const u = new URL(req.url); if (!['/buscar', '/estrutura', '/painel', '/campos', '/contar', '/jornada', '/emails', '/propriedades', '/amostra'].includes(u.pathname)) return out({ erro: 'rota inexistente' }, 404);
+    const u = new URL(req.url); if (!['/buscar', '/estrutura', '/painel', '/campos', '/contar', '/vinculo', '/jornada', '/emails', '/propriedades', '/amostra'].includes(u.pathname)) return out({ erro: 'rota inexistente' }, 404);
     const espera = ms => new Promise(r => setTimeout(r, ms));
     const api = async (p, o) => { for (let i = 0; ; i++) { const r = await fetch(H + p, { ...o, headers: { Authorization: 'Bearer ' + env.HUBSPOT_TOKEN, 'Content-Type': 'application/json' } }); if (r.status == 429 && i < 6) { await espera(1000 + 700 * i); continue } if (!r.ok) { const e = new Error('HubSpot ' + r.status + ' em ' + p.split('?')[0]); e.st = r.status; throw e } return r.json() } };
     const resolver = async () => {
@@ -119,6 +119,26 @@ export default {
           const rows = []; let after;
           while (rows.length < n) { const j = await busca('/crm/v3/objects/' + ob + '/search', { filterGroups: [{ filters: [{ propertyName: 'createdate', operator: 'GTE', value: String(s0) }, { propertyName: 'createdate', operator: 'LTE', value: String(e0) }] }], sorts: [{ propertyName: 'createdate', direction: 'ASCENDING' }], properties: props, limit: 200, ...(after ? { after } : {}) }); for (const x of j.results) rows.push(props.map(p => x.properties[p] == null ? '' : String(x.properties[p]).slice(0, 200))); after = j.paging && j.paging.next && j.paging.next.after; if (!after) break }
           return out({ r: rows.slice(0, n) });
+        }
+        if (u.pathname == '/vinculo') {
+          if (req.method != 'POST') return out({ erro: 'use POST' }, 405);
+          const b = await req.json().catch(() => null); if (!b) return out({ erro: 'pedido inválido' }, 400);
+          const nm = x => (Array.isArray(x) ? x : []).map(String).filter(z => /^[a-z0-9_]{1,80}$/.test(z)).slice(0, 10), cp = nm(b.cp), dp = nm(b.dp), n = Math.min(+b.n || 80, 100);
+          const fl = [{ propertyName: 'createdate', operator: 'GTE', value: String(+b.d0 || 0) }, { propertyName: 'createdate', operator: 'LTE', value: String(+b.d1 || Date.now()) }, { propertyName: 'num_associated_deals', operator: 'GTE', value: '1' }];
+          const cj = await busca('/crm/v3/objects/contacts/search', { filterGroups: [{ filters: fl }], sorts: [{ propertyName: 'createdate', direction: 'DESCENDING' }], properties: ['createdate', ...cp], limit: n, ...(b.after ? { after: String(b.after) } : {}) });
+          const cs = cj.results || [], nx = cj.paging && cj.paging.next ? cj.paging.next.after : '';
+          const cls = vals => { const f = new Set(); for (const v of vals) { const k = uniDe(v); if (k) f.add(k) } return f.size == 1 ? [...f][0] : f.size > 1 ? 'AMBOS' : '' };
+          const res = { total: cs.length, cad: { UVA: 0, UNIJORGE: 0, AMBOS: 0 }, neg: { UVA: 0, UNIJORGE: 0, AMBOS: 0 }, sem: 0, semNeg: 0 }, pend = [];
+          for (const c of cs) { const k = cls(cp.map(p => c.properties[p] || '')); if (k) res.cad[k]++; else pend.push(c.id) }
+          if (pend.length) {
+            const pl = await api('/crm/v3/pipelines/deals').catch(() => ({ results: [] })), pn = {}; (pl.results || []).forEach(p => pn[p.id] = p.label);
+            const aj = await api('/crm/v4/associations/contacts/deals/batch/read', { method: 'POST', body: JSON.stringify({ inputs: pend.map(id => ({ id })) }) }).catch(() => ({ results: [] })), dono = {}, ids = [];
+            for (const r of (aj.results || [])) for (const t of (r.to || []).slice(0, 4)) { const id = String(t.toObjectId); (dono[String(r.from.id)] || (dono[String(r.from.id)] = [])).push(id); ids.push(id) }
+            const dv = {};
+            for (let i = 0; i < ids.length && i < 400; i += 100) { const rj = await api('/crm/v3/objects/deals/batch/read', { method: 'POST', body: JSON.stringify({ properties: ['pipeline', 'dealname', ...dp], inputs: ids.slice(i, i + 100).map(id => ({ id })) }) }).catch(() => ({ results: [] })); for (const d of (rj.results || [])) dv[d.id] = [pn[d.properties.pipeline] || '', d.properties.dealname || '', ...dp.map(p => d.properties[p] || '')] }
+            for (const id of pend) { const ds = dono[id] || []; if (!ds.length) { res.semNeg++; continue } const k = cls(ds.flatMap(d => dv[d] || [])); if (k) res.neg[k]++; else res.sem++ }
+          }
+          return out({ ...res, after: nx || '' });
         }
         if (u.pathname == '/jornada') {
           if (req.method != 'POST') return out({ erro: 'use POST' }, 405);
@@ -249,7 +269,7 @@ export default {
       { const o = ficha.contatos.map((_, i) => i).sort((a, b) => ficha.contatos[b].cr - ficha.contatos[a].cr); const R = (arr) => o.map(i => arr[i]); ficha.contatos = R(ficha.contatos); ident.contatos = R(ident.contatos); cts.splice(0, cts.length, ...R(cts)) }
       ficha.negocios.sort((a, b) => b.per - a.per || b.cr - a.cr); ficha.comunicacoes.sort((a, b) => b.t - a.t); ficha.comunicacoes = ficha.comunicacoes.slice(0, 20);
       ev.sort((a, b) => a.d < b.d ? -1 : a.d > b.d ? 1 : a.h - b.h);
-      return out({ contatos: cts, eventos: ev, ficha, ident, versao: 'cpf-estrito-2026-10-23j' });
+      return out({ contatos: cts, eventos: ev, ficha, ident, versao: 'cpf-estrito-2026-10-23k' });
     } catch (e) { return out({ erro: String(e.message || e).slice(0, 200) }, e.st == 401 || e.st == 403 ? 502 : 500) }
   }
 };
