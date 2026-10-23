@@ -64,7 +64,7 @@ export default {
       try { const gj = await api('/crm/v3/properties/communications/groups').catch(() => ({ results: [] })), gl = {}; (gj.results || []).forEach(x => gl[x.name] = x.label); const pc = (await api('/crm/v3/properties/communications')).results; v.comm = pc.filter(p => !p.hidden && !['hs_timestamp', 'hs_communication_channel_type', 'hs_communication_body'].includes(p.name) && (/botmaker/i.test((gl[p.groupName] || '') + ' ' + p.groupName) || /template|whats|botmaker/i.test(p.name + ' ' + p.label))).slice(0, 40).map(p => ({ n: p.name, r: p.label, op: (p.options || []).filter(x => !x.hidden).map(x => [x.value, x.label]) })) } catch (e) { }
       PCACHE = { t: Date.now(), v }; return v
     };
-    const uniDe = t => { t = String(t || '').toLowerCase(); return /unijorge|\buj\b|jorge amado/.test(t) ? 'UNIJORGE' : /\buva\b|veiga de almeida/.test(t) ? 'UVA' : '' };
+    const uniDe = t => { t = String(t || '').toLowerCase(); return /unijorge|jorge amado|(^|[^a-z0-9])uj([^a-z0-9]|$)/.test(t) ? 'UNIJORGE' : /veiga de almeida|(^|[^a-z0-9])uva([^a-z0-9]|$)/.test(t) ? 'UVA' : '' };
     const busca = (p, corpo) => api(p, { method: 'POST', body: JSON.stringify(corpo) });
     if (u.pathname != '/buscar') {
       try {
@@ -85,22 +85,27 @@ export default {
             if (o == 'contacts') {
               const pr = (await api('/crm/v3/properties/contacts').catch(() => ({ results: [] }))).results;
               const cand = pr.filter(x => /univers|^ies|institu|marca|unidade|polo|campus|curso|brand/i.test(x.name + ' ' + (x.label || '')) && !/email|phone|telefone/i.test(x.name)).slice(0, 6).map(x => ({ name: x.name, label: x.label, ops: (x.options || []).filter(z => !z.hidden) }));
-              for (const n of ['first_conversion_event_name', 'recent_conversion_event_name', 'hs_analytics_first_url', 'hs_analytics_source_data_2', 'hs_analytics_source_data_1']) if (!cand.some(c => c.name == n)) cand.push({ name: n, label: n, ops: [] });
-              const defs = [];
-              for (const c of cand) {
+              for (const n of ['first_conversion_event_name', 'recent_conversion_event_name', 'hs_analytics_first_url', 'hs_analytics_source_data_2', 'hs_analytics_source_data_1', 'utm_campaign', 'hs_analytics_last_url']) if (!cand.some(c => c.name == n)) cand.push({ name: n, label: n, ops: [] });
+              const defs = [], TK = { UVA: 'uva*', UNIJORGE: 'unijorge*', UJ: 'uj*' };
+              for (const c of cand.slice(0, 12)) {
                 const v = { UVA: [], UNIJORGE: [] }; c.ops.forEach(z => { const k = uniDe(z.label + ' ' + z.value); if (k) v[k].push(z.value) });
-                const en = v.UVA.length || v.UNIJORGE.length, df = en ? { prop: c.name, rotulo: c.label, tipo: 'enum', val: v } : { prop: c.name, rotulo: c.label, tipo: 'texto', val: { UVA: ['uva'], UNIJORGE: ['unijorge'] } };
-                const q = async u => { const w = df.tipo == 'enum' ? (v[u].length ? { propertyName: c.name, operator: 'IN', values: v[u] } : null) : { propertyName: c.name, operator: 'CONTAINS_TOKEN', value: df.val[u][0] }; if (!w) return 0; try { return (await busca('/crm/v3/objects/contacts/search', { filterGroups: [{ filters: [w] }], limit: 1, properties: ['hs_object_id'] })).total } catch (e) { return 0 } };
-                df.n = (await q('UVA')) + (await q('UNIJORGE')); if (df.n > 0) defs.push(df)
+                const en = v.UVA.length || v.UNIJORGE.length;
+                if (en) { const w = []; if (v.UVA.length) w.push({ filters: [{ propertyName: c.name, operator: 'IN', values: v.UVA }] }); if (v.UNIJORGE.length) w.push({ filters: [{ propertyName: c.name, operator: 'IN', values: v.UNIJORGE }] }); let n = 0; try { n = (await busca('/crm/v3/objects/contacts/search', { filterGroups: w, limit: 1, properties: ['hs_object_id'] })).total } catch (e) { } if (n > 0) defs.push({ prop: c.name, rotulo: c.label, tipo: 'enum', val: v, n }); continue }
+                let n = 0; try { n = (await busca('/crm/v3/objects/contacts/search', { filterGroups: [{ filters: [{ propertyName: c.name, operator: 'CONTAINS_TOKEN', value: TK.UVA }] }, { filters: [{ propertyName: c.name, operator: 'CONTAINS_TOKEN', value: TK.UNIJORGE }] }, { filters: [{ propertyName: c.name, operator: 'CONTAINS_TOKEN', value: TK.UJ }] }], limit: 1, properties: ['hs_object_id'] })).total } catch (e) { }
+                if (n > 0) { defs.push({ prop: c.name, rotulo: c.label, tipo: 'texto', val: { UVA: [TK.UVA], UNIJORGE: [TK.UNIJORGE] }, n }); defs.push({ prop: c.name, rotulo: c.label + ' (UJ)', tipo: 'texto', val: { UVA: [], UNIJORGE: [TK.UJ] }, n: n - 0.1 }) }
               }
               defs.sort((a, b) => b.n - a.n);
-              uni[o] = defs.length ? { tipo: 'multi', defs: defs.slice(0, 3).map(x => ({ ...x, tipo: x.tipo })) } : { tipo: 'nenhuma' };
+              { const pk = new Set([...defs.filter(x => x.val.UVA.length).slice(0, 5), ...defs.filter(x => x.val.UNIJORGE.length).slice(0, 5)]), fin = defs.filter(x => pk.has(x)); uni[o] = fin.length ? { tipo: 'multi', defs: fin } : { tipo: 'nenhuma' } }
               continue
             }
-            if (d) { const ops = (d.options || []).filter(x => !x.hidden), v = { UVA: [], UNIJORGE: [] }; ops.forEach(x => { const k = uniDe(x.label + ' ' + x.value); if (k) v[k].push(x.value) });
-              uni[o] = ops.length && (v.UVA.length || v.UNIJORGE.length) ? { prop: d.name, rotulo: d.label, tipo: 'enum', val: v, opcoes: ops.map(x => x.label) } : { prop: d.name, rotulo: d.label, tipo: 'texto', val: { UVA: ['uva'], UNIJORGE: ['unijorge'] } } }
-            else if (o == 'deals') { const v = { UVA: [], UNIJORGE: [] }; funis.forEach(f => { const k = uniDe(f.nome); if (k) v[k].push(f.id) }); uni[o] = v.UVA.length || v.UNIJORGE.length ? { prop: 'pipeline', tipo: 'pipeline', val: v } : { tipo: 'nenhuma' } }
-            else uni[o] = { tipo: 'nenhuma' }
+            { const defs = [];
+              if (d) { const ops = (d.options || []).filter(x => !x.hidden), v = { UVA: [], UNIJORGE: [] }; ops.forEach(x => { const k = uniDe(x.label + ' ' + x.value); if (k) v[k].push(x.value) });
+                defs.push(ops.length && (v.UVA.length || v.UNIJORGE.length) ? { prop: d.name, rotulo: d.label, tipo: 'enum', val: v, opcoes: ops.map(x => x.label) } : { prop: d.name, rotulo: d.label, tipo: 'texto', val: { UVA: ['uva*'], UNIJORGE: ['unijorge*'] } }) }
+              if (o == 'deals') {
+                const pv = { UVA: [], UNIJORGE: [] }; funis.forEach(f => { const k = uniDe(f.nome); if (k) pv[k].push(f.id) }); if (pv.UVA.length || pv.UNIJORGE.length) defs.push({ prop: 'pipeline', rotulo: 'Nome do funil', tipo: 'pipeline', val: pv });
+                defs.push({ prop: 'dealname', rotulo: 'Nome do negócio', tipo: 'texto', val: { UVA: ['uva*'], UNIJORGE: ['unijorge*'] } }, { prop: 'dealname', rotulo: 'Nome do negócio (UJ)', tipo: 'texto', val: { UVA: [], UNIJORGE: ['uj*'] } });
+              }
+              uni[o] = defs.length ? { tipo: 'multi', defs: defs.slice(0, 5) } : { tipo: 'nenhuma' }; continue }
           }
           let mat = null; try { const pr = (await api('/crm/v3/properties/contacts')).results, c = pr.filter(p => !p.hidden && !/desuso|nao utilizad|obsolet/.test(norm(p.label + ' ' + p.name)) && /(ja|aluno).*(aluno|matricul)|matriculad/.test(norm(p.label))).sort((a, b) => a.label.length - b.label.length)[0]; if (c) { if (c.type == 'bool' || c.fieldType == 'booleancheckbox') mat = { p: c.name, op: 'EQ', v: 'true' }; else { const vs = (c.options || []).filter(o => !o.hidden && /^(sim|s|true)$|matricul|ativo/.test(norm(o.label))).map(o => o.value); mat = vs.length ? { p: c.name, op: 'IN', vs } : { p: c.name, op: 'EQ', v: 'Sim' } } } } catch (e) { }
           return out({ funis, donos, uni, opc, mat });
