@@ -94,8 +94,12 @@ export default {
             if (!d && !env.UNI_PROP) { const pr = (await api('/crm/v3/properties/' + o).catch(() => ({ results: [] }))).results, ach = pr.find(x => /^\s*universidade\s*$/i.test(x.label || '')) || pr.find(x => /^\s*(ies|institui)/i.test(x.label || '')); if (ach) d = await def(o, ach.name) }
             if (o == 'contacts') {
               const pr = (await api('/crm/v3/properties/contacts').catch(() => ({ results: [] }))).results;
-              const cand = pr.filter(x => /univers|^ies|institu|marca|unidade|polo|campus|curso|brand/i.test(x.name + ' ' + (x.label || '')) && !/email|phone|telefone/i.test(x.name)).slice(0, 6).map(x => ({ name: x.name, label: x.label, ops: (x.options || []).filter(z => !z.hidden) }));
-              for (const n of ['first_conversion_event_name', 'recent_conversion_event_name', 'hs_analytics_first_url', 'hs_analytics_source_data_2', 'hs_analytics_source_data_1', 'utm_campaign', 'hs_analytics_last_url']) if (!cand.some(c => c.name == n)) cand.push({ name: n, label: n, ops: [] });
+              const mk = x => ({ name: x.name, label: x.label, ops: (x.options || []).filter(z => !z.hidden) }), cand = [];
+              { const add = x => { if (x && !cand.some(c => c.name == x.name)) cand.push(mk(x)) };
+                for (const x of pr.filter(x => /^\s*universidade\s*$/i.test(x.label || '') || x.name == 'universidade')) add(x);
+                add(pr.find(x => x.name == 'hs_analytics_source_data_2'));
+                for (const x of pr.filter(x => /^\s*origem\s*$/i.test(x.label || '') || x.name == 'origem')) add(x);
+                if (!cand.length) for (const x of pr.filter(x => /univers|^ies|institu|marca/i.test(x.name + ' ' + (x.label || '')) && !/email|phone|telefone/i.test(x.name)).slice(0, 3)) add(x) }
               const defs = [], TKU = ['uva*', 'veiga*'], TKJ = ['unijorge*', 'uj'];
               for (const c of cand.slice(0, 12)) {
                 const v = { UVA: [], UNIJORGE: [] }; c.ops.forEach(z => { const k = uniDe(z.label + ' ' + z.value); if (k) v[k].push(z.value) });
@@ -105,8 +109,8 @@ export default {
                 const nU = await cnt(TKU), nJ = await cnt(TKJ);
                 if (nU > 0 || nJ > 0) defs.push({ prop: c.name, rotulo: c.label, tipo: 'texto', val: { UVA: nU > 0 ? TKU : [], UNIJORGE: nJ > 0 ? TKJ : [] }, nU, nJ, n: nU + nJ });
               }
-              defs.sort((a, b) => b.n - a.n);
-              { const pick = (k, nk) => { let cu = 0; const set = new Set(); defs.filter(x => x.val[k].length).sort((p, q) => (q[nk] ?? q.n) - (p[nk] ?? p.n)).forEach(x => { if (cu + x.val[k].length <= 5) { cu += x.val[k].length; set.add(x) } }); return set }, su = pick('UVA', 'nU'), sj = pick('UNIJORGE', 'nJ'), fin = defs.filter(x => su.has(x) || sj.has(x)).map(x => ({ ...x, val: { UVA: su.has(x) ? x.val.UVA : [], UNIJORGE: sj.has(x) ? x.val.UNIJORGE : [] } })); uni[o] = fin.length ? { tipo: 'multi', defs: fin } : { tipo: 'nenhuma' } }
+              defs.sort((a, b) => cand.findIndex(c => c.name == a.prop) - cand.findIndex(c => c.name == b.prop));
+              { const pick = (k, nk) => { let cu = 0; const set = new Set(); defs.filter(x => x.val[k].length).forEach(x => { if (cu + x.val[k].length <= 5) { cu += x.val[k].length; set.add(x) } }); return set }, su = pick('UVA', 'nU'), sj = pick('UNIJORGE', 'nJ'), fin = defs.filter(x => su.has(x) || sj.has(x)).map(x => ({ ...x, val: { UVA: su.has(x) ? x.val.UVA : [], UNIJORGE: sj.has(x) ? x.val.UNIJORGE : [] } })); uni[o] = fin.length ? { tipo: 'multi', defs: fin } : { tipo: 'nenhuma' } }
               continue
             }
             { const defs = [];
@@ -371,7 +375,7 @@ export default {
       { const o = ficha.contatos.map((_, i) => i).sort((a, b) => ficha.contatos[b].cr - ficha.contatos[a].cr); const R = (arr) => o.map(i => arr[i]); ficha.contatos = R(ficha.contatos); ident.contatos = R(ident.contatos); cts.splice(0, cts.length, ...R(cts)) }
       ficha.negocios.sort((a, b) => b.per - a.per || b.cr - a.cr); ficha.comunicacoes.sort((a, b) => b.t - a.t); ficha.comunicacoes = ficha.comunicacoes.slice(0, 20);
       ev.sort((a, b) => a.d < b.d ? -1 : a.d > b.d ? 1 : a.h - b.h);
-      return out({ contatos: cts, eventos: ev, ficha, ident, versao: 'cpf-estrito-2026-10-25zr' });
+      return out({ contatos: cts, eventos: ev, ficha, ident, versao: 'cpf-estrito-2026-10-25zs' });
     } catch (e) { return out({ erro: String(e.message || e).slice(0, 200) }, e.st == 401 || e.st == 403 ? 502 : 500) }
   }
 };
