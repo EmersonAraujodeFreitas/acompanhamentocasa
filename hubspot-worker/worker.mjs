@@ -48,7 +48,8 @@ export default {
     if (!env.CHAVE_ACESSO || !igual(chave, env.CHAVE_ACESSO)) return out({ erro: 'acesso negado' }, 401);
     const u = new URL(req.url); if (!['/buscar', '/estrutura', '/painel', '/campos', '/contar', '/vinculo', '/jornada', '/emails', '/propriedades', '/amostra', '/volume'].includes(u.pathname)) return out({ erro: 'rota inexistente' }, 404);
     const espera = ms => new Promise(r => setTimeout(r, ms));
-    const api = async (p, o) => { for (let i = 0; ; i++) { const r = await fetch(H + p, { ...o, headers: { Authorization: 'Bearer ' + env.HUBSPOT_TOKEN, 'Content-Type': 'application/json' } }); if (r.status == 429 && i < 6) { await espera(1000 + 700 * i); continue } if (!r.ok) { const e = new Error('HubSpot ' + r.status + ' em ' + p.split('?')[0]); e.st = r.status; throw e } return r.json() } };
+    let NSUB = 0; // limite de subconsultas por invocação (plano gratuito: 50); o código para de consultar antes de estourar
+    const api = async (p, o) => { for (let i = 0; ; i++) { if (++NSUB > 47) { const e = new Error('limite de consultas por pedido (reduza a busca)'); e.st = 598; throw e } const r = await fetch(H + p, { ...o, headers: { Authorization: 'Bearer ' + env.HUBSPOT_TOKEN, 'Content-Type': 'application/json' } }); if (r.status == 429 && i < 6) { await espera(1000 + 700 * i); continue } if (!r.ok) { const e = new Error('HubSpot ' + r.status + ' em ' + p.split('?')[0]); e.st = r.status; throw e } return r.json() } };
     const resolver = async () => {
       if (PCACHE && Date.now() - PCACHE.t < 36e5) return PCACHE.v;
       // cache compartilhado entre instâncias (evita refazer a análise pesada das propriedades a cada instância nova e estourar o limite de CPU)
@@ -320,6 +321,7 @@ export default {
       const ficha = { contatos: [], negocios: [], comunicacoes: [] }, ident = { contatos: [], ra: [] }, fcpf = v => { const d = dig(v); return d.length == 11 ? d.slice(0, 3) + '.' + d.slice(3, 6) + '.' + d.slice(6, 9) + '-' + d.slice(9) : String(v || '') };
       const assoc = async (id, tipo, props, hist) => { const a = await api('/crm/v4/objects/contacts/' + id + '/associations/' + tipo).catch(() => ({ results: [] })); const ii = a.results.map(x => ({ id: String(x.toObjectId) })).slice(0, 100); if (!ii.length) return []; const r = await api('/crm/v3/objects/' + tipo + '/batch/read', { method: 'POST', body: JSON.stringify(hist ? { inputs: ii, properties: props, propertiesWithHistory: hist } : { inputs: ii, properties: props }) }).catch(() => ({ results: [] })); return r.results };
       for (const id of [...ids].slice(0, 5)) {
+        if (NSUB > 30) break; // sem folga para mais um contato completo
         const c = await api('/crm/v3/objects/contacts/' + id + '?properties=' + [...new Set([...CONTATO, ...cN, 'firstname', 'lastname', 'email', 'phone', 'mobilephone', ...cpfNames])].join(',') + '&propertiesWithHistory=lifecyclestage,hs_lead_status,hubspot_owner_id,recent_conversion_event_name,hs_email_last_email_name,hs_email_last_open_date,hs_email_last_click_date,hs_email_last_reply_date,hs_sales_email_last_replied' + (tplC.length ? ',' + tplC.join(',') : '') + (Object.values(qNames.c).some(Boolean) ? ',' + Object.values(qNames.c).filter(Boolean).join(',') : '')), p = c.properties, ow = dono[p.hubspot_owner_id] || '';
         if (viaCpf && cpfAlvo) { const dg2 = n => dig(p[n]), pr = cpfPrim.map(dg2).filter(Boolean), ou = cpfNames.filter(n => !cpfPrim.includes(n)).map(dg2).filter(Boolean); if (!(pr.length ? pr.includes(cpfAlvo) : ou.includes(cpfAlvo))) continue }
         ident.contatos.push({ via: [...(via[id] || [])].join(' · '), nome: [p.firstname, p.lastname].filter(Boolean).join(' '), cpf: fcpf(p[cpfNames.find(n => p[n])] || ''), email: p.email || '', tel: p.phone || '', cel: p.mobilephone || '' });
@@ -366,7 +368,7 @@ export default {
       { const o = ficha.contatos.map((_, i) => i).sort((a, b) => ficha.contatos[b].cr - ficha.contatos[a].cr); const R = (arr) => o.map(i => arr[i]); ficha.contatos = R(ficha.contatos); ident.contatos = R(ident.contatos); cts.splice(0, cts.length, ...R(cts)) }
       ficha.negocios.sort((a, b) => b.per - a.per || b.cr - a.cr); ficha.comunicacoes.sort((a, b) => b.t - a.t); ficha.comunicacoes = ficha.comunicacoes.slice(0, 20);
       ev.sort((a, b) => a.d < b.d ? -1 : a.d > b.d ? 1 : a.h - b.h);
-      return out({ contatos: cts, eventos: ev, ficha, ident, versao: 'cpf-estrito-2026-10-25zn' });
+      return out({ contatos: cts, eventos: ev, ficha, ident, versao: 'cpf-estrito-2026-10-25zo' });
     } catch (e) { return out({ erro: String(e.message || e).slice(0, 200) }, e.st == 401 || e.st == 403 ? 502 : 500) }
   }
 };
