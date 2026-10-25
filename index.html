@@ -1764,7 +1764,7 @@ const hgNote=()=>HG.est.uni.deals.tipo=='nenhuma'&&HG.est.uni.contacts.tipo=='ne
 let HGJ={},HGM={};
 const nrm2=t=>String(t||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();
 const JING=[['Formulário preenchido',/formul/],['Inscrição iniciada',/inscricao iniciada|inscricao em andamento/],['Inscrito',/inscrit/],['Convocado',/convoc/],['Contrato aceito',/aceit/],['Pagamento realizado',/pagament/],['Enturmado',/enturm/],['Matriculado',/(^|\s)matricul/]];
-const JREM=[['Expectativa de rematrícula',/expectativa/],['Pendência de rematrícula',/pendencia/],['Aceite de contrato',/aceit/],['Pagamento realizado',/pagament/],['Enturmado',/enturm/],['Rematriculado',/^(?!.*(expectativa|pendencia)).*rematricul/],['Matriculado',/^matriculad/]];
+const JREM=[['Expectativa de rematrícula',/expectativa/],['Pendência de rematrícula',/pendencia/],['Aceite de contrato',/aceit/],['Pagamento realizado',/pagament/],['Enturmado',/enturm/],['Rematriculado',/^(?!.*(expectativa|pendencia)).*rematricul|^matriculad/]];
 const CMP=[['first_conversion_date','Preencheu formulário'],['hs_lifecyclestage_lead_date','Virou lead','hs_date_entered_lead'],['hs_lifecyclestage_marketingqualifiedlead_date','Virou MQL','hs_date_entered_marketingqualifiedlead'],['hs_lifecyclestage_salesqualifiedlead_date','Virou SQL','hs_date_entered_salesqualifiedlead'],['hs_lifecyclestage_opportunity_date','Virou oportunidade','hs_date_entered_opportunity'],['hs_lifecyclestage_customer_date','Virou cliente','hs_date_entered_customer']],cmT=(x,i)=>x.e[CMP[i][0]]||(CMP[i][2]&&x.e[CMP[i][2]])||(i==1&&x.o[6]&&x.o[6]!='subscriber'?x.c:0);
 const JING0=JING.slice(),JREM0=JREM.slice();
 function jornPlan(est){const out={I:{pls:[],et:[],map:{}},R:{pls:[],et:[],map:{}}},ok=[],real={I:[],R:[]},lost=/perdid|cancel|desist|descart|inativ/;
@@ -1773,7 +1773,7 @@ for(const[f,k]of ok)f.etapas.forEach((e,ix)=>{const key=nrm2(e.nome);if(e.fim=='
 for(const k of['I','R']){const defs=k=='R'?JREM:JING,base=k=='R'?JREM0:JING0;if(!real[k].length)continue;
 // ordem: etapas conhecidas na ordem padrão, demais na ordem em que aparecem no funil
 const rank=key=>{const i=base.findIndex(([nm,re])=>re.test(key));return i<0?1e3:i},ix=new Map(real[k].map((x,n)=>[x[2],n]));real[k]=real[k].filter(x=>rank(x[2])<1e3);real[k].sort((a,b)=>rank(a[2])-rank(b[2])||ix.get(a[2])-ix.get(b[2]));
-const seen=new Set(),L=real[k].filter(x=>{const r=rank(x[2]);if(r<1e3){if(seen.has(r))return false;seen.add(r)}return true}).slice(0,12);defs.length=0;L.forEach(x=>defs.push([x[0],{test:s=>s==x[2]||(rank(x[2])<1e3&&rank(s)==rank(x[2]))}]))}
+const seen=new Set(),L=real[k].filter(x=>{const r=rank(x[2]);if(r<1e3){if(seen.has(r))return false;seen.add(r)}return true}).slice(0,12);defs.length=0;L.forEach(x=>defs.push([k=='R'&&rank(x[2])==base.length-1?'Rematriculado':x[0],{test:s=>s==x[2]||(rank(x[2])<1e3&&rank(s)==rank(x[2]))}]))}
 for(const[f,k]of ok){const defs=k=='R'?JREM:JING,hit=[];defs.forEach(([nm,re],i)=>{f.etapas.filter(x=>re.test(nrm2(x.nome))).forEach(x=>hit.push([i,x.id]))});out[k].pls.push(f.id);hit.forEach(([i,id])=>{out[k].et.push(id);(out[k].map[i]||(out[k].map[i]=[])).push(id)})}return out}
 const jFx=()=>(HG&&HG.F)||Object.assign({},hgDef(),HGF);
 const jBefore=(ev,t)=>{const o={t:0,m:0,w:0,s:0,l:0,u:0,o:0};for(const [ts,c] of ev){if(ts>=t)break;if(c=='r')continue;o.t++;o[c]=(o[c]||0)+1}return o};
