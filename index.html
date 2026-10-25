@@ -1764,7 +1764,7 @@ const hgNote=()=>HG.est.uni.deals.tipo=='nenhuma'&&HG.est.uni.contacts.tipo=='ne
 let HGJ={},HGM={};
 const nrm2=t=>String(t||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();
 const JING=[['Formulário preenchido',/formul/],['Inscrição iniciada',/inscricao iniciada|inscricao em andamento/],['Inscrito',/inscrit/],['Convocado',/convoc/],['Contrato aceito',/aceit/],['Pagamento realizado',/pagament/],['Enturmado',/enturm/],['Matriculado',/(^|\s)matricul/]];
-const JREM=[['Expectativa de rematrícula',/expectativa/],['Aceite de contrato',/aceit/],['Pagamento realizado',/pagament/],['Enturmado',/enturm/],['Rematriculado',/^(?!.*expectativa).*rematricul/]];
+const JREM=[['Expectativa de rematrícula',/expectativa/],['Pendência de rematrícula',/pendencia/],['Aceite de contrato',/aceit/],['Pagamento realizado',/pagament/],['Enturmado',/enturm/],['Rematriculado',/^(?!.*(expectativa|pendencia)).*rematricul/]];
 const CMP=[['first_conversion_date','Preencheu formulário'],['hs_lifecyclestage_lead_date','Virou lead','hs_date_entered_lead'],['hs_lifecyclestage_marketingqualifiedlead_date','Virou MQL','hs_date_entered_marketingqualifiedlead'],['hs_lifecyclestage_salesqualifiedlead_date','Virou SQL','hs_date_entered_salesqualifiedlead'],['hs_lifecyclestage_opportunity_date','Virou oportunidade','hs_date_entered_opportunity'],['hs_lifecyclestage_customer_date','Virou cliente','hs_date_entered_customer']],cmT=(x,i)=>x.e[CMP[i][0]]||(CMP[i][2]&&x.e[CMP[i][2]])||(i==1&&x.o[6]&&x.o[6]!='subscriber'?x.c:0);
 const JING0=JING.slice(),JREM0=JREM.slice();
 function jornPlan(est){const out={I:{pls:[],et:[],map:{}},R:{pls:[],et:[],map:{}}},ok=[],real={I:[],R:[]},lost=/perdid|cancel|desist|descart|inativ/;
