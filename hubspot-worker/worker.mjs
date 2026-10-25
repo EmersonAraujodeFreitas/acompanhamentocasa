@@ -110,7 +110,7 @@ export default {
                 if (nU > 0 || nJ > 0) defs.push({ prop: c.name, rotulo: c.label, tipo: 'texto', val: { UVA: nU > 0 ? TKU : [], UNIJORGE: nJ > 0 ? TKJ : [] }, nU, nJ, n: nU + nJ });
               }
               defs.sort((a, b) => cand.findIndex(c => c.name == a.prop) - cand.findIndex(c => c.name == b.prop));
-              { const cu = { UVA: 0, UNIJORGE: 0 }, fin = []; for (const x of defs) { const val = { UVA: [], UNIJORGE: [] }; for (const k of ['UVA', 'UNIJORGE']) { const n = x.val[k].length; if (n && cu[k] + n <= 5) { cu[k] += n; val[k] = x.val[k] } } if (val.UVA.length || val.UNIJORGE.length) fin.push({ ...x, val, ex: fin.map(y => y.prop).slice(0, 2) }) } uni[o] = fin.length ? { tipo: 'multi', defs: fin } : { tipo: 'nenhuma' } }
+              { const cu = { UVA: 0, UNIJORGE: 0 }, fin = []; for (const x of defs) { const val = { UVA: [], UNIJORGE: [] }; for (const k of ['UVA', 'UNIJORGE']) { const n = x.tipo == 'enum' ? Math.ceil(x.val[k].length / 100) : x.val[k].length; if (n && cu[k] + n <= 5) { cu[k] += n; val[k] = x.val[k] } else if (n && x.tipo == 'enum' && cu[k] < 5) { const m = 5 - cu[k]; cu[k] += m; val[k] = x.val[k].slice(0, m * 100) } } if (val.UVA.length || val.UNIJORGE.length) fin.push({ ...x, val, ex: fin.map(y => y.prop).slice(0, 2) }) } uni[o] = fin.length ? { tipo: 'multi', defs: fin } : { tipo: 'nenhuma' } }
               continue
             }
             { const defs = [];
@@ -375,7 +375,7 @@ export default {
       { const o = ficha.contatos.map((_, i) => i).sort((a, b) => ficha.contatos[b].cr - ficha.contatos[a].cr); const R = (arr) => o.map(i => arr[i]); ficha.contatos = R(ficha.contatos); ident.contatos = R(ident.contatos); cts.splice(0, cts.length, ...R(cts)) }
       ficha.negocios.sort((a, b) => b.per - a.per || b.cr - a.cr); ficha.comunicacoes.sort((a, b) => b.t - a.t); ficha.comunicacoes = ficha.comunicacoes.slice(0, 20);
       ev.sort((a, b) => a.d < b.d ? -1 : a.d > b.d ? 1 : a.h - b.h);
-      return out({ contatos: cts, eventos: ev, ficha, ident, versao: 'cpf-estrito-2026-10-25zu' });
+      return out({ contatos: cts, eventos: ev, ficha, ident, versao: 'cpf-estrito-2026-10-25zv' });
     } catch (e) { return out({ erro: String(e.message || e).slice(0, 200) }, e.st == 401 || e.st == 403 ? 502 : 500) }
   }
 };
