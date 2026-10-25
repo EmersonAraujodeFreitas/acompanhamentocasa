@@ -178,7 +178,7 @@ export default {
           if (og.length > 1) { const sz = Math.max(...og.map(g => g.filters.length)); og.splice(Math.max(1, Math.min(5, Math.floor(18 / sz)))) } // limite do HubSpot: 18 filtros no total e 6 por grupo
           og.forEach(g => { if (g.filters.length > 6) g.filters.splice(6) });
           const eprops = ets.map(x => entrou(SN, x));
-          const dj = await busca('/crm/v3/objects/' + (CT ? 'contacts' : 'deals') + '/search', { filterGroups: og, sorts: [{ propertyName: 'createdate', direction: 'DESCENDING' }], properties: CT ? ['createdate', ...mp, ...op] : ['createdate', 'pipeline', 'dealstage', ...eprops, ...Object.values(tplQtd(((await resolver().catch(() => null)) || {}).deals)).filter(Boolean)], limit: n, ...(b.after ? { after: String(b.after) } : {}) });
+          const dj = await busca('/crm/v3/objects/' + (CT ? 'contacts' : 'deals') + '/search', { filterGroups: og, sorts: [{ propertyName: 'createdate', direction: b.asc ? 'ASCENDING' : 'DESCENDING' }], properties: CT ? ['createdate', ...mp, ...op] : ['createdate', 'pipeline', 'dealstage', ...eprops, ...Object.values(tplQtd(((await resolver().catch(() => null)) || {}).deals)).filter(Boolean)], limit: n, ...(b.after ? { after: String(b.after) } : {}) });
           const deals = dj.results || [], nx = dj.paging && dj.paging.next ? dj.paging.next.after : '';
           const ct = {}; // deal -> contato
           if (CT) deals.forEach(d => ct[d.id] = String(d.id)); else if (deals.length) { const aj = await api('/crm/v4/associations/deals/contacts/batch/read', { method: 'POST', body: JSON.stringify({ inputs: deals.map(d => ({ id: d.id })) }) }).catch(() => ({ results: [] })); (aj.results || []).forEach(r => { if (r.to && r.to[0]) ct[r.from.id] = String(r.to[0].toObjectId) }) }
@@ -366,7 +366,7 @@ export default {
       { const o = ficha.contatos.map((_, i) => i).sort((a, b) => ficha.contatos[b].cr - ficha.contatos[a].cr); const R = (arr) => o.map(i => arr[i]); ficha.contatos = R(ficha.contatos); ident.contatos = R(ident.contatos); cts.splice(0, cts.length, ...R(cts)) }
       ficha.negocios.sort((a, b) => b.per - a.per || b.cr - a.cr); ficha.comunicacoes.sort((a, b) => b.t - a.t); ficha.comunicacoes = ficha.comunicacoes.slice(0, 20);
       ev.sort((a, b) => a.d < b.d ? -1 : a.d > b.d ? 1 : a.h - b.h);
-      return out({ contatos: cts, eventos: ev, ficha, ident, versao: 'cpf-estrito-2026-10-23zm' });
+      return out({ contatos: cts, eventos: ev, ficha, ident, versao: 'cpf-estrito-2026-10-25zn' });
     } catch (e) { return out({ erro: String(e.message || e).slice(0, 200) }, e.st == 401 || e.st == 403 ? 502 : 500) }
   }
 };
