@@ -174,10 +174,10 @@ export default {
           const pls = (Array.isArray(b.pls) ? b.pls : []).map(String).filter(x => /^[\w-]{1,40}$/.test(x)).slice(0, 12), ets = (Array.isArray(b.et) ? b.et : []).map(String).filter(x => /^[\w-]{1,40}$/.test(x)).slice(0, 60), n = Math.min(+b.n || 50, 60);
           const CT = b.obj == 'contacts', mp = (Array.isArray(b.mp) ? b.mp : []).map(String).filter(x => /^[a-z0-9_]{1,80}$/.test(x)).slice(0, 12), op = ['hs_analytics_source', 'hs_analytics_source_data_1', 'utm_source', 'utm_medium', 'utm_campaign', 'first_conversion_event_name', 'lifecyclestage'];
           if (!CT && !pls.length) return out({ erro: 'informe os funis' }, 400);
-          const base = [{ propertyName: 'createdate', operator: 'GTE', value: String(+b.d0 || 0) }, { propertyName: 'createdate', operator: 'LTE', value: String(+b.d1 || Date.now()) }, ...(CT ? [] : [{ propertyName: 'pipeline', operator: 'IN', values: pls }])];
+          const base = [...(+b.d0 > 1 ? [{ propertyName: 'createdate', operator: 'GTE', value: String(+b.d0) }] : []), ...(+b.d1 && +b.d1 < Date.now() - 120000 ? [{ propertyName: 'createdate', operator: 'LTE', value: String(+b.d1) }] : []), ...(CT ? [] : [{ propertyName: 'pipeline', operator: 'IN', values: pls }])]; // sem limites de data redundantes: o HubSpot aceita só 6 filtros por grupo
           const SN = CT ? null : await nomesDe(api, 'deals'), ex = (Array.isArray(b.f) ? b.f : []).slice(0, 4).map(mk).map(g => !CT && /^hs_date_entered_/.test(g.propertyName) ? { ...g, propertyName: entrou(SN, g.propertyName.slice(16)) } : g), og = Array.isArray(b.o) && b.o.length ? b.o.slice(0, 5).map(g => ({ filters: [...base, ...ex, ...(Array.isArray(g) ? g : []).slice(0, 3).map(mk).map(h => !CT && /^hs_date_entered_/.test(h.propertyName) ? { ...h, propertyName: entrou(SN, h.propertyName.slice(16)) } : h)] })) : [{ filters: [...base, ...ex] }];
           if (og.length > 1) { const sz = Math.max(...og.map(g => g.filters.length)); og.splice(Math.max(1, Math.min(5, Math.floor(18 / sz)))) } // limite do HubSpot: 18 filtros no total e 6 por grupo
-          og.forEach(g => { if (g.filters.length > 6) g.filters.splice(6) });
+          og.forEach(g => { while (g.filters.length > 6) { const k = g.filters.findIndex(f => f.propertyName == 'pipeline' || f.propertyName == 'createdate'); if (k < 0) break; g.filters.splice(k, 1) } if (g.filters.length > 6) g.filters.splice(6) });
           const eprops = ets.map(x => entrou(SN, x));
           const dj = await busca('/crm/v3/objects/' + (CT ? 'contacts' : 'deals') + '/search', { filterGroups: og, sorts: [{ propertyName: 'createdate', direction: b.asc ? 'ASCENDING' : 'DESCENDING' }], properties: CT ? ['createdate', ...mp, ...op] : ['createdate', 'pipeline', 'dealstage', ...eprops, ...Object.values(tplQtd(((await resolver().catch(() => null)) || {}).deals)).filter(Boolean)], limit: n, ...(b.after ? { after: String(b.after) } : {}) });
           const deals = dj.results || [], nx = dj.paging && dj.paging.next ? dj.paging.next.after : '';
@@ -369,7 +369,7 @@ export default {
       { const o = ficha.contatos.map((_, i) => i).sort((a, b) => ficha.contatos[b].cr - ficha.contatos[a].cr); const R = (arr) => o.map(i => arr[i]); ficha.contatos = R(ficha.contatos); ident.contatos = R(ident.contatos); cts.splice(0, cts.length, ...R(cts)) }
       ficha.negocios.sort((a, b) => b.per - a.per || b.cr - a.cr); ficha.comunicacoes.sort((a, b) => b.t - a.t); ficha.comunicacoes = ficha.comunicacoes.slice(0, 20);
       ev.sort((a, b) => a.d < b.d ? -1 : a.d > b.d ? 1 : a.h - b.h);
-      return out({ contatos: cts, eventos: ev, ficha, ident, versao: 'cpf-estrito-2026-10-25zp' });
+      return out({ contatos: cts, eventos: ev, ficha, ident, versao: 'cpf-estrito-2026-10-25zq' });
     } catch (e) { return out({ erro: String(e.message || e).slice(0, 200) }, e.st == 401 || e.st == 403 ? 502 : 500) }
   }
 };
