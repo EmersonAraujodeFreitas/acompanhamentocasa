@@ -102,9 +102,9 @@ export default {
                 if (!cand.length) for (const x of pr.filter(x => /univers|^ies|institu|marca/i.test(x.name + ' ' + (x.label || '')) && !/email|phone|telefone/i.test(x.name)).slice(0, 3)) add(x) }
               const defs = [], TKU = ['uva*', 'veiga*'], TKJ = ['unijorge*', 'uj'];
               for (const c of cand.slice(0, 12)) {
-                const v = { UVA: [], UNIJORGE: [] }; c.ops.forEach(z => { const k = uniDe(z.label + ' ' + z.value); if (k) v[k].push(z.value) });
+                const v = { UVA: [], UNIJORGE: [] }, ext = {}; c.ops.forEach(z => { const k = uniDe(z.label + ' ' + z.value); if (k) v[k].push(z.value); else if (c.name == 'universidade' || /^\s*universidade\s*$/i.test(c.label || '')) (ext[String(z.label || z.value).slice(0, 60)] = ext[String(z.label || z.value).slice(0, 60)] || []).push(z.value) });
                 const en = v.UVA.length || v.UNIJORGE.length;
-                if (en) { const w = []; if (v.UVA.length) w.push({ filters: [{ propertyName: c.name, operator: 'IN', values: v.UVA }] }); if (v.UNIJORGE.length) w.push({ filters: [{ propertyName: c.name, operator: 'IN', values: v.UNIJORGE }] }); let n = 0; try { n = (await busca('/crm/v3/objects/contacts/search', { filterGroups: w, limit: 1, properties: ['hs_object_id'] })).total } catch (e) { } if (n > 0) defs.push({ prop: c.name, rotulo: c.label, tipo: 'enum', val: v, n }); continue }
+                if (en) { const w = []; if (v.UVA.length) w.push({ filters: [{ propertyName: c.name, operator: 'IN', values: v.UVA }] }); if (v.UNIJORGE.length) w.push({ filters: [{ propertyName: c.name, operator: 'IN', values: v.UNIJORGE }] }); let n = 0; try { n = (await busca('/crm/v3/objects/contacts/search', { filterGroups: w, limit: 1, properties: ['hs_object_id'] })).total } catch (e) { } if (n > 0) defs.push({ prop: c.name, rotulo: c.label, tipo: 'enum', val: v, n, ext: Object.keys(ext).length ? ext : undefined }); continue }
                 const cnt = async toks => { try { return (await busca('/crm/v3/objects/contacts/search', { filterGroups: toks.map(t => ({ filters: [{ propertyName: c.name, operator: 'CONTAINS_TOKEN', value: t }] })), limit: 1, properties: ['hs_object_id'] })).total || 0 } catch (e) { return 0 } };
                 const nU = await cnt(TKU), nJ = await cnt(TKJ);
                 if (nU > 0 || nJ > 0) defs.push({ prop: c.name, rotulo: c.label, tipo: 'texto', val: { UVA: nU > 0 ? TKU : [], UNIJORGE: nJ > 0 ? TKJ : [] }, nU, nJ, n: nU + nJ });
@@ -375,7 +375,7 @@ export default {
       { const o = ficha.contatos.map((_, i) => i).sort((a, b) => ficha.contatos[b].cr - ficha.contatos[a].cr); const R = (arr) => o.map(i => arr[i]); ficha.contatos = R(ficha.contatos); ident.contatos = R(ident.contatos); cts.splice(0, cts.length, ...R(cts)) }
       ficha.negocios.sort((a, b) => b.per - a.per || b.cr - a.cr); ficha.comunicacoes.sort((a, b) => b.t - a.t); ficha.comunicacoes = ficha.comunicacoes.slice(0, 20);
       ev.sort((a, b) => a.d < b.d ? -1 : a.d > b.d ? 1 : a.h - b.h);
-      return out({ contatos: cts, eventos: ev, ficha, ident, versao: 'cpf-estrito-2026-10-25zt' });
+      return out({ contatos: cts, eventos: ev, ficha, ident, versao: 'cpf-estrito-2026-10-25zu' });
     } catch (e) { return out({ erro: String(e.message || e).slice(0, 200) }, e.st == 401 || e.st == 403 ? 502 : 500) }
   }
 };
