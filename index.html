@@ -1004,7 +1004,7 @@ const cnt=(a,kf)=>{const m=new Map();for(const r of a){const k=kf(r);m.set(k,(m.
 const top=(m,n)=>[...m.entries()].sort((a,b)=>b[1]-a[1]).slice(0,n);
 const sum=(a,f)=>{let s=0;for(const r of a)s+=f(r);return s};
 const HRS=[...Array(24).keys()],HL=HRS.map(h=>String(h).padStart(2,'0')+'h');
-const hh=(a)=>{const v=Array(24).fill(0);for(const r of a)if(r.h>=0)v[r.h]++;return v};
+const hh=(a)=>{const v=Array(24).fill(0);for(const r of a)if(r.h!=null&&r.h>=0)v[r.h]++;return v};
 const UN={UJ:'Unijorge',UVA:'UVA','':'Sem universidade'};
 /* ---------- componentes visuais ---------- */
 const kpi=(l,v,s,ic)=>`<div class="kp"><div class="b"><svg class="i"><use href="#ic-${ic||'activity'}"/></svg></div><div><small>${l}</small><b>${v}</b>${s?`<em>${s}</em>`:''}</div></div>`;
