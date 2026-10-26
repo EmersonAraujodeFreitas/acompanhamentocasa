@@ -891,6 +891,8 @@ try{const rs=JSON.parse(sessionStorage.getItem('rs')||'null');if(rs){sessionStor
 
 applyTheme(BR.lock&&THEMES[BR.th]?BR.th:'inst',false);thmInit();brand();fil();
 /*OLOS-BEGIN*/
+/* horário de Brasília em todas as datas e horas exibidas */
+(function(){if(Date.prototype.__brt)return;Date.prototype.__brt=1;for(const f of['toLocaleString','toLocaleTimeString','toLocaleDateString']){const o=Date.prototype[f];Date.prototype[f]=function(l,op){op=Object.assign({},op||{});if(!op.timeZone)op.timeZone='America/Sao_Paulo';return o.call(this,l||'pt-BR',op)}}})();
 /* Módulo Olos: importação de arquivos exportados do Olos, com publicação para todos pelo mesmo caminho da Botmaker.
    Segurança: CPF, telefone, IDs de cliente/chamada e comentários livres são descartados na leitura (ou reduzidos
    a um código irreversível, usado só para contar números únicos). Nada vai para localStorage, sessionStorage,
