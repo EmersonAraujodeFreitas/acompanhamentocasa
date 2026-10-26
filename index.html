@@ -1858,8 +1858,7 @@ if(mI&&!mI.bad)h+=kp('Matriculados (captação)',N(mI.r),f0&&f0.r>0?P(mI.r,f0.r)
 if(mR&&!mR.bad)h+=kp('Rematriculados',N(mR.r),r0&&r0.r>0?P(mR.r,r0.r)+' da expectativa de rematrícula':'');
 const em=cur(I)+cur(Rm);if(em>0)h+=kp('Negócios em andamento',N(em),'pausados nas etapas agora');
 return h}
-function bgHome(B,R,est){const I=R.I||[],Rm=R.R||[];let h=gt('Visão consolidada · captação e persistência');const lb=[...JING.map(d=>d[0]),...JREM.map(d=>'Rematrícula · '+d[0])],n1=JING.length,n2=JREM.length,sI=[...I.map(x=>x.bad?0:x.r),...Array(n2).fill(null)],sR=[...Array(n1).fill(null),...Rm.map(x=>x.bad?0:x.r)];
-h+='<div class="g">'+chartCard('Negócios por etapa','captação (azul) e persistência (roxo) no mesmo gráfico',{type:'bar',h:1,st:1,vl:2,labels:lb,sets:[{l:'Captação',d:sI,c:'#00487f'},{l:'Persistência',d:sR,c:'#7c3aed'}]},Math.max(340,lb.length*26))+'</div>';
+function bgHome(B,R,est){const I=R.I||[],Rm=R.R||[];let h='';const lb=[...JING.map(d=>d[0]),...JREM.map(d=>'Rematrícula · '+d[0])],n1=JING.length,n2=JREM.length,sI=[...I.map(x=>x.bad?0:x.r),...Array(n2).fill(null)],sR=[...Array(n1).fill(null),...Rm.map(x=>x.bad?0:x.r)];
 const dims=(est&&est.dims)||[];
 if(!dims.length)h+=how('Fonte original e origem: publique o Worker mais recente (cpf-estrito-2026-10-26p ou superior) e clique em Atualizar.');
 else if(!B.FO)h+=how(AIC.s+'Calculando a conversão por fonte original e por origem…');
