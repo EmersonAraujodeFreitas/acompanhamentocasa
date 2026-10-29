@@ -1,0 +1,29 @@
+
+/* ===== ADMINISTRATIVO (servidor) ===== */
+(()=>{const E=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>'&#'+c.charCodeAt(0)+';');
+const GL={exec:'Dashboard',uni:'Unijorge × UVA',sess:'Sessões e canais',team:'Equipe',a360:'Atendente 360°',sla:'SLA e conversas',qual:'Qualidade e funil',prod:'Produtividade',cap:'Capacidade × demanda',cross:'Cruzamentos',rec:'Recorrência',cons:'Consumo',bd:'BD',data:'Importar bases',consimp:'Importar consumo',stat:'Importar status',olos:'Olos',hubspot:'HubSpot',buscar:'Buscar'};
+const BL={importar:'Importar',remover:'Remover / apagar tudo',publicar:'Publicar',exportar:'Exportar',atualizar:'Atualizar dados (HubSpot)',parametros:'Parâmetros de cálculo',logo:'Trocar logo'};
+const fd=t=>{try{return new Date(t).toLocaleString('pt-BR')}catch(e){return t}};
+PAGES.usr=async()=>{const m=document.querySelector('#mn');m.innerHTML='<h1>Administrativo</h1><div class="c w"><p class="sub">Carregando…</p></div>';
+let U,P,L;try{[U,P,L]=await Promise.all([AUTH.j('/admin/usuarios'),AUTH.j('/admin/permissoes'),AUTH.j('/admin/log')])}catch(e){m.innerHTML='<h1>Administrativo</h1><div class="c w"><p>'+E(e.message)+'</p></div>';return}
+const pf=U.perfis,pr=Object.assign({},P.padrao,P.perfis);
+const sel=(v,id)=>'<select '+id+'>'+pf.map(x=>'<option'+(x==v?' selected':'')+'>'+x+'</option>').join('')+'</select>';
+const rows=U.usuarios.map(u=>`<tr><td><b>${E(u.usuario)}</b></td><td>${E(u.nome)}</td><td>${sel(u.perfil,'data-pf="'+E(u.usuario)+'"')}</td><td>${u.ativo?'<span class="tag ok">ativo</span>':'<span class="tag">desativado</span>'}${u.trocar_senha?' <span class="tag">senha provisória</span>':''}</td><td style="white-space:nowrap"><button data-a="ativo" data-u="${E(u.usuario)}" data-v="${u.ativo?0:1}">${u.ativo?'Desativar':'Ativar'}</button> <button data-a="senha" data-u="${E(u.usuario)}">Nova senha</button> <button data-a="desb" data-u="${E(u.usuario)}">Desbloquear</button> <button data-a="del" data-u="${E(u.usuario)}">Excluir</button></td></tr>`).join('');
+const perm=n=>{const p=pr[n]||{abas:[],botoes:[]};return `<div class="c"><h3>${n}</h3><b>Guias</b><div style="columns:2;margin:6px 0 10px">${P.abas.map(a=>`<label style="display:block"><input type="checkbox" data-pp="${n}" data-k="abas" value="${a}"${p.abas.includes(a)?' checked':''}> ${E(GL[a]||a)}</label>`).join('')}</div><b>Botões</b><div style="margin-top:6px">${P.botoes.map(b=>`<label style="display:block"><input type="checkbox" data-pp="${n}" data-k="botoes" value="${b}"${p.botoes.includes(b)?' checked':''}> ${E(BL[b]||b)}</label>`).join('')}</div></div>`};
+m.innerHTML=`<h1>Administrativo</h1><div class="g">
+<div class="c w"><h3>Usuários <i>criar, trocar perfil, desativar e excluir</i></h3><div class="ov"><table><tr><th>Usuário</th><th>Nome</th><th>Perfil</th><th>Situação</th><th>Ações</th></tr>${rows}</table></div>
+<div class="usf" style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end"><label>Usuário<input id="nuU"></label><label>Nome<input id="nuN"></label><label>Perfil${sel('Leitura','id="nuP"')}</label><label>Senha provisória<input id="nuS" type="text" placeholder="mín. 8 caracteres"></label><button id="nuB">Criar usuário</button></div><div id="adM" class="tag" style="display:none;margin-top:8px"></div></div>
+<div class="c w"><h3>Perfis: guias e botões <i>o Administrador sempre tem tudo</i></h3><div class="g">${perm('Leitura')}${perm('Editor')}</div><p style="margin-top:10px"><button id="ppB">Salvar permissões</button> <button id="pbB">Publicar agora</button> <span class="sub">“Publicar agora” faz todos os usuários com o site aberto receberem os dados mais recentes.</span></p></div>
+<div class="c w"><h3>Registro de acessos <i>últimas 300 ações</i></h3><div class="ov" style="max-height:380px;overflow:auto"><table><tr><th>Data e hora</th><th>Usuário</th><th>Ação</th><th>Detalhe</th></tr>${L.log.map(x=>`<tr><td>${fd(x.quando)}</td><td>${E(x.usuario)}</td><td>${E(x.acao)}</td><td>${E(x.detalhe)}</td></tr>`).join('')}</table></div></div></div>`;
+const say=(t,er)=>{const d=document.getElementById('adM');d.style.display='';d.className='tag'+(er?'':' ok');d.textContent=t};
+const run=async(fn,okm)=>{try{await fn();if(okm)say(okm);await PAGES.usr()}catch(e){say(e.message,1)}};
+document.getElementById('nuB').onclick=()=>run(()=>AUTH.j('/admin/usuarios',{method:'POST',body:{usuario:nuU.value,nome:nuN.value,perfil:nuP.value,senha:nuS.value}}));
+m.querySelectorAll('[data-pf]').forEach(s=>s.onchange=()=>run(()=>AUTH.j('/admin/usuarios/'+encodeURIComponent(s.dataset.pf),{method:'PATCH',body:{perfil:s.value}})));
+m.querySelectorAll('button[data-a]').forEach(b=>b.onclick=()=>{const u=b.dataset.u,a=b.dataset.a,url='/admin/usuarios/'+encodeURIComponent(u);
+if(a=='ativo')run(()=>AUTH.j(url,{method:'PATCH',body:{ativo:b.dataset.v=='1'}}));
+else if(a=='senha'){const s=prompt('Nova senha provisória para '+u+' (mínimo 8 caracteres). A pessoa precisará trocá-la ao entrar.');if(s)run(()=>AUTH.j(url,{method:'PATCH',body:{senha:s}}))}
+else if(a=='desb')run(()=>AUTH.j(url,{method:'PATCH',body:{desbloquear:true}}));
+else if(a=='del'&&confirm('Excluir o usuário '+u+'?'))run(()=>AUTH.j(url,{method:'DELETE'}))});
+document.getElementById('ppB').onclick=()=>{const o={};['Leitura','Editor'].forEach(n=>{o[n]={abas:[...m.querySelectorAll('[data-pp="'+n+'"][data-k="abas"]:checked')].map(x=>x.value),botoes:[...m.querySelectorAll('[data-pp="'+n+'"][data-k="botoes"]:checked')].map(x=>x.value)}});run(()=>AUTH.j('/admin/permissoes',{method:'PUT',body:{perfis:o}}),'Permissões salvas. Quem está com o site aberto recebe a mudança em segundos.')};
+document.getElementById('pbB').onclick=()=>run(()=>AUTH.j('/admin/publicar',{method:'POST',body:{}}),'Publicado: todos os usuários conectados vão receber os dados mais recentes.')};
+Object.assign(PN,{usr:'Administrativo'});})();

@@ -470,7 +470,7 @@ const ARQUIVOS = {
   jb: { ler: ['olos', 'buscar'], esc: { abas: ['olos'], botoes: ['importar', 'remover', 'publicar'] } },
   rc: { ler: ['rec'], esc: { abas: ['rec', 'data'], botoes: ['importar', 'publicar'] } },
   analise: { ler: ['olos', 'hubspot'], esc: { abas: ['olos', 'hubspot'], botoes: ['atualizar', 'publicar'] } },
-  meta: { ler: TODAS_ABAS, esc: { abas: [], botoes: [] } } /* só administrador */
+  meta: { ler: PAGINAS_BOTMAKER, esc: { abas: ['data', 'consimp', 'stat', 'cons'], botoes: ['importar', 'remover', 'parametros', 'logo', 'publicar'] } }
 };
 function regraArquivo(nome) {
   if (ARQUIVOS[nome]) return ARQUIVOS[nome];

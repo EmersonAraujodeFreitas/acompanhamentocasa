@@ -39,3 +39,18 @@ Usuário **EMERSON**, senha **12345678**. O sistema obriga a trocar a senha na h
 - Cada perfil só recebe os arquivos das guias liberadas; gravar exige a guia **e** o botão liberados.
 - 5 senhas erradas = bloqueio de 15 min. Desativar, trocar perfil ou senha derruba a sessão.
 - Teste automático: `node teste/teste-servidor.mjs` (43 verificações, incl. usuário sem permissão lendo/gravando).
+
+---
+## Site novo (pasta `/v2/`) e migração
+
+1. Abra `https://emersonaraujodefreitas.github.io/acompanhamentocasa/v2/` — o site novo, com login no servidor.
+2. Entre com **EMERSON / 12345678** e crie sua senha (mín. 8 caracteres).
+3. Abra o **site atual**, entre como administrador e clique em **Migrar para o servidor novo** (canto inferior esquerdo). Informe EMERSON e a senha nova. Os dados atuais (Botmaker, Olos, recorrência, análise HubSpot) são enviados ao servidor.
+4. No site novo, abra **Administrativo**: crie os usuários, marque guias e botões de cada perfil e use **Publicar agora**.
+5. Quando tudo estiver conferido, crie no Worker a variável `ACEITAR_CHAVE_ANTIGA` = `nao` e troque o site atual pelo novo (copiar `v2/index.html` para a raiz, ajustando os caminhos `../favicon` para `favicon`).
+
+### O que o servidor garante
+- Senha e permissão conferidas no servidor; nada de token ou dado de usuário no GitHub.
+- Os dados só saem do servidor para quem tem a guia liberada (o arquivo de cada ambiente: Botmaker, Olos, HubSpot, Buscar). Gravar/apagar exige guia **e** botão.
+- Atenção: dentro do ambiente Botmaker os arquivos são únicos; esconder uma guia isolada (ex.: "Consumo") só a oculta no menu — quem recebe o ambiente recebe os dados dele.
+- Testes: `teste/teste-servidor.mjs` (52 verificações do servidor) e `teste/teste-navegador.py` (fluxo completo no navegador, com `teste/servidor-de-teste.mjs`).
