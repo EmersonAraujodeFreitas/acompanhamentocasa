@@ -1,5 +1,12 @@
 # Servidor de acesso — passo a passo pelo painel da Cloudflare (sem linha de comando)
 
+> **Usando o Worker já existente `central-hubspot`:** cole no editor dele o arquivo **`servidor/worker-unico.mjs`**
+> (já junta o HubSpot + o login). Mantenha as variáveis que ele já tem (HUBSPOT_TOKEN, CHAVE_ACESSO) e faça só os
+> passos 1, 3 e 4 abaixo (banco, ligação `DB` e as 3 variáveis novas). O site antigo continua funcionando durante a
+> transição; quando o site novo estiver no ar, crie a variável `ACEITAR_CHAVE_ANTIGA` = `nao`.
+> Para regenerar o arquivo: `python3 montar.py`.
+
+
 ## 1. Criar o banco (D1)
 1. Entre em dash.cloudflare.com → **Storage & databases → D1 SQL database → Create database**.
 2. Nome: `central-inovacao` → **Create**.

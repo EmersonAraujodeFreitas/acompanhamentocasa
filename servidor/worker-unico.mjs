@@ -1,0 +1,840 @@
+// Worker único: servidor de acesso + consulta HubSpot. Gerado por montar.py — não edite à mão.
+// Serviço intermediário (Cloudflare Worker): consulta o HubSpot pelo telefone ou CPF e devolve a jornada do contato.
+// Segredos (Configurações > Variáveis e segredos): HUBSPOT_TOKEN, CHAVE_ACESSO. Opcionais: ORIGEM_PERMITIDA, CPF_PROP.
+const H = 'https://api.hubapi.com';
+const CONTATO = ['lifecyclestage','hs_lead_status','hs_analytics_source','createdate','hubspot_owner_id','first_conversion_event_name','first_conversion_date','recent_conversion_event_name','recent_conversion_date','hs_email_last_send_date','hs_email_last_email_name','hs_email_last_open_date','hs_email_last_click_date','notes_last_contacted','hs_lifecyclestage_lead_date','hs_lifecyclestage_marketingqualifiedlead_date','hs_lifecyclestage_salesqualifiedlead_date','hs_lifecyclestage_opportunity_date','hs_lifecyclestage_customer_date','hs_analytics_first_visit_timestamp','hs_analytics_last_visit_timestamp','hs_analytics_num_visits','hs_analytics_num_page_views','hs_analytics_source_data_1','hs_analytics_source_data_2','hs_email_first_send_date','hs_email_first_open_date','hs_sales_email_last_replied','hs_sales_email_last_opened','num_conversion_events'];
+const dig = s => String(s || '').replace(/\D/g, '');
+const cpfOk = d => { if (d.length != 11 || /^(\d)\1+$/.test(d)) return false; for (const n of [9, 10]) { let t = 0; for (let i = 0; i < n; i++) t += +d[i] * (n + 1 - i); if ((t * 10 % 11) % 10 != +d[n]) return false } return true };
+const local = v => { if (!v) return null; const t = /^\d+$/.test(String(v)) ? +v : Date.parse(v); if (!t) return null; if (t % 864e5 === 0) return { d: new Date(t).toISOString().slice(0, 10), h: null, hm: '' }; const s = new Date(t).toLocaleString('sv-SE', { timeZone: 'America/Sao_Paulo' }); return { d: s.slice(0, 10), h: +s.slice(11, 13), hm: s.slice(11, 16) } };
+const igual = (a, b) => { if (a.length != b.length) return false; let r = 0; for (let i = 0; i < a.length; i++) r |= a.charCodeAt(i) ^ b.charCodeAt(i); return r == 0 };
+
+const durS = v => { const t = String(v == null ? '' : v).trim(); if (!t) return 0; const m = t.match(/^(\d+):(\d{1,2})(?::(\d{1,2}))?$/); if (m) return m[3] != null ? (+m[1]) * 3600 + (+m[2]) * 60 + (+m[3]) : (+m[1]) * 60 + (+m[2]); return parseFloat(t.replace(',', '.')) || 0 }, hms = v => { const n = Math.round(durS(v)); if (!n) return ''; return String(Math.floor(n / 3600)).padStart(2, '0') + ':' + String(Math.floor(n % 3600 / 60)).padStart(2, '0') + ':' + String(n % 60).padStart(2, '0') };
+const norm = t => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+// [grupo, rótulo pedido, expressão sobre o rótulo normalizado, nome interno provável, evento da jornada, sensível]
+const SPEC = {
+  contacts: [
+    ['Cadastro e ciclo', 'Status do contato de marketing', 'status do contato de marketing|marketing contact status', 'hs_marketable_status'], ['Acadêmico', 'Já é aluno matriculado', '(ja|aluno).*(aluno|matricul)|matriculad'], ['Cadastro e ciclo', 'Fase do ciclo de vida', '^(fase do ciclo|etapa do ciclo|lifecycle)', 'lifecyclestage'],
+    ['Origem e marketing', 'Origem da integração', 'origem da integra'], ['Cadastro e ciclo', 'Data que entrou em lead', 'data.*(entrou|tornou).*lead|lead date', 'hs_lifecyclestage_lead_date'], ['Cadastro e ciclo', 'Data de criação do contato', '^data de cria', 'createdate'],
+    ['Acadêmico', 'Modalidade de interesse', 'modalidade'], ['Acadêmico', 'Universidade', '^universidade$', 'universidade'], ['Origem e marketing', 'Origem', '^origem$', 'origem'], ['Acadêmico', 'Turno de interesse', 'turno'], ['Acadêmico', 'Campus', '^campus|^unidade$|^polo$|campus de|unidade de interesse'], ['Acadêmico', 'Curso de interesse', 'curso de interesse'], ['Acadêmico', 'Forma de ingresso', 'forma.*ingresso|tipo.*ingresso'],
+    ['Origem e marketing', 'Primeira página vista', 'primeira pagina|first page seen|first url', 'hs_analytics_first_url'], ['Origem e marketing', 'Primeiro referenciador', 'primeiro referenciador|first referring|first referrer', 'hs_analytics_first_referrer'], ['Origem e marketing', 'Detalhamento da fonte 2', 'detalhamento da fonte 2|original source drill-down 2', 'hs_analytics_source_data_2'], ['Origem e marketing', 'Primeira visita ao site', 'primeira visita|first visit', 'hs_analytics_first_visit_timestamp'], ['Origem e marketing', 'Campanha do primeiro toque', 'campanha.*primeiro toque|first touch.*campaign', 'hs_analytics_first_touch_converting_campaign'], ['Origem e marketing', 'Primeira conversão', '^primeira convers|first conversion$', 'first_conversion_event_name'], ['Origem e marketing', 'UTM source', '^utm.?source', 'utm_source'], ['Origem e marketing', 'UTM medium', '^utm.?medium', 'utm_medium'], ['Origem e marketing', 'UTM campaign', '^utm.?campaign', 'utm_campaign'], ['Origem e marketing', 'Última página vista', 'ultima pagina|last page seen', 'hs_analytics_last_url'], ['Origem e marketing', 'Detalhamento da fonte', 'detalhamento da fonte|original source drill-down 1', 'hs_analytics_source_data_1'], ['Origem e marketing', 'Fonte do tráfego mais recente', 'fonte.*(mais recente|recente)|latest source', 'hs_latest_source'],
+    ['Origem e marketing', 'Fonte original do tráfego', 'fonte original|original source', 'hs_analytics_source'], ['Origem e marketing', 'Fonte recente de mídia paga', 'midia paga|paid.*source|fonte recente de midia'], ['Origem e marketing', 'Categoria da fonte original', 'categoria da fonte'],
+    ['Origem e marketing', 'Período original', 'periodo original'], ['Origem e marketing', 'Detalhe da fonte de registro', 'detalhe da fonte de registro|registration source detail'], ['Origem e marketing', 'Fonte de registro', '^fonte de registro|registration source', 'hs_registration_method'],
+    ['Negócios', 'Primeiro negócio', 'primeiro neg|first deal', 'first_deal_created_date'], ['Negócios', 'Negócios associados', 'neg.cios associados|associated deals', 'num_associated_deals'], ['Origem e marketing', 'Primeira origem', 'primeira origem'],
+    ['Acadêmico', 'Curso', '^curso'], ['Origem e marketing', 'Tipo de origem', 'tipo (de|da) origem'], ['Cadastro e ciclo', 'Recusa receber ligações', 'recus.*liga|nao ligar|do not call'],
+    ['Campanha', 'Campanha', '^campanha|utm_campaign|^utm campaign'], ['Campanha', 'Conteúdo do anúncio', 'conteudo do anuncio|utm.?content'], ['Campanha', 'Fonte', '^fonte$|utm.?source'], ['Campanha', 'Meio', '^meio$|utm.?medium'], ['Campanha', 'Termo do anúncio', 'termo do anuncio|utm.?term'],
+    ['Campanha', 'URL campanha WhatsApp', 'url.*whats'], ['Campanha', 'Referral source', 'referral'], ['Negócios', 'Pipeline', '^pipeline'], ['Negócios', 'Nome da etapa do negócio', 'etapa do neg'],
+    ['Financeiro', 'Aluno adimplente', 'adimpl'], ['Financeiro', 'Valores devidos', 'valores? devidos'], ['Financeiro', 'Dívidas de acordo', 'divida.* de acordo|dividas? acordo'], ['Financeiro', 'Dívidas de biblioteca', 'divida.*biblioteca|biblioteca'], ['Financeiro', 'Dívidas de mensalidade', 'divida.*mensalidade|^mensalidade'], ['Financeiro', 'Outros valores', 'outros valores'], ['Financeiro', 'Outros acordos', 'outros acordos'], ['Financeiro', 'Faixa de dívida', 'faixa de divida']
+  ],
+  deals: [
+    ['Negócio', 'Data de criação', '^data de cria', 'createdate'], ['Negócio', 'Etapa do negócio', '^etapa do neg|deal stage', 'dealstage'], ['Acadêmico', 'Apto', '^apto'], ['Acadêmico', 'Contrato aceito', 'contrato aceit'], ['Acadêmico', 'Disciplinas inseridas', '^disciplinas inseridas'], ['Acadêmico', 'Enturmado', '^enturmado'],
+    ['Acadêmico', 'Modalidade', '^modalidade'], ['Acadêmico', 'Nome do curso', 'nome do curso|^curso'], ['Acadêmico', 'Universidade', '^universidade$', 'universidade'], ['Marcos', 'Data das disciplinas inseridas', 'data.*disciplinas', null, 'Disciplinas inseridas'], ['Marcos', 'Aceite de contrato e enturmado', 'aceite.*enturmad|data.*aceite', null, 'Aceite de contrato e enturmado'],
+    ['Negócio', 'Data da última modificação', 'ultima modifica|last modified', 'hs_lastmodifieddate'], ['Origem e marketing', 'Tipo da origem', 'tipo da origem|tipo de origem'], ['Origem e marketing', 'Origem do negócio', 'origem do neg'], ['Origem e marketing', 'Fonte original do tráfego', 'fonte original|original source', 'hs_analytics_source'], ['Origem e marketing', 'Fonte de tráfego mais recente', 'fonte.*(mais recente|recente)|latest source', 'hs_latest_source'],
+    ['Negócio', 'Pipeline', '^pipeline', 'pipeline'], ['Acadêmico', 'Período letivo', 'periodo letivo'], ['Origem e marketing', 'Origem da integração', 'origem da integra'], ['Identificação', 'Nome do negócio', 'nome do neg', 'dealname', null, 1], ['Marcos', 'Data de fechamento', '^data de fechamento|close date', 'closedate', 'Fechamento do negócio'],
+    ['Acadêmico', 'Turno', '^turno'], ['Acadêmico', 'Campus', '^campus|^unidade$|^polo$|campus de'], ['Acadêmico', 'Forma de ingresso', 'forma.*ingresso|tipo.*ingresso'], ['Acadêmico', 'Semestre / período do curso', '^semestre'], ['Financeiro', 'Aluno 5 cotas', '5 cotas|cinco cotas'], ['Marcos', 'Vencimento da mensalidade', 'vencimento.*mensalidade', null, 'Vencimento da mensalidade'], ['Marcos', 'Data da mensalidade paga', 'data.*mensalidade paga|mensalidade paga', null, 'Mensalidade paga'],
+    ['Identificação', 'RA', '^ra$|registro academico', null, null, 1], ['Financeiro', 'Aluno adimplente', 'adimpl'], ['Financeiro', 'Valores devidos', 'valores? devidos'], ['Financeiro', 'Dívidas de acordo', 'divida.* de acordo|dividas? acordo'], ['Financeiro', 'Dívidas de biblioteca', 'divida.*biblioteca|biblioteca'], ['Financeiro', 'Dívidas de mensalidade', 'divida.*mensalidade|^mensalidade'],
+    ['Financeiro', 'Outros valores', 'outros valores'], ['Financeiro', 'Descrição da dívida', 'descricao da divida'], ['Financeiro', 'Descrição do benefício', 'descricao do beneficio'], ['Financeiro', 'Tipo de benefício', 'tipo de beneficio'], ['Financeiro', 'Valor da bolsa', 'valor da bolsa'],
+    ['Financeiro', 'Mais de 6 meses de atraso', '6 meses'], ['Financeiro', 'Faixa de dívida', 'faixa de divida'], ['Acadêmico', 'Situação acadêmica', 'situacao academica'], ['Acadêmico', 'Situação do aluno', 'situacao do aluno'], ['Acadêmico', 'Período do curso', 'periodo do curso']
+  ]
+};
+let PCACHE = null; const PNOM = {};
+let MKI = null;
+const mkInfoDe = async api => { if (MKI && Date.now() - MKI.t < 36e5) return MKI.m; const CK = new Request('https://cache.interno/mkinfo'); try { const hit = await caches.default.match(CK); if (hit) { const m = await hit.json(); MKI = { t: Date.now(), m }; return m } } catch (e) { } const m = {}; try { let after; for (let i = 0; i < 10; i++) { const j = await api('/marketing/v3/emails?limit=100&archived=false' + (after ? '&after=' + after : '')); for (const x of (j.results || [])) { const f = x.from || {}; const W = (x.content && x.content.widgets) || {}, tx = []; const col = (o, d) => { if (!o || d > 5 || tx.join(' ').length > 900) return; if (typeof o == 'string') return; if (Array.isArray(o)) { o.forEach(z => col(z, d + 1)); return } for (const k of Object.keys(o)) { const v = o[k]; if ((k == 'html' || k == 'value' || k == 'text') && typeof v == 'string' && v.length > 1 && v.length < 4000 && !/^(#|rgb|https?:|[a-z-]+$)/i.test(v.trim())) { const t = v.replace(/<style[\s\S]*?<\/style>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim(); if (t.length > 2) tx.push(t) } else if (v && typeof v == 'object') col(v, d + 1) } }; try { col(W, 0) } catch (e2) { } m[String(x.name || '').trim().toLowerCase()] = { b: tx.join(' ').slice(0, 700), a: String(x.subject || '').slice(0, 200), r: [f.fromName, f.customReplyTo || f.replyTo].filter(Boolean).join(' · ').slice(0, 160), t: String(x.type || '').slice(0, 40), s: String(x.state || '').slice(0, 30) } } after = j.paging && j.paging.next && j.paging.next.after; if (!after) break } } catch (e) { if (e.st == 401 || e.st == 403) { } } MKI = { t: Date.now(), m }; try { await caches.default.put(CK, new Response(JSON.stringify(m), { headers: { 'Cache-Control': 'max-age=3600' } })) } catch (e) { } return m };
+const nomesDe = async (api, ob) => { if (!PNOM[ob] || Date.now() - PNOM[ob].t > 36e5) { const CK = new Request('https://cache.interno/nomes-' + ob); let lista = null; try { const hit = await caches.default.match(CK); if (hit) lista = await hit.json() } catch (e) { } if (!lista) { const pj = await api('/crm/v3/properties/' + ob).catch(() => null); lista = pj && pj.results ? pj.results.map(x => x.name) : null; if (lista) { try { await caches.default.put(CK, new Response(JSON.stringify(lista), { headers: { 'Cache-Control': 'max-age=3600' } })) } catch (e) { } } } PNOM[ob] = { t: Date.now(), s: lista ? new Set(lista) : null } } return PNOM[ob].s };
+const entrou = (S, id) => { if (!S) return 'hs_date_entered_' + id; const a = 'hs_date_entered_' + id, b = 'hs_v2_date_entered_' + id; return S.has(a) ? a : S.has(b) ? b : a };
+const HS = {
+  async fetch(req, env) {
+    const orig = env.ORIGEM_PERMITIDA || 'https://emersonaraujodefreitas.github.io';
+    const cors = { 'Access-Control-Allow-Origin': orig, 'Access-Control-Allow-Headers': 'Authorization, Content-Type', 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Vary': 'Origin', 'Cache-Control': 'no-store' };
+    const out = (o, s = 200) => new Response(JSON.stringify(o), { status: s, headers: { ...cors, 'Content-Type': 'application/json' } });
+    if (req.method == 'OPTIONS') return new Response(null, { headers: cors });
+    if (req.headers.get('Origin') && req.headers.get('Origin') != orig) return out({ erro: 'origem não permitida' }, 403);
+    const chave = (req.headers.get('Authorization') || '').replace(/^Bearer /, '');
+    if (!env.CHAVE_ACESSO || !igual(chave, env.CHAVE_ACESSO)) return out({ erro: 'acesso negado' }, 401);
+    const u = new URL(req.url); if (!['/buscar', '/estrutura', '/painel', '/campos', '/contar', '/vinculo', '/jornada', '/emails', '/propriedades', '/amostra', '/volume', '/duracao'].includes(u.pathname)) return out({ erro: 'rota inexistente' }, 404);
+    const espera = ms => new Promise(r => setTimeout(r, ms));
+    let NSUB = 0; // limite de subconsultas por invocação (plano gratuito: 50); o código para de consultar antes de estourar
+    const api = async (p, o) => { for (let i = 0; ; i++) { if (++NSUB > 47) { const e = new Error('limite de consultas por pedido (reduza a busca)'); e.st = 598; throw e } const r = await fetch(H + p, { ...o, headers: { Authorization: 'Bearer ' + env.HUBSPOT_TOKEN, 'Content-Type': 'application/json' } }); if (r.status == 429 && i < 6) { await espera(1000 + 700 * i); continue } if (!r.ok) { const e = new Error('HubSpot ' + r.status + ' em ' + p.split('?')[0]); e.st = r.status; throw e } return r.json() } };
+    const resolver = async () => {
+      if (PCACHE && Date.now() - PCACHE.t < 36e5) return PCACHE.v;
+      // cache compartilhado entre instâncias (evita refazer a análise pesada das propriedades a cada instância nova e estourar o limite de CPU)
+      const CK = new Request('https://cache.interno/resolver-v2');
+      try { const hit = await caches.default.match(CK); if (hit) { const v0 = await hit.json(); PCACHE = { t: Date.now(), v: v0 }; return v0 } } catch (e) { }
+      const v = { contacts: [], deals: [], faltam: { contacts: [], deals: [] }, cpf: {}, cpfp: {}, comm: [] };
+      for (const o of ['contacts', 'deals']) {
+        const pr = (await api('/crm/v3/properties/' + o)).results;
+        for (const p of pr) { p._l = norm(p.label); p._n = norm(p.name); p._x = /desuso|nao utilizad|obsolet|descontinuad|\bold\b|\(antigo|legado/.test(p._l + ' ' + p._n) } // pré-calcula uma vez por propriedade
+        const gj = await api('/crm/v3/properties/' + o + '/groups').catch(() => ({ results: [] })), gl = {}; (gj.results || []).forEach(x => gl[x.name] = x.label);
+        { const lc = pr.filter(x => /cpf/i.test(x.name + ' ' + x.label) && !/respons|dependent/i.test(x.label)), od = x => /^cpf$/i.test(x.label.trim()) ? 0 : /desuso|utilizado|antigo/i.test(x.label) ? 2 : 1; lc.sort((a, b) => od(a) - od(b)); v.cpf[o] = lc.map(x => x.name).slice(0, 6); v.cpfp[o] = lc.filter(x => od(x) < 2).map(x => x.name) }
+        for (const [g, rot, rx, hint, ev, pii] of SPEC[o]) {
+          let best = null, bs = 0; const re = new RegExp(rx);
+          const rot0 = norm(rot); for (const p of pr) { if (p.hidden || p._x) continue; const l = p._l, n = p._n; let sc = 0; if (hint && p.name == hint) sc = 4; else if (l == rot0) sc = 3; else if (re.test(l)) sc = 2; else if (!/ /.test(rx) && re.test(n)) sc = 1; if (sc > bs || (sc == bs && sc > 0 && best && sc < 4 && l.length < best._l.length)) { best = p; bs = sc } }
+          if (best) v[o].push({ g, rot, name: best.name, tipo: best.type, ft: best.fieldType, ev: ev || '', pii: pii ? 1 : 0, op: (best.options || []).filter(x => !x.hidden).map(x => [x.value, x.label]) }); else v.faltam[o].push(rot)
+        }
+        { const ja = new Set(v[o].map(x => x.name)); let ne = 0; for (const p of pr) { if (p.hidden || ja.has(p.name) || ne >= 120) continue; const gB = /botmaker/i.test((gl[p.groupName] || '') + ' ' + p.groupName), gT = /template|whats/i.test(p.name + ' ' + p.label), gO = /olos/i.test(p.name + ' ' + p.label + ' ' + (gl[p.groupName] || '')); if (!gB && !gT && !gO) continue; ne++; v[o].push({ g: gO ? 'Olos' : gB ? 'Botmaker · ' + (gl[p.groupName] || p.groupName) : 'Template e WhatsApp', rot: p.label, name: p.name, tipo: p.type, ft: p.fieldType, ev: '', pii: 0, op: (p.options || []).filter(x => !x.hidden).map(x => [x.value, x.label]) }) } }
+      }
+      try { const gj = await api('/crm/v3/properties/communications/groups').catch(() => ({ results: [] })), gl = {}; (gj.results || []).forEach(x => gl[x.name] = x.label); const pc = (await api('/crm/v3/properties/communications')).results; v.comm = pc.filter(p => !p.hidden && !['hs_timestamp', 'hs_communication_channel_type', 'hs_communication_body'].includes(p.name) && (/botmaker/i.test((gl[p.groupName] || '') + ' ' + p.groupName) || /template|whats|botmaker/i.test(p.name + ' ' + p.label))).slice(0, 40).map(p => ({ n: p.name, r: p.label, op: (p.options || []).filter(x => !x.hidden).map(x => [x.value, x.label]) })) } catch (e) { }
+      PCACHE = { t: Date.now(), v }; try { await caches.default.put(CK, new Response(JSON.stringify(v), { headers: { 'Cache-Control': 'max-age=3600' } })) } catch (e) { }; return v
+    };
+    const tplCat = lista => { const o = { w: [], d: [], v: [], x: [] }; for (const x of lista || []) { const l = norm(x.rot || ''); if (!/template/.test(l) || !/^data/.test(l) || !/date/.test(x.tipo || '')) continue; const c = /respond/.test(l) ? 'x' : /\blid/.test(l) ? 'v' : /receb|entreg/.test(l) ? 'd' : /envi/.test(l) ? 'w' : ''; if (c) o[c].push(x.name) } return o };
+    const tplQtd = lista => { const o = { w: '', d: '', v: '' }; for (const x of lista || []) { const l = norm(x.rot || ''); if (!/^quantidade de whats/.test(l)) continue; const c = /\blid/.test(l) ? 'v' : /receb|entreg/.test(l) ? 'd' : /envi/.test(l) ? 'w' : ''; if (c && !o[c]) o[c] = x.name } return o };
+    const cdOf = (cat, n) => Object.keys(cat).find(k => cat[k].includes(n)) || 'w';
+    const uniDe = t => { t = String(t || '').toLowerCase(); return /unijorge|jorge amado|(^|[^a-z0-9])uj([^a-z0-9]|$)/.test(t) ? 'UNIJORGE' : /veiga de almeida|(^|[^a-z0-9])uva([^a-z0-9]|$)/.test(t) ? 'UVA' : '' };
+    const busca = (p, corpo) => api(p, { method: 'POST', body: JSON.stringify(corpo) });
+    if (u.pathname != '/buscar') {
+      try {
+        if (u.pathname == '/campos') {
+          const r = {}; for (const o of ['contacts', 'deals']) { const p = await api('/crm/v3/properties/' + o); r[o] = p.results.filter(x => /univers|unidade|marca|institu|curso|polo|campus|cpf/i.test(x.name + ' ' + x.label)).map(x => ({ nome: x.name, rotulo: x.label })) }
+          return out(r);
+        }
+        if (u.pathname == '/estrutura') {
+          const [own, pip] = await Promise.all([api('/crm/v3/owners?limit=500').catch(() => ({ results: [] })), api('/crm/v3/pipelines/deals')]);
+          const donos = {}; own.results.forEach(o => donos[o.id] = [o.firstName, o.lastName].filter(Boolean).join(' ') || 'Sem nome');
+          const funis = pip.results.sort((a, b) => a.displayOrder - b.displayOrder).map(p => ({ id: p.id, nome: p.label, etapas: p.stages.sort((a, b) => a.displayOrder - b.displayOrder).map(s => ({ id: s.id, nome: s.label, fim: s.metadata && s.metadata.isClosed == 'true' ? (+s.metadata.probability >= 1 ? 'g' : 'p') : '' })) }));
+          const def = async (o, n) => api('/crm/v3/properties/' + o + '/' + n).catch(() => null);
+          const opc = {}, uni = {};
+          for (const o of ['contacts', 'deals']) {
+            opc[o] = {}; for (const n of (o == 'contacts' ? ['lifecyclestage', 'hs_lead_status', 'hs_analytics_source'] : ['hs_analytics_source'])) { const d = await def(o, n); opc[o][n] = d && d.options ? d.options.filter(x => !x.hidden).map(x => ({ v: x.value, l: x.label })) : [] }
+            let nome = env.UNI_PROP || '', d = nome ? await def(o, nome) : await def(o, 'universidade');
+            if (!d && !env.UNI_PROP) { const pr = (await api('/crm/v3/properties/' + o).catch(() => ({ results: [] }))).results, ach = pr.find(x => /^\s*universidade\s*$/i.test(x.label || '')) || pr.find(x => /^\s*(ies|institui)/i.test(x.label || '')); if (ach) d = await def(o, ach.name) }
+            if (o == 'contacts') {
+              const pr = (await api('/crm/v3/properties/contacts').catch(() => ({ results: [] }))).results;
+              const mk = x => ({ name: x.name, label: x.label, ops: (x.options || []).filter(z => !z.hidden) }), cand = [];
+              { const add = x => { if (x && !cand.some(c => c.name == x.name)) cand.push(mk(x)) };
+                for (const x of pr.filter(x => /^\s*universidade\s*$/i.test(x.label || '') || x.name == 'universidade')) add(x);
+                add(pr.find(x => x.name == 'hs_analytics_source_data_2'));
+                for (const x of pr.filter(x => /^\s*origem\s*$/i.test(x.label || '') || x.name == 'origem')) add(x);
+                if (!cand.length) for (const x of pr.filter(x => /univers|^ies|institu|marca/i.test(x.name + ' ' + (x.label || '')) && !/email|phone|telefone/i.test(x.name)).slice(0, 3)) add(x) }
+              const defs = [], TKU = ['uva*', 'veiga*'], TKJ = ['unijorge*', 'uj'];
+              for (const c of cand.slice(0, 12)) {
+                const v = { UVA: [], UNIJORGE: [] }, ext = {}; c.ops.forEach(z => { const k = uniDe(z.label + ' ' + z.value); if (k) v[k].push(z.value); else if (c.name == 'universidade' || /^\s*universidade\s*$/i.test(c.label || '')) (ext[String(z.label || z.value).slice(0, 60)] = ext[String(z.label || z.value).slice(0, 60)] || []).push(z.value) });
+                const en = v.UVA.length || v.UNIJORGE.length;
+                if (en) { const w = []; if (v.UVA.length) w.push({ filters: [{ propertyName: c.name, operator: 'IN', values: v.UVA }] }); if (v.UNIJORGE.length) w.push({ filters: [{ propertyName: c.name, operator: 'IN', values: v.UNIJORGE }] }); let n = 0; try { n = (await busca('/crm/v3/objects/contacts/search', { filterGroups: w, limit: 1, properties: ['hs_object_id'] })).total } catch (e) { } if (n > 0) defs.push({ prop: c.name, rotulo: c.label, tipo: 'enum', val: v, n, ext: Object.keys(ext).length ? ext : undefined }); continue }
+                const cnt = async toks => { try { return (await busca('/crm/v3/objects/contacts/search', { filterGroups: toks.map(t => ({ filters: [{ propertyName: c.name, operator: 'CONTAINS_TOKEN', value: t }] })), limit: 1, properties: ['hs_object_id'] })).total || 0 } catch (e) { return 0 } };
+                const nU = await cnt(TKU), nJ = await cnt(TKJ);
+                if (nU > 0 || nJ > 0) defs.push({ prop: c.name, rotulo: c.label, tipo: 'texto', val: { UVA: nU > 0 ? TKU : [], UNIJORGE: nJ > 0 ? TKJ : [] }, nU, nJ, n: nU + nJ });
+              }
+              defs.sort((a, b) => cand.findIndex(c => c.name == a.prop) - cand.findIndex(c => c.name == b.prop));
+              { const cu = { UVA: 0, UNIJORGE: 0 }, fin = []; for (const x of defs) { const val = { UVA: [], UNIJORGE: [] }; for (const k of ['UVA', 'UNIJORGE']) { const n = x.tipo == 'enum' ? Math.ceil(x.val[k].length / 100) : x.val[k].length; if (n && cu[k] + n <= 5) { cu[k] += n; val[k] = x.val[k] } else if (n && x.tipo == 'enum' && cu[k] < 5) { const m = 5 - cu[k]; cu[k] += m; val[k] = x.val[k].slice(0, m * 100) } } if (val.UVA.length || val.UNIJORGE.length) fin.push({ ...x, val, ex: fin.map(y => y.prop).slice(0, 2) }) } uni[o] = fin.length ? { tipo: 'multi', defs: fin } : { tipo: 'nenhuma' } }
+              continue
+            }
+            { const defs = [];
+              if (d) { const ops = (d.options || []).filter(x => !x.hidden), v = { UVA: [], UNIJORGE: [] }; ops.forEach(x => { const k = uniDe(x.label + ' ' + x.value); if (k) v[k].push(x.value) });
+                defs.push(ops.length && (v.UVA.length || v.UNIJORGE.length) ? { prop: d.name, rotulo: d.label, tipo: 'enum', val: v, opcoes: ops.map(x => x.label) } : { prop: d.name, rotulo: d.label, tipo: 'texto', val: { UVA: ['uva*'], UNIJORGE: ['unijorge*'] } }) }
+              if (o == 'deals') {
+                const pv = { UVA: [], UNIJORGE: [] }; funis.forEach(f => { const k = uniDe(f.nome); if (k) pv[k].push(f.id) }); if (pv.UVA.length || pv.UNIJORGE.length) defs.push({ prop: 'pipeline', rotulo: 'Nome do funil', tipo: 'pipeline', val: pv });
+                defs.push({ prop: 'dealname', rotulo: 'Nome do negócio', tipo: 'texto', val: { UVA: ['uva*', 'veiga*'], UNIJORGE: ['unijorge*', 'uj'] } });
+              }
+              uni[o] = defs.length ? { tipo: 'multi', defs: defs.slice(0, 5) } : { tipo: 'nenhuma' }; continue }
+          }
+          let mat = null; try { const pr = (await api('/crm/v3/properties/contacts')).results, c = pr.filter(p => !p.hidden && !/desuso|nao utilizad|obsolet/.test(norm(p.label + ' ' + p.name)) && /(ja|aluno).*(aluno|matricul)|matriculad/.test(norm(p.label))).sort((a, b) => a.label.length - b.label.length)[0]; if (c) { if (c.type == 'bool' || c.fieldType == 'booleancheckbox') mat = { p: c.name, op: 'EQ', v: 'true' }; else { const vs = (c.options || []).filter(o => !o.hidden && /^(sim|s|true)$|matricul|ativo/.test(norm(o.label))).map(o => o.value); mat = vs.length ? { p: c.name, op: 'IN', vs } : { p: c.name, op: 'EQ', v: 'Sim' } } } } catch (e) { }
+          let per = null; try { const R0 = await resolver(), f = (R0.deals || []).find(x => x.rot == 'Período letivo'); if (f) { let vs = f.op.map(x => [String(x[0]), String(x[1] || x[0])]); if (!vs.length) { const ano = new Date().getFullYear(), set = new Set(); await Promise.all(Array.from({ length: Math.min(8, ano - 2018) }, (_, i) => ano - i).map(async y => { try { const sj = await busca('/crm/v3/objects/deals/search', { filterGroups: [{ filters: [{ propertyName: f.name, operator: 'HAS_PROPERTY' }, { propertyName: 'createdate', operator: 'GTE', value: String(Date.UTC(y, 0, 1)) }, { propertyName: 'createdate', operator: 'LT', value: String(Date.UTC(y + 1, 0, 1)) }] }], sorts: [{ propertyName: 'createdate', direction: 'DESCENDING' }], properties: [f.name], limit: 100 }); (sj.results || []).forEach(r => { const v = String(r.properties[f.name] || ''); if (v) set.add(v) }) } catch (e) { } })); vs = [...set].map(x => [x, x]) } per = { p: f.name, v: vs.sort((a, b) => b[1].localeCompare(a[1])).slice(0, 30) } } } catch (e) { }
+          // filtros extras da Análise geral (propriedades dos negócios): modalidade, situação acadêmica, situação do aluno, faixa de dívida
+          let fx = []; try { const R0 = await resolver(); for (const rot of ['Modalidade', 'Forma de ingresso', 'Situação acadêmica', 'Situação do aluno', 'Faixa de dívida']) { const f = (R0.deals || []).find(x => x.rot == rot); if (!f) continue; let vs = (f.op || []).map(x => [String(x[0]), String(x[1] || x[0])]); if (!vs.length) { try { const cnt = {}, big = /^Situação (acadêmica|do aluno)$/.test(rot); for (const dir of big ? ['DESCENDING', 'ASCENDING'] : ['DESCENDING']) { let aft = ''; for (let pg = 0; pg < (big ? (dir == 'DESCENDING' ? 4 : 2) : 1); pg++) { const sj = await busca('/crm/v3/objects/deals/search', { filterGroups: [{ filters: [{ propertyName: f.name, operator: 'HAS_PROPERTY' }] }], sorts: [{ propertyName: 'createdate', direction: dir }], properties: [f.name], limit: 100, ...(aft ? { after: aft } : {}) }); for (const r of (sj.results || [])) { const v = String(r.properties[f.name] || ''); if (v) cnt[v] = (cnt[v] || 0) + 1 } aft = sj.paging && sj.paging.next ? sj.paging.next.after : ''; if (!aft) break } } vs = Object.entries(cnt).sort((a, b) => b[1] - a[1]).map(([x]) => [x, x]) } catch (e) { } } if (vs.length) fx.push({ p: f.name, rot, v: vs.slice(0, 40) }) } } catch (e) { }
+          let dims = []; try { const R0 = await resolver(); for (const [k, rot] of [['fonte', 'Fonte original do tráfego'], ['origem', 'Origem do negócio']]) { const f = (R0.deals || []).find(x => x.rot == rot); if (!f) continue; let vs = (f.op || []).map(x => [String(x[0]), String(x[1] || x[0])]); if (!vs.length || vs.length > 40) { try { const cnt = {}; let aft = ''; for (let pg = 0; pg < 2; pg++) { const sj = await busca('/crm/v3/objects/deals/search', { filterGroups: [{ filters: [{ propertyName: f.name, operator: 'HAS_PROPERTY' }] }], sorts: [{ propertyName: 'createdate', direction: 'DESCENDING' }], properties: [f.name], limit: 100, ...(aft ? { after: aft } : {}) }); for (const r of (sj.results || [])) { const v = String(r.properties[f.name] || ''); if (v) cnt[v] = (cnt[v] || 0) + 1 } aft = sj.paging && sj.paging.next ? sj.paging.next.after : ''; if (!aft) break } const lab = {}; (f.op || []).forEach(x => lab[String(x[0])] = String(x[1] || x[0])); vs = Object.entries(cnt).sort((a, b) => b[1] - a[1]).slice(0, 20).map(([v]) => [v, lab[v] || v]) } catch (e) { } } if (vs.length) dims.push({ k, p: f.name, rot, v: vs.slice(0, 40) }) } } catch (e) { }
+          let olp = null; try { const R0 = await resolver(), OF = (R0.deals || []).filter(f => f.g == 'Olos'), G = k => OF.find(f => norm(f.rot) == k) || OF.find(f => norm(f.rot).includes(k)), dL = G('data da ultima ligacao olos'), dS = G('data da ultima solicitacao de ligacao olos'), dD = G('duracao da ultima ligacao olos'), dT = G('tabulacao final olos') || G('tabulacao fina olos 1') || G('ultima tabulacao olos 1'); olp = { d: dD ? dD.name : '', l: dL ? dL.name : '', s: dS ? dS.name : '', t: dT ? dT.name : '', to: dT ? (dT.op || []).map(x => [String(x[0]), String(x[1] || x[0])]).slice(0, 300) : [] };
+            const cand = OF.filter(f => /tabula/.test(norm(f.rot))); olp.cand = cand.map(c => c.name); olp.props = OF.map(f => [f.name, f.rot]);
+            if (olp.l && cand.length) { const cnt = {}, lab = {}; cand.forEach(c => (c.op || []).forEach(x => lab[c.name + '|' + x[0]] = String(x[1] || x[0]))); let aft = '', tot = 0; for (let pg = 0; pg < 4; pg++) { const sj = await busca('/crm/v3/objects/deals/search', { filterGroups: [{ filters: [{ propertyName: olp.l, operator: 'HAS_PROPERTY' }] }, ...(olp.s ? [{ filters: [{ propertyName: olp.s, operator: 'HAS_PROPERTY' }] }] : []), ...cand.slice(0, 3).map(c => ({ filters: [{ propertyName: c.name, operator: 'HAS_PROPERTY' }] }))].slice(0, 5), sorts: [{ propertyName: 'createdate', direction: 'DESCENDING' }], properties: cand.map(c => c.name), limit: 100, ...(aft ? { after: aft } : {}) }); for (const r of (sj.results || [])) for (const c of cand) { const v = String((r.properties || {})[c.name] || ''); if (v) { const k = c.name + '|' + v; cnt[k] = (cnt[k] || 0) + 1 } } aft = sj.paging && sj.paging.next ? sj.paging.next.after : ''; if (!aft) break }
+              const por = {}; Object.entries(cnt).forEach(([k, n]) => { const [pn] = k.split('|'); por[pn] = (por[pn] || 0) + n }); let best = Object.entries(por).sort((a, b) => b[1] - a[1])[0]; const pref = G('ultima tabulacao olos 1'); if (pref && cand.some(c => c.name == pref.name) && por[pref.name] > 0) { best = [pref.name, por[pref.name]] } if (best) { olp.t = best[0]; olp.enum = !!((cand.find(c => c.name == best[0]) || {}).op || []).length; olp.to = Object.entries(cnt).filter(([k]) => k.startsWith(best[0] + '|')).sort((a, b) => b[1] - a[1]).map(([k]) => { const v = k.slice(best[0].length + 1); return [v, lab[k] || v] }).slice(0, 300); { const bc = cand.find(c => c.name == best[0]), have = new Set(olp.to.map(x => x[0])); (bc && bc.op || []).forEach(x => { if (!have.has(String(x[0]))) olp.to.push([String(x[0]), String(x[1] || x[0])]) }); olp.to = olp.to.slice(0, 300) } olp.obs = Object.entries(cnt).filter(([k]) => k.startsWith(best[0] + '|')).sort((a, b) => b[1] - a[1]).slice(0, 30).map(([k, n]) => [lab[k] || k.slice(best[0].length + 1), n, k.slice(best[0].length + 1)]) } } } catch (e) { }
+          return out({ funis, donos, uni, opc, mat, per, fx, dims, olp });
+        }
+        if (u.pathname == '/propriedades') {
+          const ob = u.searchParams.get('obj') == 'deals' ? 'deals' : 'contacts', j = await api('/crm/v3/properties/' + ob);
+          return out({ p: j.results.filter(x => !x.hidden).map(x => ({ n: x.name, l: x.label || x.name, t: x.type, f: x.fieldType, o: (x.options || []).filter(z => !z.hidden).slice(0, 80).map(z => ({ v: z.value, l: z.label })) })) });
+        }
+        if (u.pathname == '/amostra') {
+          const ob = u.searchParams.get('obj') == 'deals' ? 'deals' : 'contacts', props = (u.searchParams.get('props') || '').split(',').filter(p => /^[a-z0-9_]{1,80}$/.test(p)).slice(0, 40), s0 = +u.searchParams.get('s') || 0, e0 = +u.searchParams.get('e') || Date.now(), n = Math.min(+u.searchParams.get('n') || 400, 600);
+          const rows = []; let after;
+          while (rows.length < n) { const j = await busca('/crm/v3/objects/' + ob + '/search', { filterGroups: [{ filters: [{ propertyName: 'createdate', operator: 'GTE', value: String(s0) }, { propertyName: 'createdate', operator: 'LTE', value: String(e0) }] }], sorts: [{ propertyName: 'createdate', direction: 'ASCENDING' }], properties: props, limit: 200, ...(after ? { after } : {}) }); for (const x of j.results) rows.push(props.map(p => x.properties[p] == null ? '' : String(x.properties[p]).slice(0, 200))); after = j.paging && j.paging.next && j.paging.next.after; if (!after) break }
+          return out({ r: rows.slice(0, n) });
+        }
+        if (u.pathname == '/vinculo') {
+          if (req.method != 'POST') return out({ erro: 'use POST' }, 405);
+          const b = await req.json().catch(() => null); if (!b) return out({ erro: 'pedido inválido' }, 400);
+          const nm = x => (Array.isArray(x) ? x : []).map(String).filter(z => /^[a-z0-9_]{1,80}$/.test(z)).slice(0, 10), cp = nm(b.cp), dp = nm(b.dp), n = Math.min(+b.n || 80, 100);
+          const R0 = await resolver().catch(() => null), cpfC = R0 && R0.cpf ? (R0.cpfp.contacts.length ? R0.cpfp.contacts : R0.cpf.contacts).slice(0, 2) : [], cpfD = R0 && R0.cpf ? (R0.cpfp.deals.length ? R0.cpfp.deals : R0.cpf.deals).slice(0, 2) : [];
+          const fl = [{ propertyName: 'createdate', operator: 'GTE', value: String(+b.d0 || 0) }, { propertyName: 'createdate', operator: 'LTE', value: String(+b.d1 || Date.now()) }, { propertyName: 'num_associated_deals', operator: 'GTE', value: '1' }];
+          const cj = await busca('/crm/v3/objects/contacts/search', { filterGroups: [{ filters: fl }], sorts: [{ propertyName: 'createdate', direction: 'DESCENDING' }], properties: ['createdate', ...cp, ...cpfC], limit: n, ...(b.after ? { after: String(b.after) } : {}) });
+          const cs = cj.results || [], nx = cj.paging && cj.paging.next ? cj.paging.next.after : '';
+          const cls = vals => { const f = new Set(); for (const v of vals) { const k = uniDe(v); if (k) f.add(k) } return f.size == 1 ? [...f][0] : f.size > 1 ? 'AMBOS' : '' };
+          const res = { total: cs.length, cad: { UVA: 0, UNIJORGE: 0, AMBOS: 0 }, neg: { UVA: 0, UNIJORGE: 0, AMBOS: 0 }, cpf: { UVA: 0, UNIJORGE: 0, AMBOS: 0 }, sem: 0, semNeg: 0 }, pend = [];
+          for (const c of cs) { const k = cls(cp.map(p => c.properties[p] || '')); if (k) res.cad[k]++; else pend.push(c.id) }
+          if (pend.length) {
+            const pl = await api('/crm/v3/pipelines/deals').catch(() => ({ results: [] })), pn = {}; (pl.results || []).forEach(p => pn[p.id] = p.label);
+            const aj = await api('/crm/v4/associations/contacts/deals/batch/read', { method: 'POST', body: JSON.stringify({ inputs: pend.map(id => ({ id })) }) }).catch(() => ({ results: [] })), dono = {}, ids = [];
+            for (const r of (aj.results || [])) for (const t of (r.to || []).slice(0, 4)) { const id = String(t.toObjectId); (dono[String(r.from.id)] || (dono[String(r.from.id)] = [])).push(id); ids.push(id) }
+            const dv = {};
+            for (let i = 0; i < ids.length && i < 400; i += 100) { const rj = await api('/crm/v3/objects/deals/batch/read', { method: 'POST', body: JSON.stringify({ properties: ['pipeline', 'dealname', ...dp], inputs: ids.slice(i, i + 100).map(id => ({ id })) }) }).catch(() => ({ results: [] })); for (const d of (rj.results || [])) dv[d.id] = [pn[d.properties.pipeline] || '', d.properties.dealname || '', ...dp.map(p => d.properties[p] || '')] }
+            const rest = [];
+            for (const id of pend) { const ds = dono[id] || []; const k = ds.length ? cls(ds.flatMap(d => dv[d] || [])) : ''; if (k) res.neg[k]++; else rest.push([id, ds.length ? 1 : 0]) }
+            // cruza por CPF: negócios de qualquer contato com o mesmo CPF
+            const cc = {}; for (const c of cs) { for (const p of cpfC) { const d = dig(c.properties[p]); if (cpfOk(d)) { cc[c.id] = d; break } } }
+            const cvals = [...new Set(rest.map(([id]) => cc[id]).filter(Boolean))].slice(0, 100), cm = {};
+            if (cvals.length && cpfD.length) for (let i = 0; i < cvals.length; i += 50) {
+              const ch = cvals.slice(i, i + 50), vs = ch.flatMap(d => [d, d.slice(0, 3) + '.' + d.slice(3, 6) + '.' + d.slice(6, 9) + '-' + d.slice(9)]);
+              for (const p of cpfD) {
+                try {
+                  const rj = await busca('/crm/v3/objects/deals/search', { filterGroups: [{ filters: [{ propertyName: p, operator: 'IN', values: vs }] }], properties: ['pipeline', 'dealname', ...dp, ...cpfD], limit: 100 });
+                  for (const d of (rj.results || [])) { const pr = d.properties || {}, k = cls([pn[pr.pipeline] || '', pr.dealname || '', ...dp.map(x => pr[x] || '')]); if (!k) continue; for (const q of cpfD) { const dd = dig(pr[q]); if (dd) (cm[dd] || (cm[dd] = new Set())).add(k) } }
+                } catch (e) { if (e.st == 401 || e.st == 403 || e.st == 429) throw e }
+              }
+            }
+            for (const [id, tem] of rest) { const st = cc[id] && cm[cc[id]] ? cm[cc[id]] : null; if (st && st.size) res.cpf[st.size > 1 ? 'AMBOS' : [...st][0]]++; else if (tem) res.sem++; else res.semNeg++ }
+          }
+          return out({ ...res, after: nx || '' });
+        }
+        if (u.pathname == '/jornada') {
+          if (req.method != 'POST') return out({ erro: 'use POST' }, 405);
+          const b = await req.json().catch(() => null); if (!b) return out({ erro: 'pedido inválido' }, 400);
+          const OPS2 = ['EQ', 'IN', 'GTE', 'LTE', 'CONTAINS_TOKEN', 'HAS_PROPERTY'], mk = f => { if (!/^[a-z0-9_]{1,80}$/.test(f.p || '') || !OPS2.includes(f.op)) throw new Error('filtro inválido'); const o = { propertyName: f.p, operator: f.op }; if (Array.isArray(f.vs)) o.values = f.vs.slice(0, 100).map(String); else if (f.v != null) o.value = String(f.v); return o };
+          const pls = (Array.isArray(b.pls) ? b.pls : []).map(String).filter(x => /^[\w-]{1,40}$/.test(x)).slice(0, 12), ets = (Array.isArray(b.et) ? b.et : []).map(String).filter(x => /^[\w-]{1,40}$/.test(x)).slice(0, 60), n = Math.min(+b.n || 50, 60);
+          const CT = b.obj == 'contacts', mp = (Array.isArray(b.mp) ? b.mp : []).map(String).filter(x => /^[a-z0-9_]{1,80}$/.test(x)).slice(0, 12), op = ['hs_analytics_source', 'hs_analytics_source_data_1', 'utm_source', 'utm_medium', 'utm_campaign', 'first_conversion_event_name', 'lifecyclestage'];
+          if (!CT && !pls.length) return out({ erro: 'informe os funis' }, 400);
+          const base = [...(+b.d0 > 1 ? [{ propertyName: 'createdate', operator: 'GTE', value: String(+b.d0) }] : []), ...(+b.d1 && +b.d1 < Date.now() - 120000 ? [{ propertyName: 'createdate', operator: 'LTE', value: String(+b.d1) }] : []), ...(CT ? [] : [{ propertyName: 'pipeline', operator: 'IN', values: pls }])]; // sem limites de data redundantes: o HubSpot aceita só 6 filtros por grupo
+          const SN = CT ? null : await nomesDe(api, 'deals'), ex = (Array.isArray(b.f) ? b.f : []).slice(0, 5).map(mk).map(g => !CT && /^hs_date_entered_/.test(g.propertyName) ? { ...g, propertyName: entrou(SN, g.propertyName.slice(16)) } : g), og = Array.isArray(b.o) && b.o.length ? b.o.slice(0, 5).map(g => ({ filters: [...base, ...ex, ...(Array.isArray(g) ? g : []).slice(0, 3).map(mk).map(h => !CT && /^hs_date_entered_/.test(h.propertyName) ? { ...h, propertyName: entrou(SN, h.propertyName.slice(16)) } : h)] })) : [{ filters: [...base, ...ex] }];
+          if (og.length > 1) { const sz = Math.max(...og.map(g => g.filters.length)); og.splice(Math.max(1, Math.min(5, Math.floor(18 / sz)))) } // limite do HubSpot: 18 filtros no total e 6 por grupo
+          og.forEach(g => { while (g.filters.length > 6) { const k = g.filters.findIndex(f => f.propertyName == 'pipeline' || f.propertyName == 'createdate'); if (k < 0) break; g.filters.splice(k, 1) } if (g.filters.length > 6) g.filters.splice(6) });
+          const eprops = ets.map(x => entrou(SN, x));
+          if (b.olagg && !CT) {
+            const DP = (await api('/crm/v3/properties/deals').catch(() => ({ results: [] }))).results.filter(p => !p.hidden && /olos/.test(norm(p.label))), DN = k => { const f = DP.find(p => norm(p.label) == k) || DP.find(p => norm(p.label).includes(k)); return f ? f.name : '' }, dL = DN('data da ultima ligacao olos'), dM = DN('nome do mailing olos'), dC = DN('codigo da campanha olos'), dT = DN('tabulacao final olos'), dTf = DN('tabulacao fina olos 1'), dT1 = DN('ultima tabulacao olos 1'), dD = DN('duracao da ultima ligacao olos');
+            if (!dM) return out({ olagg: { ok: 0, pr: DP.length, rows: {}, after: '', total: 0 } });
+            const og2 = og.map(g => { const fs = [...g.filters, { propertyName: dM, operator: 'HAS_PROPERTY' }]; while (fs.length > 6) { const k = fs.findIndex(f => f.propertyName == 'pipeline' || f.propertyName == 'createdate'); if (k < 0) break; fs.splice(k, 1) } return { filters: fs.slice(0, 6) } });
+            const PRs = [dL, dM, dC, dT, dTf, dT1, dD].filter(Boolean), rows = {}; let aft = b.after ? String(b.after) : '', total = 0, pg = 0;
+            const prodOk = t => t && !/^(noanswer|announcement|silence|badnumber|busy|fax|answeringmachine|answermachine|congestion|nodialtone|invalid\w*|abandon\w*|failed|rejected|unknown|cancel\w*)$|improdut|telefonia|nao atend|caixa postal|ocupad|engano|invalid|inexist|desligad|fora de area|sem contato|falha|mudo|queda|abandon|ligacao muda/.test(norm(t));
+            while (pg < 1) {
+              const rj = await busca('/crm/v3/objects/deals/search', { filterGroups: og2, sorts: [{ propertyName: 'createdate', direction: 'DESCENDING' }], properties: ['createdate'], limit: 100, ...(aft ? { after: aft } : {}) }); total = rj.total || total; const ids = (rj.results || []).map(d => d.id);
+              if (ids.length) { const rbs = []; for (let z = 0; z < ids.length; z += 50) { const r5 = await api('/crm/v3/objects/deals/batch/read', { method: 'POST', body: JSON.stringify({ properties: PRs, propertiesWithHistory: [...new Set([dL, dTf || dT1 || dT].filter(Boolean))], inputs: ids.slice(z, z + 50).map(id => ({ id })) }) }); rbs.push(...(r5.results || [])) } const rb = { results: rbs }; for (const x of (rb.results || [])) { const q = x.properties || {}, m = String(q[dM] || '').trim().slice(0, 80) || '(sem mailing)', o = rows[m] || (rows[m] = { c: [], d: 0, n: 0, u: 0, nu: 0, p: 0, t: 0 }); o.d++; const hv = new Set(((x.propertiesWithHistory || {})[dL] || []).map(v => v.value).filter(Boolean)); if (dL && q[dL]) hv.add(q[dL]); o.n += hv.size; const cd = String(q[dC] || '').trim(); if (cd && !o.c.includes(cd) && o.c.length < 200) o.c.push(cd); const du = dD ? durS(q[dD]) : 0; if (du > 0) { o.u += du; o.nu++ } const tp = dTf || dT1 || dT, hx = ((x.propertiesWithHistory || {})[tp] || []).map(v => String(v.value || '').trim()).filter(Boolean), cur = String(q[dT] || q[dTf] || q[dT1] || '').trim(), ents = hx.length ? hx : (cur ? [cur] : []); if (ents.length) { o.dt = (o.dt || 0) + 1; for (const tb of ents) { o.t++; if (prodOk(tb)) o.p++ } } } }
+              pg++; aft = rj.paging && rj.paging.next ? rj.paging.next.after : ''; if (!aft || +aft >= 10000) break;
+            }
+            return out({ olagg: { ok: 1, rows, after: +aft >= 10000 ? '' : aft, total, trunc: total > 10000 ? 1 : 0 } });
+          }
+          const dj = await busca('/crm/v3/objects/' + (CT ? 'contacts' : 'deals') + '/search', { filterGroups: og, sorts: [{ propertyName: 'createdate', direction: b.asc ? 'ASCENDING' : 'DESCENDING' }], properties: CT ? ['createdate', ...mp, ...op] : ['createdate', 'pipeline', 'dealstage', ...eprops, ...Object.values(tplQtd(((await resolver().catch(() => null)) || {}).deals)).filter(Boolean)], limit: n, ...(b.after ? { after: String(b.after) } : {}) });
+          const deals = dj.results || [], nx = dj.paging && dj.paging.next ? dj.paging.next.after : '';
+          const ct = {}; // deal -> contato
+          if (CT) deals.forEach(d => ct[d.id] = String(d.id)); else if (deals.length) { const aj = await api('/crm/v4/associations/deals/contacts/batch/read', { method: 'POST', body: JSON.stringify({ inputs: deals.map(d => ({ id: d.id })) }) }).catch(() => ({ results: [] })); (aj.results || []).forEach(r => { if (r.to && r.to[0]) ct[r.from.id] = String(r.to[0].toObjectId) }) }
+          const cids = [...new Set(Object.values(ct))], ev = {}; // contato -> [[ts,codigo]]
+          const R1 = await resolver().catch(() => null), cdef = ((R1 && R1.comm) || []).filter(x => /respond|repl|status|lid|visual|entreg|direc|receb|sentido/i.test(x.r + ' ' + x.n)).slice(0, 8), ctpl = ((R1 && R1.comm) || []).filter(x => /template|whats|botmaker/i.test(x.r + ' ' + x.n)).slice(0, 8), lbl = (x, v) => ((x.op.find(z => z[0] == v) || [])[1]) || v;
+          const waResp = p => cdef.some(x => p[x.n] && /respond|repl|receb|inbound|incoming|do cliente|do contato/i.test(String(p[x.n]) + ' ' + lbl(x, p[x.n])));
+          const tipos = [['communications', ['hs_timestamp', 'hs_communication_channel_type', ...cdef.map(x => x.n), ...ctpl.map(x => x.n)], p => (/whats/i.test(p.hs_communication_channel_type || '') || ctpl.some(x => p[x.n])) ? (waResp(p) ? 'x' : 'w') : /sms/i.test(p.hs_communication_channel_type || '') ? 's' : 'o'], ['emails', ['hs_timestamp', 'hs_email_direction'], p => /incoming/i.test(p.hs_email_direction || '') ? 'r' : 'm'], ['calls', ['hs_timestamp'], () => 'l'], ['meetings', ['hs_timestamp'], () => 'u']];
+          let trunc = 0;
+          const catC = tplCat(R1 && R1.contacts), catD = tplCat(R1 && R1.deals), dtC = Object.values(catC).flat().slice(0, 12), dtD = Object.values(catD).flat().slice(0, 12), tplC = dtC.length ? dtC : ((R1 && R1.contacts) || []).filter(x => /template/i.test(x.rot + ' ' + x.name)).map(x => x.name).slice(0, 6);
+          const tmC = (n, v) => { const c = cdOf(catC, n), tt = dtC.length ? (+new Date(v.value) || +v.value || 0) : (v.value ? +new Date(v.timestamp) || 0 : 0); return tt ? [tt, c] : null };
+          // contagem por NEGÓCIO: e-mails e comunicações associados ao próprio negócio e histórico dos campos de template do negócio
+          const evD = {}; let hasD = false;
+          if (!CT && deals.length) {
+            const tplD2 = dtD.length ? dtD : ((R1 && R1.deals) || []).filter(x => /template/i.test(x.rot + ' ' + x.name)).map(x => x.name).slice(0, 6);
+            try { if (tplD2.length) for (let i = 0; i < deals.length; i += 50) { const rj = await api('/crm/v3/objects/deals/batch/read', { method: 'POST', body: JSON.stringify({ properties: tplD2, propertiesWithHistory: tplD2, inputs: deals.slice(i, i + 50).map(d => ({ id: d.id })) }) }); for (const x of (rj.results || [])) { const H = x.propertiesWithHistory || {}; for (const tp of tplD2) for (const v of (H[tp] || [])) { const tt = dtD.length ? (+new Date(v.value) || +v.value || 0) : (v.value ? +new Date(v.timestamp) || 0 : 0); if (tt) { (evD[x.id] || (evD[x.id] = [])).push([tt, dtD.length ? cdOf(catD, tp) : 'w']); hasD = true } } } } } catch (e) { if (e.st == 401 || e.st == 403) throw e }
+            for (const [ob, props, cod] of tipos.filter(x => x[0] == 'communications' || x[0] == 'emails')) {
+              try {
+                const aj = await api('/crm/v4/associations/deals/' + ob + '/batch/read', { method: 'POST', body: JSON.stringify({ inputs: deals.map(d => ({ id: d.id })) }) }), dono = {}, ids = [];
+                for (const r of (aj.results || [])) for (const tt of (r.to || []).slice(0, 12)) { if (ids.length >= 480) break; const id = String(tt.toObjectId); dono[id] = String(r.from.id); ids.push(id) }
+                for (let i = 0; i < ids.length; i += 100) { const rj = await api('/crm/v3/objects/' + ob + '/batch/read', { method: 'POST', body: JSON.stringify({ properties: props, inputs: ids.slice(i, i + 100).map(id => ({ id })) }) }); for (const x of (rj.results || [])) { const tt = +new Date(x.properties.hs_timestamp) || 0; if (tt) { (evD[dono[x.id]] || (evD[dono[x.id]] = [])).push([tt, cod(x.properties)]); hasD = true } } }
+              } catch (e) { if (e.st == 401 || e.st == 403) throw e }
+            }
+          }
+          if (!hasD && cids.length) { try { for (let i = 0; i < cids.length; i += 50) { const rj = await api('/crm/v3/objects/contacts/batch/read', { method: 'POST', body: JSON.stringify({ properties: ['hs_email_last_email_name'], propertiesWithHistory: ['hs_email_last_email_name', 'hs_email_last_reply_date', 'hs_sales_email_last_replied'], inputs: cids.slice(i, i + 50).map(id => ({ id })) }) }); for (const x of (rj.results || [])) { const H = x.propertiesWithHistory || {}, L = ev[x.id] || (ev[x.id] = []); for (const v of (H.hs_email_last_email_name || [])) { const t = v.value ? +new Date(v.timestamp) || 0 : 0; if (t) L.push([t, 'm']) } for (const k of ['hs_email_last_reply_date', 'hs_sales_email_last_replied']) for (const v of (H[k] || [])) { const t = +new Date(v.value) || +v.value || 0; if (t) L.push([t, 'r']) } } } } catch (e) { if (e.st == 401 || e.st == 403) throw e } }
+          const ecC = {}; // engajamento de e-mail de marketing por contato (entregues, abertos, cliques, rejeitados)
+          if (cids.length) { try { const OLP = (await api('/crm/v3/properties/contacts').catch(() => ({ results: [] }))).results.filter(p => !p.hidden && /olos/.test(norm(p.label))), OLn = k => { const f = OLP.find(p => norm(p.label) == k) || OLP.find(p => norm(p.label).includes(k)); return f ? f.name : '' }, oL = OLn('data da ultima ligacao olos'), oS = OLn('data da ultima solicitacao de ligacao olos'), oR = OLn('recusa olos'), oD = OLn('duracao da ultima ligacao olos'), oM = OLn('nome do mailing olos'), oC = OLn('codigo da campanha olos'), oT = OLn('tabulacao final olos'), EP = ['hs_email_delivered', 'hs_email_open', 'hs_email_click', 'hs_email_bounce', ...[oL, oS, oR, oD, oM, oC, oT].filter(Boolean)]; for (let i = 0; i < cids.length; i += 100) { const rj = await api('/crm/v3/objects/contacts/batch/read', { method: 'POST', body: JSON.stringify({ properties: EP, inputs: cids.slice(i, i + 100).map(id => ({ id })) }) }); for (const x of (rj.results || [])) ecC[x.id] = { d: +x.properties.hs_email_delivered || 0, o: +x.properties.hs_email_open || 0, c: +x.properties.hs_email_click || 0, b: +x.properties.hs_email_bounce || 0, ol: { l: oL && x.properties[oL] ? 1 : 0, s: oS && x.properties[oS] ? 1 : 0, r: oR && /^(true|sim|s|1)$/i.test(String(x.properties[oR] || '')) ? 1 : 0, u: oD ? durS(x.properties[oD]) : 0, m: oM ? String(x.properties[oM] || '').trim().slice(0, 80) : '', c: oC ? String(x.properties[oC] || '').trim().slice(0, 40) : '', t: oT ? String(x.properties[oT] || '').trim().slice(0, 80) : '' } } } } catch (e) { if (e.st == 401 || e.st == 403) throw e } }
+          const olD = {}, olx = { v: '26t', dp: 0, ok: 0 }; try { const DP = (await api('/crm/v3/properties/deals').catch(() => ({ results: [] }))).results.filter(p => !p.hidden && /olos/.test(norm(p.label))), DN = k => { const f = DP.find(p => norm(p.label) == k) || DP.find(p => norm(p.label).includes(k)); return f ? f.name : '' }, dL = DN('data da ultima ligacao olos'), dS = DN('data da ultima solicitacao de ligacao olos'), dR = DN('recusa olos'), dD = DN('duracao da ultima ligacao olos'), dM = DN('nome do mailing olos'), dC = DN('codigo da campanha olos'), dT = DN('tabulacao final olos'), dTf2 = DN('tabulacao fina olos 1'), dT12 = DN('ultima tabulacao olos 1'), PRd = [dL, dS, dR, dD, dM, dC, dT, dTf2, dT12].filter(Boolean); olx.dp = DP.length; olx.pr = PRd.length; olx.nome = [dL, dM, dT].map(z => z ? 1 : 0).join(''); if (PRd.length && deals.length) for (let i = 0; i < deals.length; i += 50) { const rj = await api('/crm/v3/objects/deals/batch/read', { method: 'POST', body: JSON.stringify({ properties: PRd, propertiesWithHistory: dL ? [dL] : [], inputs: deals.slice(i, i + 50).map(d => ({ id: d.id })) }) }); for (const x of (rj.results || [])) { const q = x.properties || {}, hv = new Set(((x.propertiesWithHistory || {})[dL] || []).map(v => v.value).filter(Boolean)); if (dL && q[dL]) hv.add(q[dL]); olx.ok += (dL && q[dL]) || (dM && q[dM]) ? 1 : 0; olD[x.id] = { tt: [...hv].map(v => +new Date(v) || +v || 0).filter(Boolean).slice(0, 30), l: hv.size ? 1 : 0, n: hv.size, s: dS && q[dS] ? 1 : 0, r: dR && /^(true|sim|s|1)$/i.test(String(q[dR] || '')) ? 1 : 0, u: dD ? durS(q[dD]) : 0, m: dM ? String(q[dM] || '').trim().slice(0, 80) : '', c: dC ? String(q[dC] || '').trim().slice(0, 40) : '', t: String((dT && q[dT]) || (dTf2 && q[dTf2]) || (dT12 && q[dT12]) || '').trim().slice(0, 80) } } } } catch (e) { if (e.st == 401 || e.st == 403) throw e }
+          const olEc = (e0, o) => o ? { ...(e0 || { d: 0, o: 0, c: 0, b: 0 }), ol: o } : (e0 || null);
+          const evT = {}; // templates de WhatsApp no contato (usado quando o negócio não tem os campos de template)
+          const qDn = tplQtd(R1 && R1.deals), qCn = tplQtd(R1 && R1.contacts), qCt = {};
+          if (cids.length && (tplC.length || Object.values(qCn).some(Boolean))) { try { for (let i = 0; i < cids.length; i += 50) { const rj = await api('/crm/v3/objects/contacts/batch/read', { method: 'POST', body: JSON.stringify({ properties: [...tplC.slice(0, 1), ...Object.values(qCn).filter(Boolean)], propertiesWithHistory: tplC, inputs: cids.slice(i, i + 50).map(id => ({ id })) }) }); for (const x of (rj.results || [])) { const H = x.propertiesWithHistory || {}; qCt[x.id] = { w: +x.properties[qCn.w] || 0, d: +x.properties[qCn.d] || 0, v: +x.properties[qCn.v] || 0 }; for (const tp of tplC) for (const v of (H[tp] || [])) { const e = tmC(tp, v); if (e) (evT[x.id] || (evT[x.id] = [])).push(e) } } } } catch (e) { if (e.st == 401 || e.st == 403) throw e } }
+          const semE = new Set(CT ? [] : deals.filter(d => !(evD[d.id] || []).some(x => x[1] == 'm' || x[1] == 'r')).map(d => ct[d.id]).filter(Boolean)), cidsE = hasD ? cids.filter(c => semE.has(c)) : cids; // contatos cujos negócios não têm e-mail associado direto
+          if (cidsE.length) for (const [ob, props, cod] of tipos.filter(x => hasD ? x[0] == 'emails' : (x[0] == 'communications' || x[0] == 'emails'))) {
+            try {
+              const aj = await api('/crm/v4/associations/contacts/' + ob + '/batch/read', { method: 'POST', body: JSON.stringify({ inputs: cidsE.map(id => ({ id })) }) }), dono = {}, ids = [];
+              for (const r of (aj.results || [])) for (const t of (r.to || []).slice(0, 25)) { if (ids.length >= 500) { trunc = 1; break } const id = String(t.toObjectId); dono[id] = String(r.from.id); ids.push(id) }
+              for (let i = 0; i < ids.length; i += 100) { const rj = await api('/crm/v3/objects/' + ob + '/batch/read', { method: 'POST', body: JSON.stringify({ properties: props, inputs: ids.slice(i, i + 100).map(id => ({ id })) }) }); for (const x of (rj.results || [])) { const t = +new Date(x.properties.hs_timestamp) || 0; if (t) (ev[dono[x.id]] || (ev[dono[x.id]] = [])).push([t, cod(x.properties)]) } }
+            } catch (e) { if (e.st == 401 || e.st == 403) throw e }
+          }
+          if (CT) return out({ d: deals.map(d => { const p = d.properties, e = {}; mp.forEach(x => { const v = p[x]; const t = v ? (+v || +new Date(v)) : 0; if (t) e[x] = t }); return { id: d.id, c: +new Date(p.createdate) || 0, e, o: op.map(k => p[k] || ''), ev: [...(ev[d.id] || []), ...(evT[d.id] || [])].sort((a, b) => a[0] - b[0]) } }), after: nx || '', trunc });
+          return out({ olx, d: deals.map(d => { const p = d.properties, e = {}; ets.forEach((x, ix) => { const v = p[eprops[ix]]; const t = v ? (+v || +new Date(v)) : 0; if (t) e[x] = t }); return { id: d.id, pl: p.pipeline, c: +new Date(p.createdate) || 0, e, ev: (() => { const bd = hasD ? (evD[d.id] || []) : (ev[ct[d.id]] || []), base = hasD && !bd.some(x => x[1] == 'm' || x[1] == 'r') ? [...bd, ...(ev[ct[d.id]] || [])] : bd; return [...base, ...(!base.some(x => 'wdvx'.includes(x[1])) ? (evT[ct[d.id]] || []) : []), ...((olD[d.id] && olD[d.id].tt) || []).map(t => [t, 'o'])] })().sort((a, b) => a[0] - b[0]), ec: olEc(ecC[ct[d.id]], olD[d.id]), sc: ct[d.id] ? 0 : 1, pd: hasD ? 1 : 0, q: (() => { const qd = (qDn.w || qDn.d || qDn.v) ? { w: +d.properties[qDn.w] || 0, d: +d.properties[qDn.d] || 0, v: +d.properties[qDn.v] || 0 } : null, qc = qCt[ct[d.id]] || null; return qd && (qd.w || qd.d || qd.v) ? qd : (qc && (qc.w || qc.d || qc.v) ? qc : (qd || qc)) })() } }), after: nx || '', trunc });
+        }
+        if (u.pathname == '/emails') {
+          let after, all = [];
+          for (let i = 0; i < 10; i++) { const j = await api('/marketing/v3/emails?limit=100&includeStats=true&archived=false' + (after ? '&after=' + after : '')); all.push(...j.results); after = j.paging && j.paging.next && j.paging.next.after; if (!after) break }
+          return out({ e: all.map(x => { const c = (x.stats && x.stats.counters) || {}; return { n: x.name || '', t: x.type || '', s: x.state || '', p: x.publishDate || x.publishedAt || x.createdAt || '', c: { sent: c.sent || 0, delivered: c.delivered || 0, open: c.open || 0, click: c.click || 0, reply: c.reply || 0, bounce: c.bounce || 0, unsub: c.unsubscribed || 0, spam: c.spamreport || 0 } } }) });
+        }
+        if (u.pathname == '/volume') {
+          // totais reais (contagem exata do HubSpot) de e-mails e templates de WhatsApp enviados, entregues, lidos e respondidos
+          const R1 = await resolver().catch(() => null), cdef = ((R1 && R1.comm) || []).filter(x => /respond|repl|status|lid|visual|entreg|direc|receb|sentido/i.test(x.r + ' ' + x.n)).slice(0, 8), ctpl = ((R1 && R1.comm) || []).filter(x => /template|whats|botmaker/i.test(x.r + ' ' + x.n)).slice(0, 8);
+          const tplC = ((R1 && R1.contacts) || []).filter(x => /template/i.test(x.rot + ' ' + x.name)).map(x => x.name).slice(0, 4), tplD = ((R1 && R1.deals) || []).filter(x => /template/i.test(x.rot + ' ' + x.name)).map(x => x.name).slice(0, 4);
+          const sem = new Set(); const cnt = async (ob, grupos) => { try { const j = await busca('/crm/v3/objects/' + ob + '/search', { filterGroups: grupos.map(f => ({ filters: f })), limit: 1, properties: ['hs_object_id'] }); await espera(80); return typeof j.total == 'number' ? j.total : null } catch (e) { if (e.st == 401) throw e; if (e.st == 403) sem.add(ob); return null } };
+          const R = {}, wa = { propertyName: 'hs_communication_channel_type', operator: 'IN', values: ['WHATS_APP', 'WHATSAPP', 'WhatsApp'] };
+          R.em_env = await cnt('emails', [[{ propertyName: 'hs_email_direction', operator: 'EQ', value: 'EMAIL' }]]);
+          R.em_rec = await cnt('emails', [[{ propertyName: 'hs_email_direction', operator: 'EQ', value: 'INCOMING_EMAIL' }]]);
+          R.em_ent = await cnt('emails', [[{ propertyName: 'hs_email_direction', operator: 'EQ', value: 'EMAIL' }, { propertyName: 'hs_email_status', operator: 'EQ', value: 'SENT' }]]);
+          R.em_ab = await cnt('emails', [[{ propertyName: 'hs_email_direction', operator: 'EQ', value: 'EMAIL' }, { propertyName: 'hs_email_open_count', operator: 'GT', value: '0' }]]);
+          R.ct_resp_mkt = await cnt('contacts', [[{ propertyName: 'hs_email_last_reply_date', operator: 'HAS_PROPERTY' }]]);
+          R.ct_resp_vd = await cnt('contacts', [[{ propertyName: 'hs_sales_email_last_replied', operator: 'HAS_PROPERTY' }]]);
+          R.wa_tot = await cnt('communications', [[wa]]);
+          if (ctpl.length) R.wa_tpl = await cnt('communications', ctpl.map(x => [wa, { propertyName: x.n, operator: 'HAS_PROPERTY' }]));
+          const cat = { resp: /respond|repl|receb|inbound|incoming|do cliente|do contato/i, ent: /entreg|deliver/i, lid: /\blid|read|visual/i };
+          for (const [k, rx] of Object.entries(cat)) { const gr = []; for (const x of cdef) { const vs = x.op.filter(o => rx.test(o[0] + ' ' + o[1])).map(o => o[0]).slice(0, 50); if (vs.length) gr.push([wa, { propertyName: x.n, operator: 'IN', values: vs }]) } if (gr.length) R['wa_' + k] = await cnt('communications', gr.slice(0, 5)) }
+          const cC = tplCat(R1 && R1.contacts), cD = tplCat(R1 && R1.deals), TP = { contacts: cC, deals: cD }, TC = { contacts: {}, deals: {} };
+          for (const [ob, cat] of Object.entries(TP)) for (const [k, ns] of Object.entries(cat)) if (ns.length) TC[ob][k] = await cnt(ob, ns.slice(0, 5).map(n => [{ propertyName: n, operator: 'HAS_PROPERTY' }]));
+          if (tplC.length) { R.ct_tpl = await cnt('contacts', tplC.map(n => [{ propertyName: n, operator: 'HAS_PROPERTY' }])) }
+          if (tplD.length) { R.dl_tpl = await cnt('deals', tplD.map(n => [{ propertyName: n, operator: 'HAS_PROPERTY' }])) }
+          R.dl_tot = await cnt('deals', [[{ propertyName: 'createdate', operator: 'GTE', value: '1' }]]);
+          R.ct_tot = await cnt('contacts', [[{ propertyName: 'createdate', operator: 'GTE', value: '1' }]]);
+          let mk = null; const mkU = { UVA: { sent: 0, delivered: 0, open: 0, click: 0, reply: 0, bounce: 0, n: 0 }, UNIJORGE: { sent: 0, delivered: 0, open: 0, click: 0, reply: 0, bounce: 0, n: 0 } }; try { let after, s = { sent: 0, delivered: 0, open: 0, click: 0, reply: 0, bounce: 0, n: 0 }; for (let i = 0; i < 10; i++) { const j = await api('/marketing/v3/emails?limit=100&includeStats=true&archived=false' + (after ? '&after=' + after : '')); for (const x of j.results || []) { const c = (x.stats && x.stats.counters) || {}; s.n++; const iu = uniDe(x.name); if (iu) mkU[iu].n++; for (const k of ['sent', 'delivered', 'open', 'click', 'reply', 'bounce']) { s[k] += c[k] || 0; if (iu) mkU[iu][k] += c[k] || 0 } } after = j.paging && j.paging.next && j.paging.next.after; if (!after) break } mk = s } catch (e) { if (e.st == 401) throw e; if (e.st == 403) sem.add('marketing-email') }
+          return out({ r: R, mk, mkU, sem: [...sem], qn: { contacts: tplQtd(R1 && R1.contacts), deals: tplQtd(R1 && R1.deals) }, tpl: { cat: TP, n: TC }, props: { cdef: cdef.map(x => x.n), ctpl: ctpl.map(x => x.n), tplC, tplD } });
+        }
+        if (u.pathname == '/duracao') {
+          const b = await req.json().catch(() => null); if (!b || !/^[a-z0-9_]{1,80}$/.test(b.p || '')) return out({ erro: 'pedido inválido' }, 400);
+          const OPS = ['EQ', 'NEQ', 'IN', 'NOT_IN', 'GTE', 'LTE', 'GT', 'LT', 'HAS_PROPERTY', 'NOT_HAS_PROPERTY'];
+          await nomesDe(api, 'deals');
+          const tr = f => (f && /^hs_date_entered_/.test(f.p || '')) ? { ...f, p: entrou(PNOM.deals.s, f.p.slice(16)) } : f;
+          const mk = f => { f = tr(f); if (!/^[a-z0-9_]{1,80}$/.test(f.p || '') || !OPS.includes(f.op)) throw new Error('filtro inválido'); const o = { propertyName: f.p, operator: f.op }; if (Array.isArray(f.vs)) o.values = f.vs.slice(0, 100).map(String); else if (f.v != null) o.value = String(f.v); return o };
+          const fl = (Array.isArray(b.f) ? b.f : []).slice(0, 12).map(mk), og = Array.isArray(b.o) && b.o.length ? b.o.slice(0, 5).map(g => [...fl, ...(Array.isArray(g) ? g : []).slice(0, 3).map(mk)]) : [fl];
+          const fit = fs => { const by = new Map(), rest = [], seen = new Set(); for (const f of fs) { if (f.operator == 'EQ' || f.operator == 'IN') { const vs = (f.operator == 'EQ' ? [f.value] : (f.values || [])).map(String), pv = by.get(f.propertyName); by.set(f.propertyName, pv ? pv.filter(v => vs.includes(v)) : vs.slice()) } else { const k = JSON.stringify(f); if (!seen.has(k)) { seen.add(k); rest.push(f) } } } const o = rest.filter(f => !(f.propertyName == 'createdate' && f.operator == 'GTE' && +f.value <= 1)); for (const [pn, vs] of by) { if (!vs.length) return null; if (pn == 'pipeline' && by.has('dealstage')) continue; o.push(vs.length == 1 ? { propertyName: pn, operator: 'EQ', value: vs[0] } : { propertyName: pn, operator: 'IN', values: vs }) } return o };
+          const gn = og.map(fit).filter(Boolean).slice(0, 5); if (!gn.length) return out({ n: 0, avg: null });
+          const sec = v => { if (v == null || v === '') return 0; const t = String(v).trim(); if (/^\d+:\d{1,2}(:\d{1,2})?$/.test(t)) { const p = t.split(':').map(Number); return p.length == 3 ? p[0] * 3600 + p[1] * 60 + p[2] : p[0] * 60 + p[1] } const n = parseFloat(t.replace(',', '.')); return isFinite(n) ? n : 0 };
+          let soma = 0, n = 0, aft = '', tot = 0;
+          for (let pg = 0; pg < 2; pg++) { const j = await busca('/crm/v3/objects/deals/search', { filterGroups: gn.map(f => ({ filters: f })), limit: 100, properties: [b.p], ...(aft ? { after: aft } : {}) }); tot = j.total || tot; for (const r of (j.results || [])) { const v = sec((r.properties || {})[b.p]); if (v > 0) { soma += v; n++ } } aft = j.paging && j.paging.next ? j.paging.next.after : ''; if (!aft) break }
+          return out({ n, tot, avg: n ? soma / n : null });
+        }
+        if (u.pathname == '/contar') {
+          if (req.method != 'POST') return out({ erro: 'use POST' }, 405);
+          const b = await req.json().catch(() => null); if (!b || !Array.isArray(b.q)) return out({ erro: 'pedido inválido' }, 400);
+          const ob = ['contacts', 'deals', 'calls', 'emails', 'meetings', 'communications', 'notes', 'tasks'].includes(b.obj) ? b.obj : 'deals', OPS = ['EQ', 'NEQ', 'IN', 'NOT_IN', 'GTE', 'LTE', 'GT', 'LT', 'HAS_PROPERTY', 'NOT_HAS_PROPERTY', 'CONTAINS_TOKEN'];
+          if (b.q.length > 14) return out({ erro: 'lote grande demais (máx. 14 contagens por pedido)' }, 400); // mantém o uso de CPU dentro do limite
+          const qs = b.q.slice(0, 14), res = {}, erros = [];
+          await nomesDe(api, ob);
+          const conhece = n => !PNOM[ob].s || PNOM[ob].s.has(n);
+          const tr = f => (ob == 'deals' && f && /^hs_date_entered_/.test(f.p || '')) ? { ...f, p: entrou(PNOM[ob].s, f.p.slice(16)) } : f;
+          for (const x of qs) { if (Array.isArray(x.f)) x.f = x.f.map(tr); if (Array.isArray(x.o)) x.o = x.o.map(g => Array.isArray(g) ? g.map(tr) : g) }
+          const um = async x => {
+            const fl = (Array.isArray(x.f) ? x.f : []).slice(0, 12).map(f => { if (!/^[a-z0-9_]{1,80}$/.test(f.p || '') || !OPS.includes(f.op)) throw new Error('filtro inválido'); const o = { propertyName: f.p, operator: f.op }; if (Array.isArray(f.vs)) o.values = f.vs.slice(0, 100).map(String); else if (f.v != null) o.value = String(f.v); return o });
+            const gr = Array.isArray(x.o) && x.o.length ? x.o.slice(0, 5).map(g => ({ filters: [...fl, ...(Array.isArray(g) ? g : []).slice(0, 3).map(f => { if (!/^[a-z0-9_]{1,80}$/.test(f.p || '') || !OPS.includes(f.op)) throw new Error('filtro inválido'); const o = { propertyName: f.p, operator: f.op }; if (Array.isArray(f.vs)) o.values = f.vs.slice(0, 100).map(String); else if (f.v != null) o.value = String(f.v); return o })] })) : [{ filters: fl }];
+            const falta = [...new Set(gr.flatMap(g => g.filters.map(f => f.propertyName)))].find(n => !conhece(n)); if (falta) throw new Error('propriedade inexistente: ' + falta);
+            // limites do HubSpot: 6 filtros por grupo e 18 no total. Junta filtros repetidos, tira os redundantes e, se ainda passar de 18, divide em pedidos menores e soma.
+            const fit = fs => { const by = new Map(), rest = [], seen = new Set(); for (const f of fs) { if (f.operator == 'EQ' || f.operator == 'IN') { const vs = (f.operator == 'EQ' ? [f.value] : (f.values || [])).map(String), pv = by.get(f.propertyName); by.set(f.propertyName, pv ? pv.filter(v => vs.includes(v)) : vs.slice()) } else { const k = JSON.stringify(f); if (!seen.has(k)) { seen.add(k); rest.push(f) } } } const o = rest.filter(f => !(f.propertyName == 'createdate' && f.operator == 'GTE' && +f.value <= 1)); for (const [pn, vs] of by) { if (!vs.length) return null; if (pn == 'pipeline' && by.has('dealstage')) continue; o.push(vs.length == 1 ? { propertyName: pn, operator: 'EQ', value: vs[0] } : { propertyName: pn, operator: 'IN', values: vs }) } return o };
+            const gn = gr.map(g => fit(g.filters)).filter(Boolean); if (!gn.length) { res[x.i] = 0; return }
+            const bat = []; let cur = [], tot = 0; for (const g of gn) { if (cur.length && (tot + g.length > 18 || cur.length >= 5)) { bat.push(cur); cur = []; tot = 0 } cur.push({ filters: g }); tot += g.length } if (cur.length) bat.push(cur);
+            let soma = 0; for (const bg of bat) { const j = await busca('/crm/v3/objects/' + ob + '/search', { filterGroups: bg, limit: 1, properties: ['hs_object_id'] }); soma += j.total || 0 } res[x.i] = soma
+          };
+          let k = 0; while (k < qs.length) { const x = qs[k++]; try { await um(x) } catch (e) { res[x.i] = -1; erros.push(String(e.message || e).slice(0, 140)); if (e.st == 401 || e.st == 403) throw e } await espera(120) }
+          return out({ r: res, e: [...new Set(erros)].slice(0, 4) });
+        }
+        const obj = u.searchParams.get('obj') == 'contacts' ? 'contacts' : 'deals', desde = +u.searchParams.get('desde') || 0, LIM = 200, PAG = 8;
+        let uniP = env.UNI_PROP || '';
+        if (!uniP) { const pr = (await api('/crm/v3/properties/' + obj).catch(() => ({ results: [] }))).results, ach = pr.find(x => x.name == 'universidade') || pr.find(x => /^\s*universidade\s*$/i.test(x.label || '')) || pr.find(x => /^\s*(ies|institui)/i.test(x.label || '') || /^(ies|instituicao)/i.test(x.name)); if (ach) uniP = ach.name }
+        const props = obj == 'deals' ? ['createdate', 'closedate', 'pipeline', 'dealstage', 'amount', 'hubspot_owner_id', 'hs_analytics_source', 'dealname'] : ['createdate', 'lifecyclestage', 'hs_lead_status', 'hubspot_owner_id', 'hs_analytics_source', 'first_conversion_event_name', 'first_conversion_date'];
+        if (uniP) props.push(uniP);
+        const funil = {}; if (obj == 'deals') (await api('/crm/v3/pipelines/deals')).results.forEach(p => funil[p.id] = p.label);
+        const r = [], base = { filterGroups: [{ filters: [{ propertyName: 'createdate', operator: 'GT', value: String(desde) }] }], sorts: [{ propertyName: 'createdate', direction: 'ASCENDING' }], properties: props, limit: LIM };
+        let after, mais = false, ult = desde;
+        for (let i = 0; i < PAG; i++) {
+          const j = await busca('/crm/v3/objects/' + obj + '/search', after ? { ...base, after } : base);
+          for (const x of j.results) {
+            const p = x.properties, c = local(p.createdate); if (!c) continue; ult = Date.parse(p.createdate) || ult;
+            const un = uniDe(uniP && p[uniP]) || uniDe(obj == 'deals' ? (funil[p.pipeline] || '') + ' ' + (p.dealname || '') : p.first_conversion_event_name);
+            if (obj == 'deals') { const f = local(p.closedate); r.push({ c: c.d, f: f ? f.d : '', pl: p.pipeline, st: p.dealstage, v: +p.amount || 0, ow: p.hubspot_owner_id || '', or: p.hs_analytics_source || '', un }) }
+            else { const f = local(p.first_conversion_date); r.push({ c: c.d, ls: p.lifecyclestage || '', ld: p.hs_lead_status || '', ow: p.hubspot_owner_id || '', or: p.hs_analytics_source || '', fm: p.first_conversion_event_name || '', fd: f ? f.d : '', un }) }
+          }
+          after = j.paging && j.paging.next && j.paging.next.after;
+          if (!after) break; if (i == PAG - 1) mais = true;
+        }
+        return out({ r, prox: ult, mais, prop: uniP });
+      } catch (e) { return out({ erro: String(e.message || e).slice(0, 200) }, e.st == 401 || e.st == 403 ? 502 : 500) }
+    }
+    const qc = dig(u.searchParams.get('cpf')), qt = dig(u.searchParams.get('tel')), q = dig(u.searchParams.get('q')), qe0 = String(u.searchParams.get('email') || '').trim().toLowerCase().slice(0, 120), qe = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(qe0) ? qe0 : ''; if (qe0 && !qe) return out({ erro: 'e-mail inválido' }, 400); if (!qc && !qt && q.length < 10 && !qe) return out({ erro: 'informe telefone com DDD, CPF ou e-mail' }, 400); if ((qc && qc.length != 11) || (qt && (qt.length < 10 || qt.length > 13))) return out({ erro: 'CPF com 11 dígitos e telefone com DDD' }, 400);
+    try {
+      let cpfProp = env.CPF_PROP || 'cpf', ids = new Set(), via = {}, cpfNames = [], cpfDeal = []; const R0 = await resolver().catch(() => null);
+      cpfNames = R0 && R0.cpf ? [...(R0.cpfp.contacts.length ? R0.cpfp.contacts : R0.cpf.contacts)] : []; if (env.CPF_PROP && !cpfNames.includes(env.CPF_PROP) && !(R0 && R0.cpf && R0.cpf.contacts.includes(env.CPF_PROP))) cpfNames.unshift(env.CPF_PROP); if (!cpfNames.length) cpfNames = ['cpf'];
+      cpfDeal = R0 && R0.cpf ? [...(R0.cpfp.deals.length ? R0.cpfp.deals : R0.cpf.deals)] : []; const cpfPrim = [...cpfNames], cpfAlvo = qc || (cpfOk(q) ? q : ''); let viaCpf = false;
+      const buscaCt = async (prop, vals) => { if (!vals.length) return; try { const r = await api('/crm/v3/objects/contacts/search', { method: 'POST', body: JSON.stringify({ filterGroups: vals.slice(0, 5).map(v => ({ filters: [{ propertyName: prop, operator: 'EQ', value: v }] })), properties: ['hs_object_id'], limit: 50 }) }); r.results.forEach(x => { ids.add(x.id); (via[x.id] = via[x.id] || new Set()).add('contato: ' + prop + ' = ' + vals[0]) }) } catch (e) { if (e.st == 401 || e.st == 403 || e.st == 429) throw e } };
+      const buscaNg = async (prop, vals) => { try { const r = await api('/crm/v3/objects/deals/search', { method: 'POST', body: JSON.stringify({ filterGroups: vals.map(v => ({ filters: [{ propertyName: prop, operator: 'EQ', value: v }] })), properties: ['hs_object_id'], limit: 30 }) }); for (const d of r.results.slice(0, 5)) { const a = await api('/crm/v4/objects/deals/' + d.id + '/associations/contacts').catch(() => ({ results: [] })); a.results.forEach(x => { ids.add(String(x.toObjectId)); (via[String(x.toObjectId)] = via[String(x.toObjectId)] || new Set()).add('negócio ' + d.id + ': ' + prop) }) } } catch (e) { if (e.st == 401 || e.st == 403 || e.st == 429) throw e } };
+      if (qe) { try { const r = await api('/crm/v3/objects/contacts/search', { method: 'POST', body: JSON.stringify({ filterGroups: [{ filters: [{ propertyName: 'email', operator: 'EQ', value: qe }] }, { filters: [{ propertyName: 'hs_additional_emails', operator: 'CONTAINS_TOKEN', value: qe }] }], properties: ['hs_object_id'], limit: 20 }) }); r.results.forEach(x => { ids.add(x.id); (via[x.id] = via[x.id] || new Set()).add('contato: e-mail') }) } catch (e) { if (e.st == 401 || e.st == 403 || e.st == 429) throw e } }
+      if (qc || qt) {
+        if (qc) { const fm = qc.slice(0, 3) + '.' + qc.slice(3, 6) + '.' + qc.slice(6, 9) + '-' + qc.slice(9); for (const pn of cpfNames) await buscaCt(pn, [qc, fm]); for (const pn of cpfDeal) await buscaNg(pn, [qc, fm]); viaCpf = !qt && ids.size > 0; if (!ids.size) for (const pn of cpfNames) { try { const r = await api('/crm/v3/objects/contacts/search', { method: 'POST', body: JSON.stringify({ filterGroups: [{ filters: [{ propertyName: pn, operator: 'CONTAINS_TOKEN', value: qc }] }], properties: ['hs_object_id'], limit: 50 }) }); r.results.forEach(x => { ids.add(x.id); (via[x.id] = via[x.id] || new Set()).add('contato: ' + pn + ' contém ' + qc) }) } catch (e) { if (e.st == 401 || e.st == 403 || e.st == 429) throw e } } }
+        if (qt) { const n = qt.length > 11 && qt.startsWith('55') ? qt.slice(2) : qt; if (n.length >= 10 && n.length <= 11) { const a = n.slice(0, 2), r = n.slice(2), m = r.length == 9 ? r.slice(0, 5) + '-' + r.slice(5) : r.slice(0, 4) + '-' + r.slice(4); const v = [n, '55' + n, '+55' + n, '(' + a + ') ' + m, '+55 ' + a + ' ' + m]; await buscaCt('mobilephone', v); await buscaCt('phone', v) } }
+      } else {
+      if (cpfOk(q)) { const fq = q.slice(0, 3) + '.' + q.slice(3, 6) + '.' + q.slice(6, 9) + '-' + q.slice(9); for (const pn of cpfNames) await buscaCt(pn, [q, fq]); for (const pn of cpfDeal) await buscaNg(pn, [q, fq]); viaCpf = ids.size > 0 }
+      const n = q.length > 11 && q.startsWith('55') ? q.slice(2) : q;
+      if (n.length >= 10 && n.length <= 11 && !(cpfOk(q) && ids.size)) { const a = n.slice(0, 2), r = n.slice(2), m = r.length == 9 ? r.slice(0, 5) + '-' + r.slice(5) : r.slice(0, 4) + '-' + r.slice(4); const v = [n, '55' + n, '+55' + n, '(' + a + ') ' + m, '+55 ' + a + ' ' + m]; await buscaCt('mobilephone', v); await buscaCt('phone', v) }
+      }
+      if (!ids.size) return out({ contatos: [], eventos: [] });
+      const [own, pip] = await Promise.all([api('/crm/v3/owners?limit=500').catch(() => ({ results: [] })), api('/crm/v3/pipelines/deals').catch(() => ({ results: [] }))]);
+      const dono = {}; own.results.forEach(o => dono[o.id] = [o.firstName, o.lastName].filter(Boolean).join(' ') || o.email || o.id);
+      const etapa = {}, funil = {}; pip.results.forEach(p => { funil[p.id] = p.label; p.stages.forEach(s => etapa[s.id] = s.label) });
+      const lm0 = (f, v) => String(((f.op || []).find(z => z[0] == v) || [])[1] || v).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+      const ev = [], cts = [], push = (t, ty, tx, x) => { const l = local(t); if (l) ev.push({ ...l, ty, tx, ...x }) };
+      const RV = await resolver().catch(() => ({ contacts: [], deals: [], comm: [] })), cN = RV.contacts.map(x => x.name), dN = RV.deals.map(x => x.name), tplDef = (arr) => arr.filter(x => /template/i.test(x.rot + ' ' + x.name)).slice(0, 16), tplCd = tplDef(RV.contacts), tplDd = tplDef(RV.deals), tplC = tplCd.map(x => x.name), tplD = tplDd.map(x => x.name);
+      const CATR = { w: ['enviado', 'Enviado', 'Enviado'], d: ['recebido', 'Entregue', 'Recebido'], v: ['lido', 'Lido', 'Recebido'], x: ['respondido', 'Respondeu', 'Recebido'] }, catC = tplCat(RV.contacts), catD = tplCat(RV.deals), dtOnly = (arr, cat) => Object.values(cat).flat().length ? arr.filter(f => Object.values(cat).flat().includes(f.name)) : arr;
+      const qNames = { c: tplQtd(RV.contacts), d: tplQtd(RV.deals) };
+      const qtdEv = (nm, H, fn) => { let k = 0; for (const c of ['w', 'd', 'v']) { const n = nm[c]; if (!n) continue; const arr = (H[n] || []).map(v => ({ t: +new Date(v.timestamp) || 0, v: parseFloat(v.value) })).filter(x => x.t && !isNaN(x.v)).sort((a, b) => a.t - b.t); let prev = 0; for (const x of arr) { if (x.v > prev) { fn(x.t, 'Template de WhatsApp ' + CATR[c][0], { dir: CATR[c][2], sit: CATR[c][1], cat: c, n: x.v - prev, det: [{ r: 'Como foi enviado', v: 'WhatsApp · template enviado pela Botmaker (' + CATR[c][1].toLowerCase() + ')' }, { r: 'Quantidade de Whatsapp', v: '+' + (x.v - prev) + ' (total ' + x.v + ')' }] }); k++ } prev = x.v } } return k };
+      const tplEv = (lista, cat, H, fn) => { const dts = Object.values(cat).flat().length, seen = new Set(); for (const f of dtOnly(lista, cat)) for (const v of (H[f.name] || [])) { if (!v.value) continue; if (dts) { const c = cdOf(cat, f.name), tm = +new Date(+v.value || v.value) || +v.value || 0; if (!tm || seen.has(c + tm)) continue; seen.add(c + tm); fn(tm, 'Template de WhatsApp ' + CATR[c][0], { dir: CATR[c][2], sit: CATR[c][1], cat: c, det: [{ r: 'Como foi enviado', v: 'WhatsApp · template enviado pela Botmaker (' + CATR[c][1].toLowerCase() + ')' }, { r: f.rot, v: new Date(tm).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' }) }] }) } else { const lb = lm0(f, v.value); fn(v.timestamp, 'Template de WhatsApp: ' + lb, { dir: 'Enviado', sit: 'Enviado', cat: 'w', det: [{ r: 'Como foi enviado', v: 'WhatsApp · template enviado pela Botmaker' }, { r: 'Template', v: lb.slice(0, 200) }] }) } } };
+      const fv = (d, v) => { if (v == null || v === '') return ''; if (d.name == 'dealstage') return etapa[v] || v; if (d.name == 'pipeline') return funil[v] || v; if (d.tipo == 'bool' || (d.ft == 'booleancheckbox' && /^(true|false)$/i.test(v))) return /^true$/i.test(v) ? 'Sim' : 'Não'; if (d.tipo == 'enumeration') return String(v).split(';').map(z => (d.op.find(o => o[0] == z) || [])[1] || z).join(', '); if (d.tipo == 'date' || d.tipo == 'datetime') { const l = local(v); return l ? l.d.split('-').reverse().join('/') : '' } if (d.g == 'Financeiro' && d.tipo == 'number' && /^-?\d+(\.\d+)?$/.test(String(v))) return 'R$ ' + Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); return String(v).slice(0, 200) };
+      const ficha = { contatos: [], negocios: [], comunicacoes: [] }, ident = { contatos: [], ra: [] }, fcpf = v => { const d = dig(v); return d.length == 11 ? d.slice(0, 3) + '.' + d.slice(3, 6) + '.' + d.slice(6, 9) + '-' + d.slice(9) : String(v || '') };
+      const assoc = async (id, tipo, props, hist) => { const a = await api('/crm/v4/objects/contacts/' + id + '/associations/' + tipo).catch(() => ({ results: [] })); const ii = a.results.map(x => ({ id: String(x.toObjectId) })).slice(0, 100); if (!ii.length) return []; const r = await api('/crm/v3/objects/' + tipo + '/batch/read', { method: 'POST', body: JSON.stringify(hist ? { inputs: ii, properties: props, propertiesWithHistory: hist } : { inputs: ii, properties: props }) }).catch(() => ({ results: [] })); return r.results };
+      for (const id of [...ids].slice(0, 5)) {
+        if (NSUB > 30) break; // sem folga para mais um contato completo
+        const c = await api('/crm/v3/objects/contacts/' + id + '?properties=' + [...new Set([...CONTATO, ...cN, 'firstname', 'lastname', 'email', 'phone', 'mobilephone', ...cpfNames])].join(',') + '&propertiesWithHistory=lifecyclestage,hs_lead_status,hubspot_owner_id,recent_conversion_event_name,hs_email_last_email_name,hs_email_last_open_date,hs_email_last_click_date,hs_email_last_reply_date,hs_sales_email_last_replied' + (tplC.length ? ',' + tplC.join(',') : '') + (Object.values(qNames.c).some(Boolean) ? ',' + Object.values(qNames.c).filter(Boolean).join(',') : '')), p = c.properties, ow = dono[p.hubspot_owner_id] || '';
+        if (viaCpf && cpfAlvo) { const dg2 = n => dig(p[n]), pr = cpfPrim.map(dg2).filter(Boolean), ou = cpfNames.filter(n => !cpfPrim.includes(n)).map(dg2).filter(Boolean); if (!(pr.length ? pr.includes(cpfAlvo) : ou.includes(cpfAlvo))) continue }
+        ident.contatos.push({ via: [...(via[id] || [])].join(' · '), nome: [p.firstname, p.lastname].filter(Boolean).join(' '), cpf: fcpf(p[cpfNames.find(n => p[n])] || ''), email: p.email || '', tel: p.phone || '', cel: p.mobilephone || '' });
+        ficha.contatos.push({ id, cr: +new Date(p.createdate) || 0, campos: RV.contacts.map(d => ({ g: d.g, r: d.rot, v: fv(d, p[d.name]) })).filter(x => x.v) });
+        cts.push({ id, etapa: p.lifecyclestage, status: p.hs_lead_status, origem: p.hs_analytics_source, proprietario: ow });
+        push(p.createdate, 'criado', 'Contato criado', { st: p.lifecyclestage, or: p.hs_analytics_source, ow });
+        for (const v of (c.propertiesWithHistory?.lifecyclestage || [])) push(v.timestamp, 'ciclo', 'Mudou para a etapa: ' + v.value, { ow });
+        for (const v of (c.propertiesWithHistory?.hs_lead_status || [])) push(v.timestamp, 'ciclo', 'Status do lead: ' + v.value, { ow });
+        const hf = c.propertiesWithHistory?.recent_conversion_event_name || [];
+        if (hf.length) { for (const v of hf) push(v.timestamp, 'form', 'Formulário preenchido: ' + v.value, {}); if (p.first_conversion_date && !hf.some(v => local(v.timestamp)?.d == local(p.first_conversion_date)?.d)) push(p.first_conversion_date, 'form', 'Formulário (primeira conversão): ' + (p.first_conversion_event_name || ''), {}) }
+        else { push(p.first_conversion_date, 'form', 'Formulário (primeira conversão): ' + (p.first_conversion_event_name || ''), {}); if (p.recent_conversion_date != p.first_conversion_date) push(p.recent_conversion_date, 'form', 'Formulário (conversão mais recente): ' + (p.recent_conversion_event_name || ''), {}) }
+        { const dd = arr => arr.filter(z => z[1] !== '' && z[1] != null && String(z[1]).trim() !== '').map(z => ({ r: z[0], v: String(z[1]).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 300) })); const OLf = (RV.contacts || []).filter(x => x.g == 'Olos'), OL = re => { const f = OLf.find(x => re.test(norm(x.rot))); return f ? p[f.name] : '' }, OLd = (rot, extra) => { const f = OLf.find(x => norm(x.rot) == norm(rot)); const t = f && p[f.name]; if (!t) return null; return t };
+          const dur = OL(/^duracao da ultima ligacao/), tf1 = OL(/^tabulacao fina(l)? olos 1/), tf = OL(/^tabulacao final/) || tf1 || OL(/^tabulacao fina/) || OL(/^ultima tabulacao olos 1/), tfi = OL(/^tabulacao fina/), t1 = OL(/^ultima tabulacao olos 1/), t2 = OL(/^ultima tabulacao olos 2/), t3 = OL(/^ultima tabulacao olos 3/), cod = OL(/^cod tab/), obs = OL(/^observacoes/), mail = OL(/^nome do mailing olos/), camp = OL(/^codigo da campanha/), rec = OL(/^recusa/), mailA = OL(/mailing em andamento/), campA = OL(/campanha em andamento/), lay = OL(/layout em andamento/);
+          const det = () => dd([['Tabulação final', tf], ['Tabulação fina', tfi], ['Última tabulação 1', t1], ['Última tabulação 2', t2], ['Última tabulação 3', t3], ['Código da tabulação', cod], ['Observações', obs], ['Mailing', mail], ['Código da campanha', camp], ['Recusa', rec]]);
+          const ul = OLd('Data da última ligação Olos'), us = OLd('Data da última solicitação de ligação Olos'), ua = OLd('Data da última solicitação de ligação em andamento Olos'), uc = OLd('Data da solicitação de cancelamento Olos');
+          if (ul) push(ul, 'ligacao', 'Ligação Olos' + (tf ? ' · ' + String(tf).slice(0, 60) : ''), { dir: 'Enviado', sit: /atend|sucess|contato|efetiv/i.test(String(tf || t1 || '')) ? 'Atendida' : (tf || t1 ? String(tf || t1).slice(0, 40) : 'Registrada'), det: det() });
+          if (us) push(us, 'ligacao', 'Solicitação de ligação Olos', { dir: 'Enviado', sit: 'Solicitada', det: dd([['Mailing', mail], ['Código da campanha', camp]]) });
+          if (ua) push(ua, 'ligacao', 'Solicitação de ligação em andamento no fluxo Olos', { dir: 'Enviado', sit: 'Em andamento', det: dd([['Mailing em andamento', mailA], ['Campanha em andamento', campA], ['Layout em andamento', lay]]) });
+          if (uc) push(uc, 'ligacao', 'Cancelamento de solicitação de ligação Olos', { dir: 'Enviado', sit: 'Cancelada', det: dd([['Mailing', mail], ['Código da campanha', camp]]) });
+          if (rec && /^(true|sim|s|1)$/i.test(String(rec))) ficha.olosRecusa = true }
+        for (const v of (c.propertiesWithHistory?.hubspot_owner_id || [])) if (v.value) push(v.timestamp, 'owner', 'Contato atribuído a ' + (dono[v.value] || 'proprietário'), { ow: dono[v.value] || '' });
+        push(p.hs_analytics_first_visit_timestamp, 'visita', 'Primeira visita ao site', {});
+        if (p.hs_analytics_last_visit_timestamp && p.hs_analytics_last_visit_timestamp != p.hs_analytics_first_visit_timestamp) push(p.hs_analytics_last_visit_timestamp, 'visita', 'Última visita ao site · ' + (p.hs_analytics_num_visits || 0) + ' visita(s), ' + (p.hs_analytics_num_page_views || 0) + ' páginas vistas', {});
+        push(p.hs_sales_email_last_replied, 'resp', 'Respondeu a um e-mail de vendas', {}); push(p.hs_sales_email_last_opened, 'email', 'E-mail de vendas aberto', {});
+        push(p.hs_email_first_send_date, 'email', 'Primeiro e-mail de marketing enviado', {}); push(p.hs_email_first_open_date, 'email', 'Primeiro e-mail de marketing aberto', {});
+        for (const [k, n] of [['subscriber', 'Assinante'], ['lead', 'Lead'], ['marketingqualifiedlead', 'MQL'], ['salesqualifiedlead', 'SQL'], ['opportunity', 'Oportunidade'], ['customer', 'Cliente']]) { const t = p['hs_lifecyclestage_' + k + '_date']; if (t && !(c.propertiesWithHistory?.lifecyclestage || []).some(v => v.value == k)) push(t, 'ciclo', 'Mudou para a etapa: ' + k, { ow }) }
+        let QC = [];
+        { const H = c.propertiesWithHistory || {}, nomes = (H.hs_email_last_email_name || []).filter(v => v.value).map(v => ({ t: +new Date(v.timestamp) || 0, n: String(v.value) })).sort((a, b) => a.t - b.t), mk = t => { let r = ''; for (const x of nomes) if (x.t <= t + 6e4) r = x.n; return r }, seen = new Set();
+          const MI = nomes.length ? await mkInfoDe(api) : {}, mdet = n => { const q = MI[String(n || '').trim().toLowerCase()]; return [{ r: 'E-mail de marketing', v: String(n).slice(0, 200) }, ...(q ? [q.a && { r: 'Assunto', v: q.a }, q.r && { r: 'Remetente', v: q.r }, q.b && { r: 'Prévia do conteúdo', v: q.b }, q.t && { r: 'Como foi enviado', v: (/AUTOMATED/i.test(q.t) ? 'E-mail automatizado (fluxo de trabalho)' : /BATCH|REGULAR/i.test(q.t) ? 'Envio em massa (campanha)' : q.t) + (q.s ? ' · ' + q.s : '') }].filter(Boolean) : [])] };
+          for (const v of nomes) { seen.add(v.t); push(v.t, 'email', 'E-mail de marketing enviado: ' + v.n, { dir: 'Enviado', sit: 'Enviado (marketing)', det: mdet(v.n) }) }
+          if (!nomes.length) push(p.hs_email_last_send_date, 'email', 'E-mail de marketing enviado: ' + (p.hs_email_last_email_name || ''), {});
+          const hv = (k, rot, sit) => { const arr = (H[k] || []).map(v => +new Date(v.value) || +v.value || 0).filter(Boolean); if (!arr.length && p[k]) arr.push(+new Date(p[k]) || +p[k] || 0); for (const t of [...new Set(arr)]) { const nm = mk(t); push(t, 'email', rot + (nm ? ': ' + nm : ''), { dir: 'Enviado', sit, det: nm ? mdet(nm) : [] }) } };
+          qtdEv(qNames.c, H, (tm, tx, x) => QC.push([tm, tx, x]));
+          if (!QC.length) tplEv(tplCd, catC, H, (tm, tx, x) => push(tm, 'wa', tx, x));
+          for (const v of (H.hs_sales_email_last_replied || [])) { const t = +new Date(v.value) || +v.value || 0; if (t) push(t, 'resp', 'Respondeu a um e-mail', { dir: 'Recebido', sit: 'Respondeu', det: [] }) }
+          hv('hs_email_last_open_date', 'E-mail de marketing aberto', 'Lido'); hv('hs_email_last_click_date', 'E-mail de marketing clicado', 'Clicou'); }
+        const [neg, lig, mail, reu, com, nota, tar] = await Promise.all([assoc(id, 'deals', [...new Set(['dealstage', 'pipeline', 'amount', 'createdate', 'closedate', 'hubspot_owner_id', ...dN])], ['dealstage', ...tplD, ...Object.values(qNames.d).filter(Boolean), ...RV.deals.filter(x => x.g == 'Olos' && /^data da (ultima ligacao|ultima solicitacao de ligacao|solicitacao de cancelamento)/.test(norm(x.rot))).map(x => x.name)]), assoc(id, 'calls', ['hs_timestamp', 'hs_call_direction', 'hs_call_duration', 'hs_call_status', 'hs_call_title', 'hs_call_body']), assoc(id, 'emails', ['hs_timestamp', 'hs_email_direction', 'hs_email_status', 'hs_email_subject', 'hs_email_text', 'hs_email_open_count', 'hs_email_click_count', 'hs_email_sent_count', 'hs_email_reply_count']), assoc(id, 'meetings', ['hs_timestamp', 'hs_meeting_outcome', 'hs_meeting_title', 'hs_meeting_body', 'hs_meeting_start_time', 'hs_meeting_end_time']), assoc(id, 'communications', ['hs_timestamp', 'hs_communication_channel_type', 'hs_communication_body', 'hs_communication_logged_from', ...RV.comm.map(x => x.n)]), assoc(id, 'notes', ['hs_timestamp', 'hubspot_owner_id']), assoc(id, 'tasks', ['hs_timestamp', 'hs_task_status', 'hs_task_type', 'hubspot_owner_id'])]);
+        { const ex = (tipo, props, dest, ja) => Promise.all(neg.slice(0, 3).map(async d => { const a = await api('/crm/v4/objects/deals/' + d.id + '/associations/' + tipo).catch(() => ({ results: [] })), ii = a.results.map(x => ({ id: String(x.toObjectId) })).filter(x => !ja.has(x.id)).slice(0, 100); if (!ii.length) return; const r = await api('/crm/v3/objects/' + tipo + '/batch/read', { method: 'POST', body: JSON.stringify({ inputs: ii, properties: props }) }).catch(() => ({ results: [] })); for (const x of r.results) if (!ja.has(String(x.id))) { ja.add(String(x.id)); dest.push(x) } }));
+          const jm = new Set(mail.map(x => String(x.id))), jc = new Set(com.map(x => String(x.id)));
+          await ex('emails', ['hs_timestamp', 'hs_email_direction', 'hs_email_status', 'hs_email_subject', 'hs_email_text', 'hs_email_open_count', 'hs_email_click_count', 'hs_email_sent_count', 'hs_email_reply_count'], mail, jm);
+          await ex('communications', ['hs_timestamp', 'hs_communication_channel_type', 'hs_communication_body', 'hs_communication_logged_from', ...RV.comm.map(x => x.n)], com, jc); }
+        { let qd = 0; neg.forEach(d => { const k = qtdEv(qNames.d, d.propertiesWithHistory || {}, (tm, tx, x) => push(tm, 'wa', tx, x)); qd += k; if (!k) tplEv(tplDd, catD, d.propertiesWithHistory || {}, (tm, tx, x) => push(tm, 'wa', tx, x)) }); if (!qd) QC.forEach(([tm, tx, x]) => push(tm, 'wa', tx, x)) }
+        neg.forEach(d => { const q = d.properties, H = d.propertiesWithHistory || {}, OF = RV.deals.filter(f => f.g == 'Olos'), O = re => { const f = OF.find(z => re.test(norm(z.rot))); return f ? String(q[f.name] || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 300) : '' }, OH = re => { const f = OF.find(z => re.test(norm(z.rot))); return f ? [...new Set([...(H[f.name] || []).map(v => v.value), q[f.name]].filter(Boolean))] : [] }, tf1 = O(/^tabulacao fina(l)? olos 1/), tf = O(/^tabulacao final/) || tf1 || O(/^tabulacao fina/) || O(/^ultima tabulacao olos 1/), dur1 = hms(O(/^duracao da ultima ligacao/)), mail = O(/^nome do mailing olos/), camp = O(/^codigo da campanha/), dd = arr => arr.filter(z => z[1]).map(z => ({ r: z[0], v: String(z[1]) })), x = { did: d.id, st: etapa[q.dealstage] || q.dealstage, pl: funil[q.pipeline] || q.pipeline, ow: dono[q.hubspot_owner_id] || '' }; const HE = re => { const f = OF.find(z => re.test(norm(z.rot))); return f ? (H[f.name] || []).map(v => ({ t: +new Date(v.timestamp) || 0, v: String(v.value || '').trim() })).filter(z => z.v).sort((a, b) => a.t - b.t) : [] }, near = (arr, t) => { let b = null, bd = 1e18; for (const z of arr) { const k = Math.abs(z.t - t); if (k < bd) { bd = k; b = z } } return b && bd <= 432e5 ? b.v : '' }, hD = HE(/^data da ultima ligacao/), hTab = [HE(/^tabulacao fina olos 1/), HE(/^tabulacao final olos/), HE(/^ultima tabulacao olos 1/)].find(a => a.length) || [], hDur = HE(/^duracao da ultima ligacao/); const lgv = OH(/^data da ultima ligacao/), lg = lgv.map(v => ({ v, t: ((hD.find(z => z.v == v) || {}).t) || 0 })).sort((a, b) => (+new Date(a.v) || 0) - (+new Date(b.v) || 0)); lg.forEach((c, ix) => { const ult = ix == lg.length - 1, tbc = (c.t && hTab.length ? near(hTab, c.t) : '') || (ult ? (tf || '') : ''), duc = (c.t && hDur.length ? near(hDur, c.t) : '') || (ult ? (O(/^duracao da ultima ligacao/) || '') : ''); push(c.v, 'ligacao', 'Ligação Olos' + (tbc ? ' · ' + tbc.slice(0, 60) : ''), { ...x, dir: 'Enviado', sit: tbc ? (/atend|sucess|contato|efetiv/i.test(tbc) ? 'Atendida' : tbc.slice(0, 40)) : 'Registrada', det: dd([['Resultado da tabulação', tbc], ['Duração da chamada', hms(duc)], ['Mailing', mail], ['Código da campanha', camp], ...(ult ? [['Observações', O(/^observacoes/)], ['Status de contatividade', O(/contatividade/)]] : []), ['Nº da ligação', String(ix + 1) + ' de ' + lg.length]]) }) }); OH(/^data da ultima solicitacao de ligacao olos/).forEach(v => push(v, 'ligacao', 'Solicitação de ligação Olos', { ...x, dir: 'Enviado', sit: 'Solicitada', det: dd([['Mailing', mail], ['Código da campanha', camp]]) })); OH(/^data da solicitacao de cancelamento/).forEach(v => push(v, 'ligacao', 'Cancelamento de solicitação de ligação Olos', { ...x, dir: 'Enviado', sit: 'Cancelada', det: dd([['Mailing', mail], ['Código da campanha', camp]]) })); if (lg.length) ficha.olosLig = (ficha.olosLig || 0) + lg.length });
+        neg.forEach(d => { const q = d.properties, x = { st: etapa[q.dealstage] || q.dealstage, pl: funil[q.pipeline] || q.pipeline, v: +q.amount || 0, ow: dono[q.hubspot_owner_id] || '' }; x.did = d.id; { const rf = RV.deals.find(f => f.rot == 'RA'); if (rf && q[rf.name] && !ident.ra.includes(String(q[rf.name]))) ident.ra.push(String(q[rf.name])) } ficha.negocios.push({ id: d.id, cr: +new Date(q.createdate) || 0, per: (() => { const pf = RV.deals.find(f => f.rot == 'Período letivo'); const m = pf && String(q[pf.name] || '').replace(/\D/g, '').slice(0, 5); return +m || 0 })(), campos: RV.deals.map(f => ({ g: f.g, r: f.rot, v: fv(f, q[f.name]) })).filter(z => z.v) }); for (const f of RV.deals) if (f.ev && q[f.name] && f.name != 'closedate') push(q[f.name], 'marco', f.ev, { ...x }); push(q.createdate, 'neg', 'Negócio criado', x); for (const v of (d.propertiesWithHistory?.dealstage || [])) push(v.timestamp, 'etapa', 'Negócio mudou para a etapa: ' + (etapa[v.value] || v.value), { ...x, st: etapa[v.value] || v.value }); if (q.closedate) push(q.closedate, 'fech', 'Negócio: data de fechamento', x) });
+        nota.forEach(d => push(d.properties.hs_timestamp, 'nota', 'Nota registrada no contato', { ow: dono[d.properties.hubspot_owner_id] || '' }));
+        tar.forEach(d => push(d.properties.hs_timestamp, 'tarefa', 'Tarefa' + (d.properties.hs_task_type ? ' (' + d.properties.hs_task_type.toLowerCase() + ')' : '') + (d.properties.hs_task_status ? ' · ' + d.properties.hs_task_status.toLowerCase() : ''), { ow: dono[d.properties.hubspot_owner_id] || '' }));
+        const lm = x => String(x == null ? '' : x).replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim(), dt = (arr) => arr.filter(z => z[1] !== '' && z[1] != null && lm(z[1]) !== '').map(z => ({ r: z[0], v: lm(z[1]).slice(0, 200) }));
+        lig.forEach(d => { const p = d.properties, inb = /in/i.test(p.hs_call_direction || ''), st = String(p.hs_call_status || ''), sit = /completed/i.test(st) ? 'Atendida' : /no_answer|busy|failed|canceled|missed/i.test(st) ? 'Não atendida' : st ? st.toLowerCase() : '', dur = p.hs_call_duration ? Math.round(p.hs_call_duration / 1000) : 0; push(p.hs_timestamp, 'ligacao', 'Ligação ' + (inb ? 'recebida' : 'realizada') + (dur ? ' · ' + dur + ' s' : ''), { dir: inb ? 'Recebida' : 'Enviada', sit, det: dt([['Título', p.hs_call_title], ['Duração', dur ? dur + ' s' : ''], ['Status', st], ['Anotações', p.hs_call_body]]) }) });
+        mail.forEach(d => { const p = d.properties, r = /incoming/i.test(p.hs_email_direction || ''), oc = +p.hs_email_open_count || 0, cc = +p.hs_email_click_count || 0, stt = String(p.hs_email_status || ''), sit = r ? 'Respondeu' : /bounce|fail/i.test(stt) ? 'Falhou' : cc ? 'Clicou' : oc ? 'Lido' : /deliver/i.test(stt) ? 'Entregue, sem leitura registrada' : 'Enviado, sem leitura registrada'; push(p.hs_timestamp, r ? 'resp' : 'email', (r ? 'E-mail recebido do contato' : 'E-mail enviado ao contato') + (p.hs_email_subject ? ': ' + lm(p.hs_email_subject).slice(0, 90) : '') + (!r && stt ? ' · ' + stt.toLowerCase() : ''), { dir: r ? 'Recebido' : 'Enviado', sit, det: dt([['Assunto', p.hs_email_subject], ['Status', stt], ['Aberturas', oc || ''], ['Cliques', cc || ''], ['Respostas', +p.hs_email_reply_count || ''], ['Texto', p.hs_email_text]]) }) });
+        reu.forEach(d => { const p = d.properties; push(p.hs_timestamp, 'reuniao', 'Reunião' + (p.hs_meeting_outcome ? ' · ' + p.hs_meeting_outcome : ''), { dir: 'Agenda', sit: p.hs_meeting_outcome ? String(p.hs_meeting_outcome).toLowerCase() : '', det: dt([['Título', p.hs_meeting_title], ['Resultado', p.hs_meeting_outcome], ['Início', p.hs_meeting_start_time ? (local(p.hs_meeting_start_time) || {}).d : ''], ['Notas', p.hs_meeting_body]]) }) });
+        com.forEach(d => { const p = d.properties, cp = RV.comm.map(x => { const val = p[x.n]; const o = (x.op.find(z => z[0] == val) || [])[1]; return val ? { r: x.r, v: lm(o || val).slice(0, 160) } : null }).filter(Boolean), canal = p.hs_communication_channel_type || '', corpo = lm(p.hs_communication_body).slice(0, 160), tudo = cp.map(x => x.r + ' ' + x.v).join(' | '), sit = /falh|fail|erro|n[aã]o entreg/i.test(tudo) ? 'Falhou' : /respond|repl/i.test(tudo) ? 'Respondeu' : /\blid[oa]s?\b|\bread\b|visualiz/i.test(tudo) ? 'Lido' : /entreg|deliver/i.test(tudo) ? 'Entregue, sem leitura registrada' : 'Registrada, sem leitura informada';
+          if (cp.length || corpo) { const l = local(p.hs_timestamp); ficha.comunicacoes.push({ t: +new Date(p.hs_timestamp) || 0, d: l ? l.d : '', canal, corpo, campos: cp }) }
+          push(p.hs_timestamp, /whats/i.test(canal) ? 'wa' : 'ativ', 'Mensagem ' + canal + (corpo ? ' · ' + corpo.slice(0, 90) : ''), { dir: p.hs_communication_logged_from || '', sit, det: dt([['Canal', canal], ['Mensagem', corpo], ...cp.map(x => [x.r, x.v])]) }) });
+      }
+      { const o = ficha.contatos.map((_, i) => i).sort((a, b) => ficha.contatos[b].cr - ficha.contatos[a].cr); const R = (arr) => o.map(i => arr[i]); ficha.contatos = R(ficha.contatos); ident.contatos = R(ident.contatos); cts.splice(0, cts.length, ...R(cts)) }
+      ficha.negocios.sort((a, b) => b.per - a.per || b.cr - a.cr); ficha.comunicacoes.sort((a, b) => b.t - a.t); ficha.comunicacoes = ficha.comunicacoes.slice(0, 20);
+      ev.sort((a, b) => a.d < b.d ? -1 : a.d > b.d ? 1 : a.h - b.h);
+      return out({ contatos: cts, eventos: ev, ficha, ident, versao: 'cpf-estrito-2026-10-28tempos' });
+    } catch (e) { return out({ erro: String(e.message || e).slice(0, 200) }, e.st == 401 || e.st == 403 ? 502 : 500) }
+  }
+};
+
+/* =========================================================
+   Central de Indicadores · Inovação Casa — servidor de acesso
+   (Cloudflare Worker + banco D1, plano gratuito)
+
+   - Senhas conferidas aqui (PBKDF2 + segredo do servidor); nunca saem do servidor
+   - Sessão assinada (HMAC) e conferida no banco a cada pedido
+   - Cada perfil só RECEBE os arquivos de dados das guias liberadas
+   - Gravar, trocar e apagar são conferidos pela permissão do perfil
+   - Bloqueio após 5 senhas erradas (15 min) e registro de acessos
+
+   Variáveis (Settings → Variables and Secrets):
+     SEGREDO_SESSAO  (secret) texto aleatório com 40+ caracteres
+     PIMENTA         (secret) outro texto aleatório com 40+ caracteres
+     ORIGENS         (text)   endereços do site, separados por vírgula
+     ADMIN_SENHA_INICIAL (secret, opcional) troca a senha provisória 12345678
+   Banco D1 ligado ao Worker com o nome DB
+   ========================================================= */
+
+const VERSAO_CODIGO = '2026-10-29-acesso-1';
+const PERFIS = ['Leitura', 'Editor', 'Administrador'];
+/* guias (páginas do site) e ambientes */
+const TODAS_ABAS = ['exec', 'uni', 'sess', 'team', 'a360', 'sla', 'qual', 'prod', 'cap', 'cross', 'rec', 'cons', 'bd', 'data', 'consimp', 'stat', 'olos', 'hubspot', 'buscar'];
+/* botões que precisam de permissão */
+const TODOS_BOTOES = ['importar', 'remover', 'publicar', 'exportar', 'atualizar', 'parametros', 'logo'];
+const PAGINAS_BOTMAKER = ['exec', 'uni', 'sess', 'team', 'a360', 'sla', 'qual', 'prod', 'cap', 'cross', 'rec', 'cons', 'bd', 'data', 'consimp', 'stat'];
+const PERM_PADRAO = {
+  'Leitura': { abas: ['exec', 'uni', 'sess', 'team', 'a360', 'sla', 'qual', 'prod', 'cap', 'cross', 'rec', 'cons', 'bd', 'olos', 'hubspot', 'buscar'], botoes: ['exportar'] },
+  'Editor': { abas: TODAS_ABAS.slice(), botoes: ['importar', 'remover', 'publicar', 'exportar', 'atualizar', 'parametros', 'logo'] }
+};
+/* arquivos de dados: quem lê (qualquer uma das guias) e quem grava (uma guia E um botão) */
+const ARQUIVOS = {
+  data: { ler: PAGINAS_BOTMAKER, esc: { abas: ['data', 'consimp', 'stat', 'cons'], botoes: ['importar', 'remover', 'parametros', 'logo', 'publicar'] } },
+  olos: { ler: ['olos', 'hubspot', 'buscar'], esc: { abas: ['olos'], botoes: ['importar', 'remover', 'publicar'] } },
+  'olos-meta': { ler: ['olos', 'hubspot', 'buscar'], esc: { abas: ['olos'], botoes: ['importar', 'remover', 'publicar'] } },
+  jb: { ler: ['olos', 'buscar'], esc: { abas: ['olos'], botoes: ['importar', 'remover', 'publicar'] } },
+  rc: { ler: ['rec'], esc: { abas: ['rec', 'data'], botoes: ['importar', 'publicar'] } },
+  analise: { ler: ['olos', 'hubspot'], esc: { abas: ['olos', 'hubspot'], botoes: ['atualizar', 'publicar'] } },
+  meta: { ler: TODAS_ABAS, esc: { abas: [], botoes: [] } } /* só administrador */
+};
+function regraArquivo(nome) {
+  if (ARQUIVOS[nome]) return ARQUIVOS[nome];
+  if (/^st_[a-z0-9_.-]{1,36}$/.test(nome)) return { ler: ['stat'], esc: { abas: ['stat'], botoes: ['importar', 'publicar'] } };
+  return null;
+}
+/* valores pequenos de configuração entregues por permissão */
+const CONFIG = { hskey: { ler: ['olos', 'hubspot', 'buscar'] } };
+
+const ADMIN_INICIAL = { usuario: 'EMERSON', nome: 'Emerson', senha: '12345678' };
+const ITERACOES = 10000;
+const SESSAO_HORAS = 12, SESSAO_MANTER_DIAS = 30;
+const PARTE_MAX = 700000;       /* caracteres por linha no D1 (limite do D1 é 2 MB por linha) */
+const ARQUIVO_MAX = 40e6;       /* caracteres por arquivo */
+
+/* ---------------- utilidades ---------------- */
+const agora = () => new Date().toISOString();
+const enc = new TextEncoder();
+const b64u = buf => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+const deb64u = s => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((s.length + 3) % 4)), c => c.charCodeAt(0));
+const hex = buf => [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+const normU = u => String(u || '').trim().toUpperCase();
+function igualSeguro(a, b) { if (a.length !== b.length) return false; let r = 0; for (let i = 0; i < a.length; i++) r |= a.charCodeAt(i) ^ b.charCodeAt(i); return r === 0; }
+class Erro extends Error { constructor(status, msg) { super(msg); this.status = status; } }
+
+async function hashSenha(env, senha, salHex) {
+  const chave = await crypto.subtle.importKey('raw', enc.encode(String(senha)), 'PBKDF2', false, ['deriveBits']);
+  const sal = enc.encode(salHex + '|' + (env.PIMENTA || ''));
+  return hex(await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt: sal, iterations: ITERACOES }, chave, 256));
+}
+async function hmac(env, texto) {
+  if (!env.SEGREDO_SESSAO || env.SEGREDO_SESSAO.length < 20) throw new Erro(500, 'Servidor sem SEGREDO_SESSAO configurado.');
+  const k = await crypto.subtle.importKey('raw', enc.encode(env.SEGREDO_SESSAO), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  return b64u(await crypto.subtle.sign('HMAC', k, enc.encode(texto)));
+}
+
+/* ---------------- banco ---------------- */
+const um = (env, sql, ...p) => env.DB.prepare(sql).bind(...p).first();
+const todos = async (env, sql, ...p) => (await env.DB.prepare(sql).bind(...p).all()).results || [];
+const exec = (env, sql, ...p) => env.DB.prepare(sql).bind(...p).run();
+async function registrar(env, usuario, acao, detalhe) { try { await exec(env, 'INSERT INTO log (quando, usuario, acao, detalhe) VALUES (?,?,?,?)', agora(), usuario || '', acao, String(detalhe || '').slice(0, 300)); } catch (e) { /* o registro é opcional */ } }
+async function lerValor(env, chave, padrao) { const r = await um(env, 'SELECT dados FROM valores WHERE chave = ?', chave); return r ? JSON.parse(r.dados) : padrao; }
+const SQL_VALOR = 'INSERT INTO valores (chave, dados, atualizado_em, por) VALUES (?,?,?,?) ON CONFLICT(chave) DO UPDATE SET dados = excluded.dados, atualizado_em = excluded.atualizado_em, por = excluded.por';
+async function gravarValor(env, chave, dados, por) { await exec(env, SQL_VALOR, chave, JSON.stringify(dados), agora(), por || ''); }
+async function versao(env) { return (await lerValor(env, 'versao', 0)) || 0; }
+const subirVersaoStmt = (env, ver) => env.DB.prepare(SQL_VALOR).bind('versao', String(ver), agora(), '');
+
+const ESQUEMA = [
+  'CREATE TABLE IF NOT EXISTS usuarios (usuario TEXT PRIMARY KEY, nome TEXT NOT NULL, perfil TEXT NOT NULL, ativo INTEGER NOT NULL DEFAULT 1, sal TEXT NOT NULL, hash TEXT NOT NULL, trocar_senha INTEGER NOT NULL DEFAULT 0, sessao INTEGER NOT NULL DEFAULT 0, criado_em TEXT, atualizado_em TEXT)',
+  'CREATE TABLE IF NOT EXISTS arquivos (nome TEXT PRIMARY KEY, rev INTEGER NOT NULL DEFAULT 0, partes INTEGER NOT NULL DEFAULT 0, tamanho INTEGER NOT NULL DEFAULT 0, atualizado_em TEXT, por TEXT)',
+  'CREATE TABLE IF NOT EXISTS partes (nome TEXT NOT NULL, rev INTEGER NOT NULL, n INTEGER NOT NULL, dados TEXT NOT NULL, PRIMARY KEY (nome, rev, n))',
+  'CREATE TABLE IF NOT EXISTS valores (chave TEXT PRIMARY KEY, dados TEXT NOT NULL, atualizado_em TEXT NOT NULL, por TEXT)',
+  'CREATE TABLE IF NOT EXISTS tentativas (usuario TEXT PRIMARY KEY, falhas INTEGER NOT NULL DEFAULT 0, bloqueado_ate TEXT)',
+  'CREATE TABLE IF NOT EXISTS log (quando TEXT NOT NULL, usuario TEXT, acao TEXT, detalhe TEXT)',
+  'CREATE INDEX IF NOT EXISTS idx_log_quando ON log (quando)'
+];
+const TABELAS = ['usuarios', 'arquivos', 'partes', 'valores', 'tentativas', 'log'];
+let tabelasProntas = false;
+async function garantirTabelas(env) {
+  if (tabelasProntas || !env.DB) return;
+  await env.DB.batch(ESQUEMA.map(sql => env.DB.prepare(sql)));
+  tabelasProntas = true;
+}
+async function garantirAdmin(env) {
+  await garantirTabelas(env);
+  const n = await um(env, 'SELECT COUNT(*) AS n FROM usuarios');
+  if (n && n.n > 0) return;
+  const sal = hex(crypto.getRandomValues(new Uint8Array(16)));
+  await exec(env, 'INSERT INTO usuarios (usuario, nome, perfil, ativo, sal, hash, trocar_senha, sessao, criado_em, atualizado_em) VALUES (?,?,?,?,?,?,?,?,?,?)',
+    ADMIN_INICIAL.usuario, ADMIN_INICIAL.nome, 'Administrador', 1, sal, await hashSenha(env, env.ADMIN_SENHA_INICIAL || ADMIN_INICIAL.senha, sal), 1, 0, agora(), agora());
+}
+
+/* ---------------- permissões ---------------- */
+async function permissoesDe(env, perfil) {
+  if (perfil === 'Administrador') return { abas: TODAS_ABAS.slice(), botoes: TODOS_BOTOES.slice() };
+  const perfis = await lerValor(env, 'perfis', {});
+  const p = perfis[perfil] || PERM_PADRAO[perfil] || { abas: [], botoes: [] };
+  return { abas: (p.abas || []).filter(a => TODAS_ABAS.includes(a)), botoes: (p.botoes || []).filter(b => TODOS_BOTOES.includes(b)) };
+}
+const podeLer = (u, perm, nome) => { if (u.perfil === 'Administrador') return !!regraArquivo(nome); const r = regraArquivo(nome); return !!r && r.ler.some(a => perm.abas.includes(a)); };
+const podeGravar = (u, perm, nome) => {
+  if (u.perfil === 'Administrador') return !!regraArquivo(nome);
+  const r = regraArquivo(nome); if (!r) return false;
+  return r.esc.abas.some(a => perm.abas.includes(a)) && r.esc.botoes.some(b => perm.botoes.includes(b));
+};
+const podeApagar = (u, perm, nome) => podeGravar(u, perm, nome) && (u.perfil === 'Administrador' || perm.botoes.includes('remover'));
+
+/* ---------------- sessão ---------------- */
+async function criarSessao(env, u, manter) {
+  const exp = Date.now() + (manter ? SESSAO_MANTER_DIAS * 864e5 : SESSAO_HORAS * 36e5);
+  const corpo = b64u(enc.encode(JSON.stringify({ u: u.usuario, s: u.sessao, exp })));
+  return corpo + '.' + await hmac(env, corpo);
+}
+async function autenticar(env, req) {
+  const h = req.headers.get('Authorization') || '';
+  const tok = h.startsWith('Bearer ') ? h.slice(7) : '';
+  const [corpo, sig] = tok.split('.');
+  if (!corpo || !sig || !igualSeguro(sig, await hmac(env, corpo))) throw new Erro(401, 'Sessão inválida. Entre novamente.');
+  let d; try { d = JSON.parse(new TextDecoder().decode(deb64u(corpo))); } catch (e) { throw new Erro(401, 'Sessão inválida.'); }
+  if (!d.exp || d.exp < Date.now()) throw new Erro(401, 'Sessão expirada. Entre novamente.');
+  const u = await um(env, 'SELECT usuario, nome, perfil, ativo, sessao, trocar_senha FROM usuarios WHERE usuario = ?', d.u);
+  if (!u || !u.ativo || u.sessao !== d.s) throw new Erro(401, 'Acesso encerrado. Entre novamente.');
+  return u;
+}
+const perfilPublico = u => ({ usuario: u.usuario, nome: u.nome, perfil: u.perfil, trocarSenha: !!u.trocar_senha });
+
+/* ---------------- rotas de acesso ---------------- */
+async function rotaLogin(env, req) {
+  const { usuario, senha, manter } = await req.json();
+  const id = normU(usuario);
+  if (!id || !senha) throw new Erro(400, 'Informe usuário e senha.');
+  const t = await um(env, 'SELECT falhas, bloqueado_ate FROM tentativas WHERE usuario = ?', id);
+  if (t && t.bloqueado_ate && t.bloqueado_ate > agora()) throw new Erro(429, 'Muitas tentativas. Tente de novo em alguns minutos.');
+  const u = await um(env, 'SELECT * FROM usuarios WHERE usuario = ?', id);
+  const ok = u && u.ativo && igualSeguro(await hashSenha(env, senha, u.sal), u.hash);
+  if (!ok) {
+    const falhas = (t ? t.falhas : 0) + 1;
+    await exec(env, 'INSERT INTO tentativas (usuario, falhas, bloqueado_ate) VALUES (?,?,?) ON CONFLICT(usuario) DO UPDATE SET falhas = excluded.falhas, bloqueado_ate = excluded.bloqueado_ate',
+      id, falhas >= 5 ? 0 : falhas, falhas >= 5 ? new Date(Date.now() + 15 * 6e4).toISOString() : null);
+    await registrar(env, id, falhas >= 5 ? 'bloqueado' : 'login-falhou', '');
+    throw new Erro(401, u && !u.ativo ? 'Este usuário está desativado.' : 'Usuário ou senha incorretos.');
+  }
+  await exec(env, 'DELETE FROM tentativas WHERE usuario = ?', id);
+  await registrar(env, id, 'login', '');
+  return { token: await criarSessao(env, u, !!manter), usuario: perfilPublico(u), permissoes: await permissoesDe(env, u.perfil) };
+}
+async function rotaTrocarSenha(env, u, req) {
+  const { atual, nova } = await req.json();
+  if (!nova || String(nova).length < 8) throw new Erro(400, 'A nova senha precisa ter ao menos 8 caracteres.');
+  const r = await um(env, 'SELECT sal, hash FROM usuarios WHERE usuario = ?', u.usuario);
+  if (!igualSeguro(await hashSenha(env, atual, r.sal), r.hash)) throw new Erro(400, 'Senha atual incorreta.');
+  if (nova === atual) throw new Erro(400, 'A nova senha precisa ser diferente da atual.');
+  const sal = hex(crypto.getRandomValues(new Uint8Array(16)));
+  await exec(env, 'UPDATE usuarios SET sal = ?, hash = ?, trocar_senha = 0, sessao = sessao + 1, atualizado_em = ? WHERE usuario = ?', sal, await hashSenha(env, nova, sal), agora(), u.usuario);
+  await registrar(env, u.usuario, 'trocou-senha', '');
+  return { token: await criarSessao(env, await um(env, 'SELECT * FROM usuarios WHERE usuario = ?', u.usuario), true) };
+}
+/* resumo leve: usado ao entrar e a cada poucos segundos para saber o que mudou (sem baixar dados) */
+async function rotaEstado(env, u) {
+  const perm = await permissoesDe(env, u.perfil);
+  const lista = await todos(env, 'SELECT nome, rev, tamanho, atualizado_em, por FROM arquivos');
+  const arquivos = {};
+  for (const a of lista) if (podeLer(u, perm, a.nome)) arquivos[a.nome] = { rev: a.rev, tamanho: a.tamanho, em: a.atualizado_em, por: a.por };
+  const config = {};
+  for (const [k, r] of Object.entries(CONFIG)) if (u.perfil === 'Administrador' || r.ler.some(a => perm.abas.includes(a))) config[k] = await lerValor(env, 'cfg:' + k, null);
+  return { versao: await versao(env), usuario: perfilPublico(u), permissoes: perm, pode: Object.fromEntries(Object.keys(ARQUIVOS).map(n => [n, { ler: podeLer(u, perm, n), gravar: podeGravar(u, perm, n), apagar: podeApagar(u, perm, n) }])), arquivos, config };
+}
+/* ---------------- arquivos de dados ---------------- */
+function nomeValido(n) { return /^[a-z0-9][a-z0-9_.-]{0,39}$/.test(n) && !!regraArquivo(n); }
+async function rotaArquivoLer(env, u, nome) {
+  if (!nomeValido(nome)) throw new Erro(404, 'Arquivo não encontrado.');
+  const perm = await permissoesDe(env, u.perfil);
+  if (!podeLer(u, perm, nome)) throw new Erro(403, 'Sem permissão para ver estes dados.');
+  const a = await um(env, 'SELECT rev, partes, tamanho FROM arquivos WHERE nome = ?', nome);
+  if (!a || !a.partes) return { __texto: '', rev: 0 };
+  const ps = await todos(env, 'SELECT dados FROM partes WHERE nome = ? AND rev = ? ORDER BY n', nome, a.rev);
+  if (ps.length !== a.partes) throw new Erro(503, 'Arquivo em atualização. Tente de novo em instantes.');
+  return { __texto: ps.map(p => p.dados).join(''), rev: a.rev };
+}
+/* envio em partes: PUT /arquivo/<nome>?rev=<nova>&n=<parte>&de=<total> (corpo = texto da parte) */
+async function rotaArquivoGravar(env, u, nome, url, req) {
+  if (!nomeValido(nome)) throw new Erro(404, 'Arquivo não encontrado.');
+  const perm = await permissoesDe(env, u.perfil);
+  if (!podeGravar(u, perm, nome)) { await registrar(env, u.usuario, 'gravar-recusado', nome); throw new Erro(403, 'Sem permissão para gravar estes dados.'); }
+  const rev = parseInt(url.searchParams.get('rev'), 10), n = parseInt(url.searchParams.get('n'), 10), de = parseInt(url.searchParams.get('de'), 10);
+  if (!(rev > 0) || !(n >= 0) || !(de > 0) || n >= de || de > 80) throw new Erro(400, 'Parâmetros de envio inválidos.');
+  const texto = await req.text();
+  if (texto.length > PARTE_MAX) throw new Erro(413, 'Parte grande demais.');
+  const atual = await um(env, 'SELECT rev FROM arquivos WHERE nome = ?', nome);
+  if (atual && rev <= atual.rev) throw new Erro(409, 'Já existe uma versão mais nova. Atualize a página.');
+  await exec(env, 'INSERT OR REPLACE INTO partes (nome, rev, n, dados) VALUES (?,?,?,?)', nome, rev, n, texto);
+  if (n < de - 1) return { ok: true, parcial: true };
+  /* última parte: conferir que todas chegaram e publicar de uma vez */
+  const ps = await todos(env, 'SELECT n, LENGTH(dados) AS t FROM partes WHERE nome = ? AND rev = ?', nome, rev);
+  if (ps.length !== de) throw new Erro(400, 'Faltaram partes do arquivo.');
+  const tam = ps.reduce((s, p) => s + p.t, 0);
+  if (tam > ARQUIVO_MAX) throw new Erro(413, 'Arquivo grande demais.');
+  const ver = (await versao(env)) + 1;
+  await env.DB.batch([
+    env.DB.prepare('INSERT INTO arquivos (nome, rev, partes, tamanho, atualizado_em, por) VALUES (?,?,?,?,?,?) ON CONFLICT(nome) DO UPDATE SET rev = excluded.rev, partes = excluded.partes, tamanho = excluded.tamanho, atualizado_em = excluded.atualizado_em, por = excluded.por').bind(nome, rev, de, tam, agora(), u.usuario),
+    env.DB.prepare('DELETE FROM partes WHERE nome = ? AND rev <> ?').bind(nome, rev),
+    subirVersaoStmt(env, ver),
+    env.DB.prepare('INSERT INTO log (quando, usuario, acao, detalhe) VALUES (?,?,?,?)').bind(agora(), u.usuario, 'gravou', nome + ' (' + tam + ' caracteres)')
+  ]);
+  return { ok: true, rev, versao: ver };
+}
+async function rotaArquivoApagar(env, u, nome) {
+  if (!nomeValido(nome)) throw new Erro(404, 'Arquivo não encontrado.');
+  const perm = await permissoesDe(env, u.perfil);
+  if (!podeApagar(u, perm, nome)) { await registrar(env, u.usuario, 'apagar-recusado', nome); throw new Erro(403, 'Sem permissão para apagar estes dados.'); }
+  const ver = (await versao(env)) + 1;
+  await env.DB.batch([
+    env.DB.prepare('DELETE FROM partes WHERE nome = ?').bind(nome),
+    env.DB.prepare('DELETE FROM arquivos WHERE nome = ?').bind(nome),
+    subirVersaoStmt(env, ver),
+    env.DB.prepare('INSERT INTO log (quando, usuario, acao, detalhe) VALUES (?,?,?,?)').bind(agora(), u.usuario, 'apagou', nome)
+  ]);
+  return { ok: true, versao: ver };
+}
+
+/* ---------------- administrativo ---------------- */
+function soAdmin(u) { if (u.perfil !== 'Administrador') throw new Erro(403, 'Somente o administrador.'); }
+async function rotaAdmin(env, u, req, partes) {
+  soAdmin(u);
+  const m = req.method;
+  if (partes[1] === 'usuarios') {
+    if (m === 'GET') return { usuarios: await todos(env, 'SELECT usuario, nome, perfil, ativo, trocar_senha, criado_em, atualizado_em FROM usuarios ORDER BY usuario'), perfis: PERFIS };
+    if (m === 'POST') {
+      const { usuario, nome, perfil, senha } = await req.json();
+      const id = normU(usuario).replace(/\s+/g, '.');
+      if (!/^[A-Z0-9._-]{3,40}$/.test(id)) throw new Erro(400, 'Usuário inválido (use letras, números, ponto ou traço).');
+      if (!PERFIS.includes(perfil)) throw new Erro(400, 'Perfil inválido.');
+      if (!senha || String(senha).length < 8) throw new Erro(400, 'A senha provisória precisa ter ao menos 8 caracteres.');
+      if (await um(env, 'SELECT 1 FROM usuarios WHERE usuario = ?', id)) throw new Erro(400, 'Esse usuário já existe.');
+      const sal = hex(crypto.getRandomValues(new Uint8Array(16)));
+      await exec(env, 'INSERT INTO usuarios (usuario, nome, perfil, ativo, sal, hash, trocar_senha, sessao, criado_em, atualizado_em) VALUES (?,?,?,?,?,?,?,?,?,?)', id, String(nome || id).slice(0, 80), perfil, 1, sal, await hashSenha(env, senha, sal), 1, 0, agora(), agora());
+      await registrar(env, u.usuario, 'criou-usuario', id + ' (' + perfil + ')');
+      return { ok: true };
+    }
+    const alvo = normU(decodeURIComponent(partes[2] || ''));
+    const existe = await um(env, 'SELECT usuario, perfil FROM usuarios WHERE usuario = ?', alvo);
+    if (!existe) throw new Erro(404, 'Usuário não encontrado.');
+    if (m === 'PATCH') {
+      const b = await req.json();
+      if (alvo === u.usuario && ((b.perfil && b.perfil !== 'Administrador') || b.ativo === false)) throw new Erro(400, 'Você não pode tirar o próprio acesso de administrador.');
+      if (b.perfil) { if (!PERFIS.includes(b.perfil)) throw new Erro(400, 'Perfil inválido.'); await exec(env, 'UPDATE usuarios SET perfil = ?, sessao = sessao + 1, atualizado_em = ? WHERE usuario = ?', b.perfil, agora(), alvo); }
+      if (b.nome) await exec(env, 'UPDATE usuarios SET nome = ?, atualizado_em = ? WHERE usuario = ?', String(b.nome).slice(0, 80), agora(), alvo);
+      if (typeof b.ativo === 'boolean') await exec(env, 'UPDATE usuarios SET ativo = ?, sessao = sessao + 1, atualizado_em = ? WHERE usuario = ?', b.ativo ? 1 : 0, agora(), alvo);
+      if (b.senha) {
+        if (String(b.senha).length < 8) throw new Erro(400, 'A senha precisa ter ao menos 8 caracteres.');
+        const sal = hex(crypto.getRandomValues(new Uint8Array(16)));
+        await exec(env, 'UPDATE usuarios SET sal = ?, hash = ?, trocar_senha = 1, sessao = sessao + 1, atualizado_em = ? WHERE usuario = ?', sal, await hashSenha(env, b.senha, sal), agora(), alvo);
+        await exec(env, 'DELETE FROM tentativas WHERE usuario = ?', alvo);
+      }
+      if (b.desbloquear) await exec(env, 'DELETE FROM tentativas WHERE usuario = ?', alvo);
+      await registrar(env, u.usuario, 'alterou-usuario', alvo + ' ' + Object.keys(b).filter(k => k !== 'senha').join(','));
+      return { ok: true };
+    }
+    if (m === 'DELETE') {
+      if (alvo === u.usuario) throw new Erro(400, 'Você não pode excluir o próprio usuário.');
+      await exec(env, 'DELETE FROM usuarios WHERE usuario = ?', alvo);
+      await registrar(env, u.usuario, 'excluiu-usuario', alvo);
+      return { ok: true };
+    }
+  }
+  if (partes[1] === 'permissoes') {
+    if (m === 'GET') return { perfis: await lerValor(env, 'perfis', {}), padrao: PERM_PADRAO, abas: TODAS_ABAS, botoes: TODOS_BOTOES };
+    if (m === 'PUT') {
+      const { perfis } = await req.json(); const limpo = {};
+      for (const p of ['Leitura', 'Editor']) if (perfis && perfis[p]) limpo[p] = { abas: (perfis[p].abas || []).filter(a => TODAS_ABAS.includes(a)), botoes: (perfis[p].botoes || []).filter(b => TODOS_BOTOES.includes(b)) };
+      const ver = (await versao(env)) + 1;
+      await env.DB.batch([env.DB.prepare(SQL_VALOR).bind('perfis', JSON.stringify(limpo), agora(), u.usuario), subirVersaoStmt(env, ver)]);
+      await registrar(env, u.usuario, 'alterou-permissoes', '');
+      return { ok: true, versao: ver };
+    }
+  }
+  if (partes[1] === 'config' && m === 'PUT') {
+    const { chave, valor } = await req.json();
+    if (!CONFIG[chave]) throw new Erro(400, 'Configuração desconhecida.');
+    await gravarValor(env, 'cfg:' + chave, valor, u.usuario); await env.DB.batch([subirVersaoStmt(env, (await versao(env)) + 1)]);
+    await registrar(env, u.usuario, 'alterou-config', chave);
+    return { ok: true };
+  }
+  if (partes[1] === 'publicar' && m === 'POST') {          /* "Publicar agora": todos que estão com o site aberto recarregam os dados */
+    const ver = (await versao(env)) + 1;
+    await env.DB.batch([subirVersaoStmt(env, ver)]);
+    await registrar(env, u.usuario, 'publicou-agora', '');
+    return { ok: true, versao: ver };
+  }
+  if (partes[1] === 'log' && m === 'GET') return { log: await todos(env, 'SELECT quando, usuario, acao, detalhe FROM log ORDER BY quando DESC LIMIT 300') };
+  throw new Erro(404, 'Rota não encontrada.');
+}
+
+/* ---------------- diagnóstico (não mostra nenhum valor secreto) ---------------- */
+async function diagnostico(env) {
+  const d = { servico: 'central-inovacao-acesso', versao_codigo: VERSAO_CODIGO, banco_ligado: !!(env.DB && env.DB.prepare), tabelas: [], segredo_sessao: !!(env.SEGREDO_SESSAO && env.SEGREDO_SESSAO.length >= 20), pimenta: !!(env.PIMENTA && env.PIMENTA.length >= 20), origens: String(env.ORIGENS || '') };
+  if (d.banco_ligado) {
+    try { await garantirTabelas(env); } catch (e) { d.erro_criar_tabelas = String(e.message || e).slice(0, 200); }
+    for (const t of TABELAS) { try { await um(env, `SELECT 1 AS x FROM ${t} LIMIT 1`); d.tabelas.push(t); } catch (e) { d.erro_banco = String(e.message || e).slice(0, 200); } }
+  }
+  const faltam = TABELAS.filter(t => !d.tabelas.includes(t));
+  d.problemas = [];
+  if (!d.banco_ligado) d.problemas.push('O banco não está ligado: no Worker, em Settings → Bindings, adicione D1 com o nome DB.');
+  else if (faltam.length) d.problemas.push('Faltam tabelas no banco (' + faltam.join(', ') + '). O servidor tenta criá-las sozinho; se continuar, rode o schema.sql no Console do D1.');
+  if (!d.segredo_sessao) d.problemas.push('Falta o segredo SEGREDO_SESSAO (mínimo 20 caracteres) em Settings → Variables and Secrets.');
+  if (!d.pimenta) d.problemas.push('Falta o segredo PIMENTA (mínimo 20 caracteres) em Settings → Variables and Secrets.');
+  if (!d.origens) d.problemas.push('Falta a variável ORIGENS com o endereço do site (ex.: https://emersonaraujodefreitas.github.io).');
+  d.ok = d.problemas.length === 0;
+  return d;
+}
+
+/* ---------------- entrada ---------------- */
+const origensPermitidas = env => String(env.ORIGENS || '').split(',').map(s => s.trim()).filter(Boolean);
+function cors(env, req) {
+  const origem = req.headers.get('Origin') || '', perm = origensPermitidas(env);
+  return { 'Access-Control-Allow-Origin': perm.includes(origem) ? origem : (perm[0] || 'null'), 'Access-Control-Allow-Methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS', 'Access-Control-Allow-Headers': 'Authorization,Content-Type', 'Access-Control-Max-Age': '86400', Vary: 'Origin' };
+}
+const resposta = (env, req, corpo, status = 200) => {
+  const h = { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', ...cors(env, req) };
+  if (corpo && corpo.__texto !== undefined) return new Response(corpo.__texto, { status, headers: { ...h, 'Content-Type': 'text/plain; charset=utf-8', 'X-Rev': String(corpo.rev || 0) } });
+  return new Response(JSON.stringify(corpo), { status, headers: { ...h, 'Content-Type': 'application/json; charset=utf-8' } });
+};
+
+const ACESSO = {
+  async fetch(req, env) {
+    if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors(env, req) });
+    try {
+      const origem = req.headers.get('Origin');
+      if (origem && !origensPermitidas(env).includes(origem)) throw new Erro(403, 'Origem não permitida.');
+      const url = new URL(req.url);
+      const partes = url.pathname.replace(/^\/+|\/+$/g, '').split('/');
+      const rota = partes[0];
+      if (rota === 'saude' || rota === '') return resposta(env, req, await diagnostico(env));
+      if (!env.DB) throw new Erro(500, 'Banco de dados não ligado ao servidor (veja /saude).');
+      await garantirAdmin(env);
+      if (rota === 'entrar' && req.method === 'POST') return resposta(env, req, await rotaLogin(env, req));
+      const u = await autenticar(env, req);
+      if (rota === 'trocar-senha' && req.method === 'POST') return resposta(env, req, await rotaTrocarSenha(env, u, req));
+      if (u.trocar_senha) throw new Erro(403, 'Troque a senha provisória antes de continuar.');
+      if (rota === 'estado' && req.method === 'GET') return resposta(env, req, await rotaEstado(env, u));
+      if (rota === 'arquivo') {
+        const nome = decodeURIComponent(partes[1] || '');
+        if (req.method === 'GET') return resposta(env, req, await rotaArquivoLer(env, u, nome));
+        if (req.method === 'PUT') return resposta(env, req, await rotaArquivoGravar(env, u, nome, url, req));
+        if (req.method === 'DELETE') return resposta(env, req, await rotaArquivoApagar(env, u, nome));
+      }
+      if (rota === 'admin') return resposta(env, req, await rotaAdmin(env, u, req, partes));
+      throw new Erro(404, 'Rota não encontrada.');
+    } catch (e) {
+      const status = e instanceof Erro ? e.status : 500;
+      return resposta(env, req, { erro: e instanceof Erro ? e.message : 'Erro interno do servidor.' }, status);
+    }
+  }
+};
+
+/* ---------------- entrada única: acesso (login/dados) + HubSpot protegido por sessão ---------------- */
+const ROTAS_HUBSPOT = ['/buscar','/estrutura','/painel','/campos','/contar','/vinculo','/jornada','/emails','/propriedades','/amostra','/volume','/duracao'];
+export default {
+  async fetch(req, env, ctx) {
+    const url = new URL(req.url);
+    if (req.method !== 'OPTIONS' && ROTAS_HUBSPOT.includes(url.pathname)) {
+      try {
+        const origem = req.headers.get('Origin');
+        if (origem && !origensPermitidas(env).includes(origem)) throw new Erro(403, 'Origem não permitida.');
+        if (!env.DB) throw new Erro(500, 'Banco de dados não ligado ao servidor (veja /saude).');
+        await garantirAdmin(env);
+        /* transição: o site antigo ainda envia a chave fixa; vale enquanto ACEITAR_CHAVE_ANTIGA não for "nao" */
+        const tk = (req.headers.get('Authorization') || '').replace(/^Bearer /, '');
+        const antiga = env.CHAVE_ACESSO && env.ACEITAR_CHAVE_ANTIGA !== 'nao' && igual(tk, env.CHAVE_ACESSO);
+        if (!antiga) {
+          const u = await autenticar(env, req);
+          if (u.trocar_senha) throw new Erro(403, 'Troque a senha provisória antes de continuar.');
+          const perm = await permissoesDe(env, u.perfil);
+          if (!['olos', 'hubspot', 'buscar'].some(a => perm.abas.includes(a))) { await registrar(env, u.usuario, 'hubspot-recusado', url.pathname); throw new Erro(403, 'Sem permissão para consultar o HubSpot.'); }
+        }
+        if (!env.CHAVE_ACESSO) throw new Erro(500, 'Falta a variável CHAVE_ACESSO no Worker.');
+        const h = new Headers(req.headers); h.set('Authorization', 'Bearer ' + env.CHAVE_ACESSO);
+        const r = await HS.fetch(new Request(req, { headers: h }), { ...env, ORIGEM_PERMITIDA: origem || (origensPermitidas(env)[0] || '') }, ctx);
+        const hdr = new Headers(r.headers); for (const [k, v] of Object.entries(cors(env, req))) hdr.set(k, v);
+        return new Response(r.body, { status: r.status, headers: hdr });
+      } catch (e) {
+        return resposta(env, req, { erro: e instanceof Erro ? e.message : 'Erro interno do servidor.' }, e instanceof Erro ? e.status : 500);
+      }
+    }
+    return ACESSO.fetch(req, env, ctx);
+  }
+};

@@ -1,5 +1,5 @@
 import { DatabaseSync } from 'node:sqlite';
-import W from './worker.mjs';
+import W from '../worker-unico.mjs';
 const db = new DatabaseSync(':memory:');
 const stmt = (sql, p=[]) => ({ bind: (...a) => stmt(sql, a),
   first: async () => db.prepare(sql).get(...p) || null,
@@ -7,7 +7,7 @@ const stmt = (sql, p=[]) => ({ bind: (...a) => stmt(sql, a),
   run: async () => { db.prepare(sql).run(...p); return {}; }, _s: sql, _p: p });
 const DB = { prepare: s => stmt(s), batch: async list => { db.exec('BEGIN'); try { for (const s of list) db.prepare(s._s).run(...s._p); db.exec('COMMIT'); } catch (e) { db.exec('ROLLBACK'); throw e; } return []; } };
 const O = 'https://emersonaraujodefreitas.github.io';
-const env = { DB, SEGREDO_SESSAO: 'x'.repeat(48), PIMENTA: 'y'.repeat(48), ORIGENS: O };
+const env = { CHAVE_ACESSO:'k'.repeat(40), HUBSPOT_TOKEN:'tok', DB, SEGREDO_SESSAO: 'x'.repeat(48), PIMENTA: 'y'.repeat(48), ORIGENS: O };
 let ok = 0, bad = 0;
 const chk = (n, c) => { c ? ok++ : (bad++, console.log('FALHOU:', n)); };
 async function call(m, path, body, tok, raw) {
@@ -69,4 +69,16 @@ r = await call('GET', '/admin/log', undefined, adm); chk('log', r.j.log.length >
 r = await call('GET', '/estado'); chk('sem token 401', r.s === 401);
 r = await call('GET', '/estado', undefined, adm.slice(0, -3) + 'abc'); chk('token adulterado', r.s === 401);
 const ro = await W.fetch(new Request('https://w.test/estado', { headers: { Origin: 'https://evil.com' } }), env); chk('origem estranha 403', ro.status === 403);
+
+globalThis.fetch = async (u, o) => { globalThis.__ult = { u: String(u), a: o && o.headers && o.headers.Authorization }; return new Response(JSON.stringify({ results: [], total: 0 }), { status: 200 }); };
+r = await call('GET', '/contar'); chk('hubspot sem sessão => 401', r.s === 401); r = await call('GET', '/campos', undefined, 'k'.repeat(40)); chk('chave antiga ainda passa (transição)', r.s !== 401 && r.s !== 403); env.ACEITAR_CHAVE_ANTIGA = 'nao'; r = await call('GET', '/campos', undefined, 'k'.repeat(40)); chk('chave antiga recusada quando desligada', r.s === 401); delete env.ACEITAR_CHAVE_ANTIGA;
+r = await call('GET', '/campos', undefined, 'abc.def'); chk('hubspot token falso => 401', r.s === 401);
+r = await call('GET', '/campos', undefined, adm); chk('hubspot com sessão admin passa', r.s !== 401 && r.s !== 403 && r.s !== 404);
+r = await call('PUT', '/admin/permissoes', { perfis: { Leitura: { abas: ['exec'], botoes: [] }, Editor: { abas: ['exec', 'olos'], botoes: [] } } }, adm);
+let L2 = await login('edit1', 'EditorSenha1'); const e3 = L2.j.token;
+r = await call('GET', '/campos', undefined, e3); chk('editor com guia olos usa hubspot', r.s !== 401 && r.s !== 403);
+await call('PUT', '/admin/permissoes', { perfis: { Editor: { abas: ['exec'], botoes: [] } } }, adm);
+r = await call('GET', '/campos', undefined, e3); chk('perfil sem guias olos/hubspot => 403', r.s === 403);
+r = await call('GET', '/rota-que-nao-existe', undefined, adm); chk('rota inexistente 404', r.s === 404);
+const op = await W.fetch(new Request('https://w.test/campos', { method: 'OPTIONS', headers: { Origin: O } }), env); chk('preflight ok', op.status === 204 && /PUT/.test(op.headers.get('Access-Control-Allow-Methods')));
 console.log(`ok=${ok} falhas=${bad}`);
