@@ -45,6 +45,8 @@ function regraArquivo(nome) {
 /* valores pequenos de configuração entregues por permissão */
 const CONFIG = { hskey: { ler: ['olos', 'hubspot', 'buscar'] } };
 
+const AMB = { b: PAGINAS_BOTMAKER, o: ['olos'], h: ['hubspot'], s: ['buscar'] };
+const ambOk = a => { if (!a) return null; try { const l = (typeof a === 'string' ? JSON.parse(a) : a).filter(k => AMB[k]); return l.length && l.length < 4 ? l : null; } catch (e) { return null; } };
 const ADMIN_INICIAL = { usuario: 'EMERSON', nome: 'Emerson', senha: '12345678' };
 const ITERACOES = 10000;
 const SESSAO_HORAS = 12, SESSAO_MANTER_DIAS = 30;
@@ -97,6 +99,7 @@ let tabelasProntas = false;
 async function garantirTabelas(env) {
   if (tabelasProntas || !env.DB) return;
   await env.DB.batch(ESQUEMA.map(sql => env.DB.prepare(sql)));
+  try { await env.DB.prepare('ALTER TABLE usuarios ADD COLUMN ambientes TEXT').run(); } catch (e) { /* já existe */ }
   tabelasProntas = true;
 }
 async function garantirAdmin(env) {
@@ -109,19 +112,26 @@ async function garantirAdmin(env) {
 }
 
 /* ---------------- permissões ---------------- */
-async function permissoesDe(env, perfil) {
-  if (perfil === 'Administrador') return { abas: TODAS_ABAS.slice(), botoes: TODOS_BOTOES.slice() };
-  const perfis = await lerValor(env, 'perfis', {});
-  const p = perfis[perfil] || PERM_PADRAO[perfil] || { abas: [], botoes: [] };
-  return { abas: (p.abas || []).filter(a => TODAS_ABAS.includes(a)), botoes: (p.botoes || []).filter(b => TODOS_BOTOES.includes(b)) };
+async function permissoesDe(env, perfil, ambientes) {
+  const amb = ambOk(ambientes), permitidas = amb ? amb.flatMap(k => AMB[k]) : null;
+  let r;
+  if (perfil === 'Administrador') r = { abas: TODAS_ABAS.slice(), botoes: TODOS_BOTOES.slice() };
+  else {
+    const perfis = await lerValor(env, 'perfis', {});
+    const p = perfis[perfil] || PERM_PADRAO[perfil] || { abas: [], botoes: [] };
+    r = { abas: (p.abas || []).filter(a => TODAS_ABAS.includes(a)), botoes: (p.botoes || []).filter(b => TODOS_BOTOES.includes(b)) };
+  }
+  if (permitidas) r.abas = r.abas.filter(a => permitidas.includes(a));
+  return r;
 }
-const podeLer = (u, perm, nome) => { if (u.perfil === 'Administrador') return !!regraArquivo(nome); const r = regraArquivo(nome); return !!r && r.ler.some(a => perm.abas.includes(a)); };
+const total = u => u.perfil === 'Administrador' && !ambOk(u.ambientes);
+const podeLer = (u, perm, nome) => { if (total(u)) return !!regraArquivo(nome); const r = regraArquivo(nome); return !!r && r.ler.some(a => perm.abas.includes(a)); };
 const podeGravar = (u, perm, nome) => {
-  if (u.perfil === 'Administrador') return !!regraArquivo(nome);
+  if (total(u)) return !!regraArquivo(nome);
   const r = regraArquivo(nome); if (!r) return false;
   return r.esc.abas.some(a => perm.abas.includes(a)) && r.esc.botoes.some(b => perm.botoes.includes(b));
 };
-const podeApagar = (u, perm, nome) => podeGravar(u, perm, nome) && (u.perfil === 'Administrador' || perm.botoes.includes('remover'));
+const podeApagar = (u, perm, nome) => podeGravar(u, perm, nome) && (total(u) || perm.botoes.includes('remover'));
 
 /* ---------------- sessão ---------------- */
 async function criarSessao(env, u, manter) {
@@ -136,11 +146,11 @@ async function autenticar(env, req) {
   if (!corpo || !sig || !igualSeguro(sig, await hmac(env, corpo))) throw new Erro(401, 'Sessão inválida. Entre novamente.');
   let d; try { d = JSON.parse(new TextDecoder().decode(deb64u(corpo))); } catch (e) { throw new Erro(401, 'Sessão inválida.'); }
   if (!d.exp || d.exp < Date.now()) throw new Erro(401, 'Sessão expirada. Entre novamente.');
-  const u = await um(env, 'SELECT usuario, nome, perfil, ativo, sessao, trocar_senha FROM usuarios WHERE usuario = ?', d.u);
+  const u = await um(env, 'SELECT usuario, nome, perfil, ativo, sessao, trocar_senha, ambientes FROM usuarios WHERE usuario = ?', d.u);
   if (!u || !u.ativo || u.sessao !== d.s) throw new Erro(401, 'Acesso encerrado. Entre novamente.');
   return u;
 }
-const perfilPublico = u => ({ usuario: u.usuario, nome: u.nome, perfil: u.perfil, trocarSenha: !!u.trocar_senha });
+const perfilPublico = u => ({ usuario: u.usuario, nome: u.nome, perfil: u.perfil, trocarSenha: !!u.trocar_senha, ambientes: ambOk(u.ambientes) });
 
 /* ---------------- rotas de acesso ---------------- */
 async function rotaLogin(env, req) {
@@ -160,7 +170,7 @@ async function rotaLogin(env, req) {
   }
   await exec(env, 'DELETE FROM tentativas WHERE usuario = ?', id);
   await registrar(env, id, 'login', '');
-  return { token: await criarSessao(env, u, !!manter), usuario: perfilPublico(u), permissoes: await permissoesDe(env, u.perfil) };
+  return { token: await criarSessao(env, u, !!manter), usuario: perfilPublico(u), permissoes: await permissoesDe(env, u.perfil, u.ambientes) };
 }
 async function rotaTrocarSenha(env, u, req) {
   const { atual, nova } = await req.json();
@@ -175,7 +185,7 @@ async function rotaTrocarSenha(env, u, req) {
 }
 /* resumo leve: usado ao entrar e a cada poucos segundos para saber o que mudou (sem baixar dados) */
 async function rotaEstado(env, u) {
-  const perm = await permissoesDe(env, u.perfil);
+  const perm = await permissoesDe(env, u.perfil, u.ambientes);
   const lista = await todos(env, 'SELECT nome, rev, tamanho, atualizado_em, por FROM arquivos');
   const arquivos = {};
   for (const a of lista) if (podeLer(u, perm, a.nome)) arquivos[a.nome] = { rev: a.rev, tamanho: a.tamanho, em: a.atualizado_em, por: a.por };
@@ -187,7 +197,7 @@ async function rotaEstado(env, u) {
 function nomeValido(n) { return /^[a-z0-9][a-z0-9_.-]{0,39}$/.test(n) && !!regraArquivo(n); }
 async function rotaArquivoLer(env, u, nome) {
   if (!nomeValido(nome)) throw new Erro(404, 'Arquivo não encontrado.');
-  const perm = await permissoesDe(env, u.perfil);
+  const perm = await permissoesDe(env, u.perfil, u.ambientes);
   if (!podeLer(u, perm, nome)) throw new Erro(403, 'Sem permissão para ver estes dados.');
   const a = await um(env, 'SELECT rev, partes, tamanho FROM arquivos WHERE nome = ?', nome);
   if (!a || !a.partes) return { __texto: '', rev: 0 };
@@ -198,7 +208,7 @@ async function rotaArquivoLer(env, u, nome) {
 /* envio em partes: PUT /arquivo/<nome>?rev=<nova>&n=<parte>&de=<total> (corpo = texto da parte) */
 async function rotaArquivoGravar(env, u, nome, url, req) {
   if (!nomeValido(nome)) throw new Erro(404, 'Arquivo não encontrado.');
-  const perm = await permissoesDe(env, u.perfil);
+  const perm = await permissoesDe(env, u.perfil, u.ambientes);
   if (!podeGravar(u, perm, nome)) { await registrar(env, u.usuario, 'gravar-recusado', nome); throw new Erro(403, 'Sem permissão para gravar estes dados.'); }
   const rev = parseInt(url.searchParams.get('rev'), 10), n = parseInt(url.searchParams.get('n'), 10), de = parseInt(url.searchParams.get('de'), 10);
   if (!(rev > 0) || !(n >= 0) || !(de > 0) || n >= de || de > 80) throw new Erro(400, 'Parâmetros de envio inválidos.');
@@ -224,7 +234,7 @@ async function rotaArquivoGravar(env, u, nome, url, req) {
 }
 async function rotaArquivoApagar(env, u, nome) {
   if (!nomeValido(nome)) throw new Erro(404, 'Arquivo não encontrado.');
-  const perm = await permissoesDe(env, u.perfil);
+  const perm = await permissoesDe(env, u.perfil, u.ambientes);
   if (!podeApagar(u, perm, nome)) { await registrar(env, u.usuario, 'apagar-recusado', nome); throw new Erro(403, 'Sem permissão para apagar estes dados.'); }
   const ver = (await versao(env)) + 1;
   await env.DB.batch([
@@ -242,16 +252,16 @@ async function rotaAdmin(env, u, req, partes) {
   soAdmin(u);
   const m = req.method;
   if (partes[1] === 'usuarios') {
-    if (m === 'GET') return { usuarios: await todos(env, 'SELECT usuario, nome, perfil, ativo, trocar_senha, criado_em, atualizado_em FROM usuarios ORDER BY usuario'), perfis: PERFIS };
+    if (m === 'GET') return { usuarios: await todos(env, 'SELECT usuario, nome, perfil, ativo, trocar_senha, ambientes, criado_em, atualizado_em FROM usuarios ORDER BY usuario'), perfis: PERFIS };
     if (m === 'POST') {
-      const { usuario, nome, perfil, senha } = await req.json();
+      const { usuario, nome, perfil, senha, ambientes } = await req.json();
       const id = normU(usuario).replace(/\s+/g, '.');
       if (!/^[A-Z0-9._-]{3,40}$/.test(id)) throw new Erro(400, 'Usuário inválido (use letras, números, ponto ou traço).');
       if (!PERFIS.includes(perfil)) throw new Erro(400, 'Perfil inválido.');
       if (!senha || String(senha).length < 8) throw new Erro(400, 'A senha provisória precisa ter ao menos 8 caracteres.');
       if (await um(env, 'SELECT 1 FROM usuarios WHERE usuario = ?', id)) throw new Erro(400, 'Esse usuário já existe.');
       const sal = hex(crypto.getRandomValues(new Uint8Array(16)));
-      await exec(env, 'INSERT INTO usuarios (usuario, nome, perfil, ativo, sal, hash, trocar_senha, sessao, criado_em, atualizado_em) VALUES (?,?,?,?,?,?,?,?,?,?)', id, String(nome || id).slice(0, 80), perfil, 1, sal, await hashSenha(env, senha, sal), 1, 0, agora(), agora());
+      await exec(env, 'INSERT INTO usuarios (usuario, nome, perfil, ativo, sal, hash, trocar_senha, sessao, criado_em, atualizado_em, ambientes) VALUES (?,?,?,?,?,?,?,?,?,?,?)', id, String(nome || id).slice(0, 80), perfil, 1, sal, await hashSenha(env, senha, sal), 1, 0, agora(), agora(), ambOk(ambientes) ? JSON.stringify(ambOk(ambientes)) : null);
       await registrar(env, u.usuario, 'criou-usuario', id + ' (' + perfil + ')');
       return { ok: true };
     }
@@ -260,7 +270,7 @@ async function rotaAdmin(env, u, req, partes) {
     if (!existe) throw new Erro(404, 'Usuário não encontrado.');
     if (m === 'PATCH') {
       const b = await req.json();
-      if (alvo === u.usuario && ((b.perfil && b.perfil !== 'Administrador') || b.ativo === false)) throw new Erro(400, 'Você não pode tirar o próprio acesso de administrador.');
+      if (alvo === u.usuario && ((b.perfil && b.perfil !== 'Administrador') || b.ativo === false || ('ambientes' in b && ambOk(b.ambientes)))) throw new Erro(400, 'Você não pode tirar o próprio acesso de administrador.');
       if (b.perfil) { if (!PERFIS.includes(b.perfil)) throw new Erro(400, 'Perfil inválido.'); await exec(env, 'UPDATE usuarios SET perfil = ?, sessao = sessao + 1, atualizado_em = ? WHERE usuario = ?', b.perfil, agora(), alvo); }
       if (b.nome) await exec(env, 'UPDATE usuarios SET nome = ?, atualizado_em = ? WHERE usuario = ?', String(b.nome).slice(0, 80), agora(), alvo);
       if (typeof b.ativo === 'boolean') await exec(env, 'UPDATE usuarios SET ativo = ?, sessao = sessao + 1, atualizado_em = ? WHERE usuario = ?', b.ativo ? 1 : 0, agora(), alvo);
@@ -270,6 +280,7 @@ async function rotaAdmin(env, u, req, partes) {
         await exec(env, 'UPDATE usuarios SET sal = ?, hash = ?, trocar_senha = 1, sessao = sessao + 1, atualizado_em = ? WHERE usuario = ?', sal, await hashSenha(env, b.senha, sal), agora(), alvo);
         await exec(env, 'DELETE FROM tentativas WHERE usuario = ?', alvo);
       }
+      if ('ambientes' in b) await exec(env, 'UPDATE usuarios SET ambientes = ?, sessao = sessao + 1, atualizado_em = ? WHERE usuario = ?', ambOk(b.ambientes) ? JSON.stringify(ambOk(b.ambientes)) : null, agora(), alvo);
       if (b.desbloquear) await exec(env, 'DELETE FROM tentativas WHERE usuario = ?', alvo);
       await registrar(env, u.usuario, 'alterou-usuario', alvo + ' ' + Object.keys(b).filter(k => k !== 'senha').join(','));
       return { ok: true };

@@ -25,7 +25,7 @@ export default {
         if (!antiga) {
           const u = await autenticar(env, req);
           if (u.trocar_senha) throw new Erro(403, 'Troque a senha provisória antes de continuar.');
-          const perm = await permissoesDe(env, u.perfil);
+          const perm = await permissoesDe(env, u.perfil, u.ambientes);
           if (!['olos', 'hubspot', 'buscar'].some(a => perm.abas.includes(a))) { await registrar(env, u.usuario, 'hubspot-recusado', url.pathname); throw new Erro(403, 'Sem permissão para consultar o HubSpot.'); }
         }
         if (!env.CHAVE_ACESSO) throw new Erro(500, 'Falta a variável CHAVE_ACESSO no Worker.');

@@ -9,7 +9,7 @@ async stream(buf,st){return new Uint8Array(await new Response(new Blob([buf]).st
 async enc(x){const z=await A.stream(typeof x=='string'?TE.encode(x):x,new CompressionStream('gzip'));return new Blob([z],{type:'application/octet-stream'})},
 async dec(buf){const z=await A.stream(new Uint8Array(buf),new DecompressionStream('gzip'));return new TextDecoder().decode(z)},
 async save(){},async aes(){throw new Error('indisponível')},
-can(b){return A.role=='admin'||A.perm.botoes.includes(b)},guia(g){return A.role=='admin'||A.perm.abas.includes(g)},
+can(b){return A.perm.botoes.includes(b)},guia(g){return A.perm.abas.includes(g)},
 async raw(path,opt){const h=Object.assign({},(opt&&opt.headers)||{});if(A.tok)h.Authorization='Bearer '+A.tok;const r=await F0(API+path,Object.assign({cache:'no-store'},opt,{headers:h}));if(r.status==401&&A.tok&&path!='/entrar'&&path!='/trocar-senha')A.expired();return r},
 async j(path,opt){const o=Object.assign({},opt||{});if(o.body&&typeof o.body!='string'){o.body=JSON.stringify(o.body)}if(o.body)o.headers=Object.assign({'Content-Type':'application/json'},o.headers||{});const r=await A.raw(path,o);let j={};try{j=await r.json()}catch(e){}if(!r.ok){const e=new Error(j.erro||('Erro '+r.status));e.status=r.status;throw e}return j},
 async get(n){const r=await A.raw('/arquivo/'+n);if(r.status==403){const e=new Error('Sem permissão para estes dados.');e.status=403;throw e}if(!r.ok){const e=new Error('Erro '+r.status);e.status=r.status;throw e}const t=await r.text();return t||null},
@@ -30,7 +30,7 @@ try{if(fase=='login'){const u=o.querySelector('#lgu').value,p=o.querySelector('#
 else{const n1=f.querySelector('#lgn1').value,n2=f.querySelector('#lgn2').value;if(n1.length<8)throw new Error('A senha precisa ter ao menos 8 caracteres.');if(n1!==n2)throw new Error('As duas senhas não são iguais.');b.textContent='Salvando…';const r=await A.j('/trocar-senha',{method:'POST',body:{atual,nova:n1}});A.tok=r.token;o.remove();res()}}
 catch(x){e.textContent=x.message||'Falha ao entrar.';A.tok=fase=='login'?'':A.tok;const l=o.querySelector('#lgp');if(l&&fase=='login')l.value='';b.disabled=false;b.textContent=fase=='login'?'Entrar':'Salvar e entrar'}}})}
 function aplicar(est){A.user=est.usuario.usuario;A.name=est.usuario.nome;A.perfil=est.usuario.perfil;A.own=A.user=='EMERSON'?1:0;A.role=ROLE[A.perfil]||'viewer';A.perm=est.permissoes;A.revs={};for(const k in est.arquivos)A.revs[k]=est.arquivos[k].rev;A.versao=est.versao;
-if(A.role=='admin')A.env=null;else{const ab=A.perm.abas,e=[];if(ab.some(x=>BOTMAKER.includes(x)))e.push('b');if(ab.includes('olos'))e.push('o');if(ab.includes('hubspot'))e.push('h');if(ab.includes('buscar'))e.push('s');A.env=e.length&&e.length<4?e:null}}
+if(A.role=='admin'&&!est.usuario.ambientes)A.env=null;else{const ab=A.perm.abas,e=[];if(ab.some(x=>BOTMAKER.includes(x)))e.push('b');if(ab.includes('olos'))e.push('o');if(ab.includes('hubspot'))e.push('h');if(ab.includes('buscar'))e.push('s');A.env=e.length&&e.length<4?e:null}}
 function parar(html){mn.innerHTML='<div class="c w" style="margin:40px;max-width:640px"><h3>Atenção</h3>'+html+'<p><button id="sairx">Sair</button></p></div>';const s=document.getElementById('sairx');if(s)s.onclick=()=>A.out()}
 let est=null,msg='';try{msg=localStorage.getItem('msglogin')||'';localStorage.removeItem('msglogin')}catch(e){}
 try{const sv=localStorage.getItem('sess2');if(sv){A.tok=sv;const r=await F0(API+'/estado',{headers:{Authorization:'Bearer '+sv},cache:'no-store'});if(r.ok)est=await r.json();else A.tok=''}}catch(e){A.tok=''}

@@ -81,4 +81,19 @@ await call('PUT', '/admin/permissoes', { perfis: { Editor: { abas: ['exec'], bot
 r = await call('GET', '/campos', undefined, e3); chk('perfil sem guias olos/hubspot => 403', r.s === 403);
 r = await call('GET', '/rota-que-nao-existe', undefined, adm); chk('rota inexistente 404', r.s === 404);
 const op = await W.fetch(new Request('https://w.test/campos', { method: 'OPTIONS', headers: { Origin: O } }), env); chk('preflight ok', op.status === 204 && /PUT/.test(op.headers.get('Access-Control-Allow-Methods')));
+
+// ambientes por usuário
+await call('PUT', '/admin/permissoes', { perfis: { Leitura: { abas: ['exec', 'olos', 'hubspot', 'buscar'], botoes: [] }, Editor: { abas: ['exec'], botoes: [] } } }, adm);
+r = await call('POST', '/admin/usuarios', { usuario: 'elinai', nome: 'Elinai', perfil: 'Leitura', senha: 'provisoria1', ambientes: ['h', 's'] }, adm); chk('cria usuário com ambientes', r.s === 200);
+let EL = await login('elinai', 'provisoria1'); r = await call('POST', '/trocar-senha', { atual: 'provisoria1', nova: 'ElinaiSenha1' }, EL.j.token); const elt = r.j.token;
+r = await call('GET', '/estado', undefined, elt); chk('ambientes h/s: sem guias do Botmaker', !r.j.permissoes.abas.includes('exec') && r.j.permissoes.abas.includes('hubspot') && r.j.usuario.ambientes.join() === 'h,s');
+r = await call('GET', '/arquivo/data', undefined, elt); chk('elinai NÃO lê dados do Botmaker', r.s === 403);
+r = await call('GET', '/arquivo/olos', undefined, elt); chk('elinai lê olos', r.s === 200);
+r = await call('GET', '/campos', undefined, elt); chk('elinai usa HubSpot', r.s !== 401 && r.s !== 403);
+await call('POST', '/admin/usuarios', { usuario: 'admuj', nome: 'Admuj', perfil: 'Administrador', senha: 'provisoria1', ambientes: ['b'] }, adm);
+let AJ = await login('admuj', 'provisoria1'); r = await call('POST', '/trocar-senha', { atual: 'provisoria1', nova: 'AdmujSenha1' }, AJ.j.token); const ajt = r.j.token;
+r = await call('GET', '/arquivo/olos', undefined, ajt); chk('admin restrito ao Botmaker NÃO lê olos', r.s === 403);
+r = await call('GET', '/arquivo/data', undefined, ajt); chk('admin restrito lê data', r.s === 200);
+r = await call('GET', '/admin/usuarios', undefined, ajt); chk('admin restrito ainda administra', r.s === 200);
+r = await call('PATCH', '/admin/usuarios/ELINAI', { ambientes: null }, adm); r = await call('GET', '/estado', undefined, elt); chk('mudar ambientes derruba sessão', r.s === 401);
 console.log(`ok=${ok} falhas=${bad}`);
