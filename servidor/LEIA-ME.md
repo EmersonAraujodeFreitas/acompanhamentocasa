@@ -74,7 +74,7 @@ O robô roda no **GitHub Actions** (de hora em hora e quando alguém clica no bo
 ### Cuidados
 - Os secrets `INTEGRACAO_*` dão a quem os tiver o poder de um Editor: nunca coloque em arquivos ou no chat.
 - Limites da Botmaker: mensagens só dos últimos ~3 dias sem busca longa (o robô já trata), auditorias de status 1 consulta por minuto (por isso a produtividade vem só do dia atual).
-- Alguns campos não existem na API e ficam zerados nas linhas vindas por API: `Operador saiu`, `Usuário saiu` e os tempos limite (`timeout`). “Espera em fila” e “Espera por operador” são calculadas pelas mensagens e podem diferir pouco do relatório da Botmaker.
+- Validado contra o painel para a Unijorge em 01/10/2026: conversas (≈91%), filas, atendentes, tempo de resposta, conversa com operador e total da conversa ficaram próximos dos relatórios. **Não existem na API** (ficam em branco nas linhas vindas por API): Espera em fila, Espera por operador, Operador saiu, Usuário saiu e os tempos limite. Esses vêm só da importação manual.
 
 ## Página “Apresentação”
 Monta ao vivo slides no estilo do modelo de Serviços (motivos de contato, transbordo, efetividade e frentes de atuação), **por mês ou por semana**, com os filtros de organização e período, e exporta em **PPTX**. Usa os dados já carregados no painel; os textos editoriais (principal motivador, ações) são editáveis e ficam salvos neste navegador. O slide “Orçamento × Realizado” não está incluído porque o painel não guarda orçamento.

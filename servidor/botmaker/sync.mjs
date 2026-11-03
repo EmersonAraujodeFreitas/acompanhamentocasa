@@ -164,8 +164,8 @@ function calcular(un, sessoes, agentes, filas, vars) {
     };
     conv.push({
       'ID da sessão': s.id, 'Data do início da sessão': brHora(s.creationTime), 'Nome do operador': nomeAg, 'Fila': fila, 'Tipificação': tip,
-      'Quantidade de Respostas': np, 'Tempo médio de resposta': arred(c.tmrTodas, 0), 'Espera em Fila': arred(c.efBot, 0), 'Espera por operador': arred(c.eoUser, 0),
-      'Conversa com operador': arred(c.co1, 0), 'Total de conversa': arred(c.tt, 0), 'Operador saiu': 0, 'Usuário saiu': 0,
+      'Quantidade de Respostas': np, 'Tempo médio de resposta': arred(c.tmrMedUlt, 0), 'Espera em Fila': null, 'Espera por operador': null,
+      'Conversa com operador': arred(c.co2, 0), 'Total de conversa': arred(c.tt, 0), 'Operador saiu': 0, 'Usuário saiu': 0,
       'dashboardDownload.header.agentTimeout': 0, 'dashboardDownload.header.userTimeout': 0, 'Transferências realizadas': tr,
       __nps: v.nps, __c: c, __d: diaLoc(s.creationTime), __ag: idAg
     });
