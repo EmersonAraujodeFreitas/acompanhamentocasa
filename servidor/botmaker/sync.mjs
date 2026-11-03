@@ -140,11 +140,11 @@ function calcular(un, sessoes, agentes, filas, vars) {
     const t = m.map(x => ms(x.creationTime)), i1 = m.findIndex(x => x.from === 'agent'), tAg1 = t[i1];
     const ult = m[m.length - 1], tUlt = ms(ult.creationTime), ultAg = [...m].reverse().find(x => x.from === 'agent');
     // tempo de resposta: da última mensagem do cliente (antes de uma resposta do atendente) até essa resposta
-    const resp = [], respApos1 = [];
-    let pend = null, primeira = true;
+    const resp = [], respApos1 = [], respU = [], respUApos1 = [];
+    let pend = null, pendU = null, primeira = true;
     for (const x of m) {
-      if (x.from === 'user') { if (pend == null) pend = ms(x.creationTime) }
-      else if (x.from === 'agent' && pend != null) { const d = (ms(x.creationTime) - pend) / 1000; resp.push(d); if (!primeira) respApos1.push(d); primeira = false; pend = null }
+      if (x.from === 'user') { if (pend == null) pend = ms(x.creationTime); pendU = ms(x.creationTime) }
+      else if (x.from === 'agent' && pend != null) { const d = (ms(x.creationTime) - pend) / 1000, du = (ms(x.creationTime) - pendU) / 1000; resp.push(d); respU.push(du); if (!primeira) { respApos1.push(d); respUApos1.push(du) } primeira = false; pend = null; pendU = null }
       else if (x.from === 'agent') primeira = false;
     }
     // espera: desde a última mensagem do bot (ou do cliente) antes do 1º atendente
@@ -160,7 +160,7 @@ function calcular(un, sessoes, agentes, filas, vars) {
       esperaInicio: (tAg1 - t[0]) / 1000, esperaFila1: tQ != null && tQ <= tAg1 ? (tAg1 - tQ) / 1000 : null,
       esperaUser1: tUserPrimeira ? Math.max(0, (tAg1 - ms(tUserPrimeira)) / 1000) : null, respPrimeira: resp.length ? resp[0] : null,
       co1: (tUlt - tAg1) / 1000, co2: (ms(ultAg.creationTime) - tAg1) / 1000, tt: (tUlt - t[0]) / 1000,
-      eoUser: aUser, efBot: aBot, tmrTodas: media(resp), tmrApos1: media(respApos1)
+      eoUser: aUser, efBot: aBot, tmrTodas: media(resp), tmrApos1: media(respApos1), tmrUltTodas: media(respU), tmrUltApos1: media(respUApos1), tmrMedUlt: mediana(respUApos1)
     };
     conv.push({
       'ID da sessão': s.id, 'Data do início da sessão': brHora(s.creationTime), 'Nome do operador': nomeAg, 'Fila': fila, 'Tipificação': tip,
@@ -225,7 +225,7 @@ function porAtendente(un, conv) {
 /* ------------------------------------------------------------ validação: só números agregados ------------------------------------------------------------ */
 function resumo(r) {
   const dias = {};
-  const d = x => dias[x] ??= { sessoes: 0, comOperador: 0, prod_linhas: 0, prod_min: {}, filas: {}, operadores: {}, tip: {}, c: { co1: [], co2: [], tt: [], eoUser: [], efBot: [], tmrTodas: [], tmrApos1: [], esperaInicio: [], esperaFila1: [], esperaUser1: [], respPrimeira: [] }, r: [], tr: 0 };
+  const d = x => dias[x] ??= { sessoes: 0, comOperador: 0, prod_linhas: 0, prod_min: {}, filas: {}, operadores: {}, tip: {}, c: { co1: [], co2: [], tt: [], eoUser: [], efBot: [], tmrTodas: [], tmrApos1: [], esperaInicio: [], esperaFila1: [], esperaUser1: [], respPrimeira: [], tmrUltTodas: [], tmrUltApos1: [], tmrMedUlt: [] }, r: [], tr: 0 };
   for (const s of r.sess) d(s['Data da sessão'].split('/').reverse().join('-')).sessoes++;
   for (const c of r.conv) {
     const x = d(c.__d); x.comOperador++; x.filas[c.Fila] = (x.filas[c.Fila] || 0) + 1; x.operadores[c['Nome do operador']] = (x.operadores[c['Nome do operador']] || 0) + 1;
