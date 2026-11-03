@@ -26,6 +26,9 @@ sub("function lgEv(a,d){","function lgEv(a,d){return;")
 sub("async function publish(force){if(!tokGet()){","async function publish(force){if(!AUTH.can('publicar')){setPub('Seu perfil não pode publicar.',1);return false}if(!tokGet()){")
 sub("function setLogo(f){","function setLogo(f){if(!AUTH.can('logo'))return;")
 sub('<a data-p="usr"><svg class="i"><use href="#ic-users"/></svg>Usuários</a>','<a data-p="usr"><svg class="i"><use href="#ic-users"/></svg>Administrativo</a>')
+# 3b) base de status: o servidor já protege o acesso, então não pede mais a senha da equipe (chave interna; bases antigas com senha são lidas uma vez e republicadas)
+sub("const stPw=()=>{try{return localStorage.getItem('stpw')||''}catch(e){return''}},stPwSet=v=>{try{v?localStorage.setItem('stpw',v):localStorage.removeItem('stpw')}catch(e){}};","const STFIX='casa-v2-status-interno',stPw=()=>STFIX,stPwSet=v=>{};")
+sub("async function stDec(b,pw){","async function stDec(b,pw){if(pw!==STFIX)window.__STREP=1;return stDec0(b,pw)}\nasync function stDec0(b,pw){")
 # 4) painel Administrativo no fim do app
 end=s.rfind("</script>",0,s.find("</body>")) if "</body>" in s else -1
 m=re.search(r'(<script type="text/plain" id="app">)(.*?)(</script>)',s,re.S); assert m

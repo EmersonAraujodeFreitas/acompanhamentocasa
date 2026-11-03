@@ -41,7 +41,7 @@ async function importar(comAgente){
   if(BUSY)return;BUSY=1;window.__APISEM=1;const msg=(t,p)=>{EST=Object.assign({},EST,{mensagem:t,pct:p});tela()};
   try{
     msg('Carregando a base de status (Lead, aluno, ex-aluno) do servidor…',5);
-    try{if(typeof stSync=='function')await stSync(true)}catch(e){}
+    try{if(typeof stSync=='function'){await stSync(true);if(window.__STREP){window.__STREP=0;for(const u of['UJ','UVA'])if(STS[u]&&AUTH.can('publicar'))await stPublish(u)}}}catch(e){}
     msg('Baixando os dados do servidor…',10);
     const t=await AUTH.get('api-fila');if(!t)throw new Error('O servidor não tem dados do robô ainda.');
     const D=JSON.parse(await AUTH.dec(AUTH.b64d(t).buffer)),us=Object.keys(D.contas||{});
@@ -60,7 +60,7 @@ async function importar(comAgente){
     }
     try{await AUTH.j('/botmaker/progresso',{method:'POST',body:{fase:'importado',mensagem:'Importado',pct:100}})}catch(e){}
     window.__APISEM=0;BUSY=0;EST=Object.assign({},EST,{fase:'importado',importado_em:new Date().toISOString(),mensagem:''});tela();
-    try{const sem=us.filter(u=>!STS[u]);if(sem.length){EST.aviso='As sessões de '+sem.map(u=>UNN[u]).join(' e ')+' entraram sem a organização (Lead, aluno ou ex-aluno), porque a base de status não foi carregada (senha da equipe não informada ou base ainda não publicada no servidor). Elas contam nos totais, mas não nos filtros Serviços e Admissão. Use Importar novamente informando a senha, ou publique a base em Importar status.';tela()}}catch(e){}
+    try{const sem=us.filter(u=>!STS[u]);if(sem.length){EST.aviso='As sessões de '+sem.map(u=>UNN[u]).join(' e ')+' entraram sem a organização (Lead, aluno ou ex-aluno), porque a base de status (telefones de alunos e ex-alunos) ainda não está no servidor. Elas contam nos totais, mas não nos filtros Serviços e Admissão. Importe as planilhas em Importar status uma vez e depois use Importar novamente aqui.';tela()}}catch(e){}
     try{const l=document.getElementById('lg');if(l){l.style.display='inline-block'}}catch(e){}
   }catch(e){window.__APISEM=0;BUSY=0;EST=Object.assign({},EST,{fase:'erro',mensagem:e.message});tela()}
 }
