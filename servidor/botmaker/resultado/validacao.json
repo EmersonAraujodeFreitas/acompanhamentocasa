@@ -1,134 +1,11 @@
 {
- "gerado_em": "2026-11-03T20:08:48.658Z",
+ "gerado_em": "2026-11-03T20:13:46.228Z",
  "janela": [
   "2026-10-01T03:00:00.000Z",
   "2026-10-02T02:59:59.999Z"
  ],
  "falhas": [],
  "contas": {
-  "UJ": {
-   "2026-10-01": {
-    "sessoes": 632,
-    "comOperador": 207,
-    "respostas_media": 7.92,
-    "transferencias": 27,
-    "prod_linhas": 0,
-    "prod_min": {},
-    "filas": {
-     "Fila Maturação": 47,
-     "Default Queue": 47,
-     "Aluno | Serviços": 39,
-     "Pós Online | Lead": 15,
-     "Fora do Horário | Admissão": 13,
-     "Ex-aluno | Serviços": 12,
-     "Retenção de Alunos": 7,
-     "Fila_Graduação_Presencial": 5,
-     "Aluno | Serviços | fh": 5,
-     "Fila Conversão": 5,
-     "fila-Alunos": 4,
-     "admissao_webchat": 2
-    },
-    "operadores": {
-     "Grécia Silva": 55,
-     "Edilaine Ferreira": 46,
-     "Paloma Amorim": 40,
-     "Sabrina Fonseca de Almeida": 22,
-     "Matheus Barbosa Sousa": 18,
-     "Jota T": 7,
-     "Jota M": 4,
-     "Emerson": 4,
-     "Tais Silva": 3,
-     "Stephany Barbara Santos da Silva": 2,
-     "Alex Alves": 1,
-     "Daniela Rocha Da Silva": 1,
-     "Gilmar Santos Ribeiro Junior": 1,
-     "Ana Beatriz Marques De Andrade": 1,
-     "Antonio Daniel Fernandez Vale de Sous": 1
-    },
-    "tipificacao": {
-     "(nulo)": 207
-    },
-    "candidatos_seg": {
-     "co1": {
-      "n": 207,
-      "p25": 994,
-      "mediana": 1767,
-      "p75": 2810,
-      "media": 2655
-     },
-     "co2": {
-      "n": 207,
-      "p25": 455,
-      "mediana": 1248,
-      "p75": 2250,
-      "media": 1976
-     },
-     "tt": {
-      "n": 207,
-      "p25": 1878,
-      "mediana": 3294,
-      "p75": 5923,
-      "media": 8499
-     },
-     "eoUser": {
-      "n": 168,
-      "p25": 19,
-      "mediana": 80,
-      "p75": 1589,
-      "media": 3351
-     },
-     "efBot": {
-      "n": 170,
-      "p25": 17,
-      "mediana": 37,
-      "p75": 93,
-      "media": 912
-     },
-     "tmrTodas": {
-      "n": 184,
-      "p25": 152,
-      "mediana": 322,
-      "p75": 1602,
-      "media": 3504
-     },
-     "tmrApos1": {
-      "n": 151,
-      "p25": 92,
-      "mediana": 148,
-      "p75": 257,
-      "media": 240
-     },
-     "esperaInicio": {
-      "n": 207,
-      "p25": 84,
-      "mediana": 566,
-      "p75": 3249,
-      "media": 5844
-     },
-     "esperaFila1": {
-      "n": 203,
-      "p25": 23,
-      "mediana": 262,
-      "p75": 2177,
-      "media": 4587
-     },
-     "esperaUser1": {
-      "n": 186,
-      "p25": 137,
-      "mediana": 677,
-      "p75": 3144,
-      "media": 6196
-     },
-     "respPrimeira": {
-      "n": 184,
-      "p25": 182,
-      "mediana": 735,
-      "p75": 3267,
-      "media": 6311
-     }
-    }
-   }
-  },
   "UVA": {
    "2026-10-01": {
     "sessoes": 1401,
@@ -248,6 +125,171 @@
       "mediana": 354,
       "p75": 1789,
       "media": 3993
+     },
+     "tmrUltTodas": {
+      "n": 384,
+      "p25": 98,
+      "mediana": 158,
+      "p75": 254,
+      "media": 1191
+     },
+     "tmrUltApos1": {
+      "n": 331,
+      "p25": 95,
+      "mediana": 144,
+      "p75": 212,
+      "media": 158
+     },
+     "tmrMedUlt": {
+      "n": 331,
+      "p25": 70,
+      "mediana": 128,
+      "p75": 199,
+      "media": 139
+     }
+    }
+   }
+  },
+  "UJ": {
+   "2026-10-01": {
+    "sessoes": 632,
+    "comOperador": 207,
+    "respostas_media": 7.92,
+    "transferencias": 27,
+    "prod_linhas": 0,
+    "prod_min": {},
+    "filas": {
+     "Fila Maturação": 47,
+     "Default Queue": 47,
+     "Aluno | Serviços": 39,
+     "Pós Online | Lead": 15,
+     "Fora do Horário | Admissão": 13,
+     "Ex-aluno | Serviços": 12,
+     "Retenção de Alunos": 7,
+     "Fila_Graduação_Presencial": 5,
+     "Aluno | Serviços | fh": 5,
+     "Fila Conversão": 5,
+     "fila-Alunos": 4,
+     "admissao_webchat": 2
+    },
+    "operadores": {
+     "Grécia Silva": 55,
+     "Edilaine Ferreira": 46,
+     "Paloma Amorim": 40,
+     "Sabrina Fonseca de Almeida": 22,
+     "Matheus Barbosa Sousa": 18,
+     "Jota T": 7,
+     "Jota M": 4,
+     "Emerson": 4,
+     "Tais Silva": 3,
+     "Stephany Barbara Santos da Silva": 2,
+     "Alex Alves": 1,
+     "Daniela Rocha Da Silva": 1,
+     "Gilmar Santos Ribeiro Junior": 1,
+     "Ana Beatriz Marques De Andrade": 1,
+     "Antonio Daniel Fernandez Vale de Sous": 1
+    },
+    "tipificacao": {
+     "(nulo)": 207
+    },
+    "candidatos_seg": {
+     "co1": {
+      "n": 207,
+      "p25": 994,
+      "mediana": 1767,
+      "p75": 2810,
+      "media": 2655
+     },
+     "co2": {
+      "n": 207,
+      "p25": 455,
+      "mediana": 1248,
+      "p75": 2250,
+      "media": 1976
+     },
+     "tt": {
+      "n": 207,
+      "p25": 1878,
+      "mediana": 3294,
+      "p75": 5923,
+      "media": 8499
+     },
+     "eoUser": {
+      "n": 168,
+      "p25": 19,
+      "mediana": 80,
+      "p75": 1589,
+      "media": 3351
+     },
+     "efBot": {
+      "n": 170,
+      "p25": 17,
+      "mediana": 37,
+      "p75": 93,
+      "media": 912
+     },
+     "tmrTodas": {
+      "n": 184,
+      "p25": 152,
+      "mediana": 322,
+      "p75": 1602,
+      "media": 3504
+     },
+     "tmrApos1": {
+      "n": 151,
+      "p25": 92,
+      "mediana": 148,
+      "p75": 257,
+      "media": 240
+     },
+     "esperaInicio": {
+      "n": 207,
+      "p25": 84,
+      "mediana": 566,
+      "p75": 3249,
+      "media": 5844
+     },
+     "esperaFila1": {
+      "n": 203,
+      "p25": 23,
+      "mediana": 262,
+      "p75": 2177,
+      "media": 4587
+     },
+     "esperaUser1": {
+      "n": 186,
+      "p25": 137,
+      "mediana": 677,
+      "p75": 3144,
+      "media": 6196
+     },
+     "respPrimeira": {
+      "n": 184,
+      "p25": 182,
+      "mediana": 735,
+      "p75": 3267,
+      "media": 6311
+     },
+     "tmrUltTodas": {
+      "n": 184,
+      "p25": 81,
+      "mediana": 163,
+      "p75": 707,
+      "media": 2465
+     },
+     "tmrUltApos1": {
+      "n": 151,
+      "p25": 77,
+      "mediana": 129,
+      "p75": 192,
+      "media": 206
+     },
+     "tmrMedUlt": {
+      "n": 151,
+      "p25": 50,
+      "mediana": 108,
+      "p75": 184,
+      "media": 185
      }
     }
    }
