@@ -1,0 +1,262 @@
+{
+ "gerado_em": "2026-11-03T18:54:43.129Z",
+ "contas": {
+  "UVA": {
+   "chats": {
+    "n": 3750,
+    "variaveis": {
+     "nomeCandidato": 3665,
+     "template": 3491,
+     "contactId": 3316,
+     "curso": 2776,
+     "dealId": 2642,
+     "platformContactId": 2336,
+     "status": 2052,
+     "CPF": 1545,
+     "campus": 1426,
+     "fluxo": 1350,
+     "quantidadeTemplateRecebidos": 1345,
+     "quantidadeTemplateFalhos": 1345,
+     "quantidadeTemplateLidos": 1345,
+     "quantidadeTemplateEnviados": 1345,
+     "actionCallerOperatorId": 1279,
+     "categoria": 1266,
+     "waApiExposed": 1235,
+     "origem": 1217,
+     "IES": 1182,
+     "cursoBaseDeDados": 1160,
+     "cursocc": 1087,
+     "dataUltimoTemplateRecebido": 1070,
+     "dataPrimeiroTemplateEnviado": 1070,
+     "dataPrimeiroTemplateRecebido": 1067,
+     "dataUltimoTemplateEnviado": 1067,
+     "turno": 1065,
+     "ultimoTemplateEnviado": 998,
+     "primeiroTemplateEnviado": 998,
+     "ultimoTemplateRecebido": 998,
+     "primeiroTemplateRecebido": 998
+    },
+    "chaves_tipificacao_no_item": {},
+    "valores": {
+     "classificargradpos": {
+      "Quero Graduação": 910,
+      "Quero Pós-Graduação": 84
+     },
+     "categoria": {
+      "Saúde e Bem-Estar": 565,
+      "Gestão e Negócios": 222,
+      "Ciênc Soc e Juridica": 122,
+      "Engenharia": 80,
+      "Educação": 76,
+      "Tecnologia": 75,
+      "Comunicação e Design": 66,
+      "↩️Voltar": 37,
+      "Arquitetura": 18,
+      "Voltar": 5
+     },
+     "fluxo": {
+      "Orgânico": 1350
+     },
+     "status": {
+      "ex-aluno": 818,
+      "Lead": 807,
+      "Aluno": 90,
+      "aluno": 86,
+      "EX-ALUNO": 75,
+      "lead": 58,
+      "LEAD": 53,
+      "null": 42,
+      "INSCRITO": 15,
+      "ALUNO": 8
+     },
+     "motivoDesistencia": {
+      "pessoal": 2,
+      "saude": 2,
+      "financeiro": 1
+     },
+     "outroMotivo": {
+      "Motivos pessoais": 1,
+      "Não conseguirei arcar com esses custos no momento": 1
+     },
+     "nps": {
+      "1": 38,
+      "2": 7,
+      "3": 17,
+      "4": 22,
+      "5": 212,
+      "1 - 🙂": 5,
+      "5 - 🤩": 4,
+      "1 - ☹️": 2,
+      "Semipresencial": 1,
+      "4 - 🥰": 1
+     },
+     "TrackEncerramento": {
+      "Encerramento de uma interação/Template": 234
+     },
+     "Categoriapos": {
+      "Gest. e Negócios": 17,
+      "Ciên. Soc. Jurídicas": 7,
+      "Saúde": 7,
+      "Educação": 5,
+      "Eng. e Tecnologia": 2,
+      "↩️ Voltar": 1
+     },
+     "hs_marketable_status": {
+      "true": 68
+     },
+     "motivo": {
+      "Valor alto": 10,
+      "Desemprego": 4
+     },
+     "FluxoPosOnline": {
+      "true": 4
+     },
+     "typification": {
+      "Sessão encerrada automaticamente | 15minutos": 74,
+      "Usuario parou de interagir": 32,
+      "IMP-Encerradoem24Hrs": 13,
+      "Aceite_Pagou_boleto": 2,
+      "Robô atendendeu a demanda do Aluno": 1,
+      "Vai_realizar_inscrição": 1,
+      "Já_está_matriculado_Calouro": 1,
+      "finalizou_sem_atendimento": 1,
+      "Informações_gerais": 1,
+      "Info_Dúvidas_financeira": 1
+     },
+     "status_prazo": {
+      "fora_do_prazo": 1
+     },
+     "MotivoPesquisa": {
+      "Despedida": 1
+     }
+    }
+   },
+   "sessoes_7d": {
+    "n": 7500,
+    "variaveis": {},
+    "chaves_tipificacao_no_item": {},
+    "valores": {}
+   }
+  },
+  "UJ": {
+   "chats": {
+    "n": 1000,
+    "variaveis": {
+     "nomeCandidato": 975,
+     "template": 949,
+     "platformContactId": 931,
+     "contactId": 892,
+     "curso": 641,
+     "dealId": 157,
+     "status": 129,
+     "fluxo": 101,
+     "CPF": 93,
+     "Classificargrapos": 84,
+     "modalidade": 83,
+     "campus": 83,
+     "categoria": 81,
+     "cursoBaseDeDados": 77,
+     "formaDeIngresso": 74,
+     "actionCallerOperatorId": 74,
+     "IES": 68,
+     "waApiExposed": 66,
+     "email": 65,
+     "periodo_atual": 61,
+     "cursoPrecoBruto": 56,
+     "primeiraMensalComDesconto": 56,
+     "primeiraMensalidade": 56,
+     "matchCursos": 56,
+     "outrasMensalidades": 56,
+     "outrasMensalComDesconto": 56,
+     "turno": 55,
+     "tipoLead": 54,
+     "campusBaseDeDados": 53,
+     "origem_integracao": 52
+    },
+    "chaves_tipificacao_no_item": {},
+    "valores": {
+     "fluxo": {
+      "Orgânico": 101
+     },
+     "status": {
+      "Lead": 85,
+      "ex-aluno": 16,
+      "aluno": 13,
+      "EX-ALUNO": 8,
+      "ALUNO": 2,
+      "LEAD": 2,
+      "Aluno": 1,
+      "INSCRITO": 1,
+      "null": 1
+     },
+     "categoria": {
+      "Saúde e Bem-Estar": 33,
+      "Educação": 10,
+      "Ciênc Soc e Juridica": 8,
+      "Gestão e Negócios": 7,
+      "Engenharia": 7,
+      "↩️Voltar": 6,
+      "Tecnologia": 5,
+      "Comunicação e Design": 4,
+      "Arquitetura": 1
+     },
+     "Classificargrapos": {
+      "Quero Graduação": 70,
+      "Quero Pós-Graduação": 10,
+      "Sou aluno": 1,
+      "O": 1,
+      "Quero saber como rastrear meu histórico.": 1,
+      "Mensalidade": 1
+     },
+     "nps": {
+      "1": 3,
+      "2": 2,
+      "3": 2,
+      "4": 3,
+      "5": 18
+     },
+     "hs_marketable_status": {
+      "true": 5
+     },
+     "TrackEncerramento": {
+      "Encerramento de uma interação/Template": 6
+     },
+     "typification": {
+      "Improdutiva_ultrapassou24horas": 11,
+      "Usuario parou de interagir": 6,
+      "ImprodutivaEncdentrodas24Horas": 3,
+      "ACAs-Documentacao": 1,
+      "PlataformaSem_acesso_ao_portal": 1,
+      "ACA-Outros": 1
+     },
+     "tipificacao": {
+      "Sessão encerrada automaticamente | 15 minutos": 40,
+      "Usuario parou de interagir": 1
+     },
+     "status_prazo": {
+      "dentro_do_prazo": 1
+     },
+     "motivoDesistencia": {
+      "academico": 1,
+      "pessoal": 1
+     },
+     "outroMotivo": {
+      "Pedir reembolso no meu cartão virtual que foi utilizado na m": 1
+     },
+     "motivo": {
+      "Valor alto": 1
+     },
+     "fluxoQueroUmaPos": {
+      "true": 1
+     }
+    }
+   },
+   "sessoes_7d": {
+    "n": 6423,
+    "variaveis": {},
+    "chaves_tipificacao_no_item": {},
+    "valores": {}
+   }
+  }
+ }
+}
