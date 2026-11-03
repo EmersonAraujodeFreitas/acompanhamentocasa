@@ -12,8 +12,8 @@ jobs:
           node-version: 20
       - name: Ler estrutura da API (sem gravar conteúdo)
         env:
-          BOTMAKER_TOKEN_UVA: ${{ secrets.BOTMAKER_TOKEN_UVA }}
-          BOTMAKER_TOKEN_UJ: ${{ secrets.BOTMAKER_TOKEN_UJ }}
+          BOTMAKER_TOKEN_UVA: ${{ secrets.UNIVERSIDADEVEIGAALMEIDA }}
+          BOTMAKER_TOKEN_UJ: ${{ secrets.UNIJORGE }}
         run: node servidor/botmaker/explorar.mjs
       - name: Salvar resultado no repositório
         run: |
