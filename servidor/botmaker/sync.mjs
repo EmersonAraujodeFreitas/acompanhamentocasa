@@ -8,7 +8,7 @@
 import fs from 'node:fs';
 import zlib from 'node:zlib';
 
-const BASE = 'https://api.botmaker.com/v2.0';
+const BASE = process.env.BOTMAKER_BASE || 'https://api.botmaker.com/v2.0';
 const MODO = process.env.MODO || 'validar';
 const CONTAS = [['UVA', process.env.BOTMAKER_TOKEN_UVA], ['UJ', process.env.BOTMAKER_TOKEN_UJ]].filter(c => c[1]);
 const TZ = -3 * 3600e3; // Brasília, sem horário de verão
@@ -74,17 +74,19 @@ const arred = (x, c = 1) => x == null ? null : Math.round(x * 10 ** c) / 10 ** c
 
 /* ------------------------------------------------------------ leitura de uma conta ------------------------------------------------------------ */
 async function lerConta([un, token]) {
-  const get = cliente(token, un), prog = (...a) => console.log('[' + un + ']', ...a);
+  const get = cliente(token, un), prog = (...a) => console.log('[' + un + ']', ...a), nome = { UJ: 'Unijorge', UVA: 'UVA' }[un] || un;
   const agentes = new Map(), filas = new Map();
   await paginas(get, '/agents?limit=500', it => it.forEach(a => agentes.set(a.id, a)));
   await paginas(get, '/attention-queues?limit=500', it => it.forEach(q => filas.set(q.id, q.name)));
   prog('atendentes', agentes.size, 'filas', filas.size);
+  await avanco(un, 10, 'Lendo ' + nome + ': atendentes e filas…');
 
   // sessões com as mensagens aninhadas (uma passada só)
   const sessoes = [];
   const q = `/sessions?from=${enc(T0)}&to=${enc(T1)}&limit=100&include-messages=true` + (longo ? '&long-term-search=true' : '');
   await paginas(get, q, it => { it.forEach(s => sessoes.push(s)); if (sessoes.length % 1000 < it.length) prog('sessões lidas', sessoes.length) });
   prog('sessões', sessoes.length);
+  await avanco(un, 45, 'Lendo ' + nome + ': ' + sessoes.length + ' sessões com mensagens…');
 
   // variáveis dos chats (tipificação e NPS): só guardam o último valor, por isso o robô precisa rodar com frequência
   const vars = new Map(), precisa = new Set(sessoes.map(s => s.chat && s.chat.chat && s.chat.chat.chatId).filter(Boolean));
@@ -100,10 +102,13 @@ async function lerConta([un, token]) {
       return vazias < 6 && vars.size < precisa.size;
     }, { max: 120 });
     prog('chats com variáveis', vars.size, 'de', precisa.size);
+    await avanco(un, 65, 'Lendo ' + nome + ': tipificação e NPS…');
   }
 
   const { sess, conv } = calcular(un, sessoes, agentes, filas, vars);
-  const prod = await produtividade(get, un, agentes);
+  await avanco(un, 70, 'Lendo ' + nome + ': status dos atendentes (a Botmaker limita a 1 consulta por minuto)…');
+  const prod = process.env.SEM_PROD === '1' ? [] : await produtividade(get, un, agentes);
+  await avanco(un, 100, nome + ' lido.');
   prog('linhas: sessões', sess.length, 'conversas', conv.length, 'produtividade', prod.length);
   return { un, sess, conv, prod, agente: porAtendente(un, conv), cand: conv.map(c => c.__c) };
 }
@@ -156,10 +161,16 @@ function calcular(un, sessoes, agentes, filas, vars) {
 }
 
 /* ------------------------------------------------------------ produtividade (auditorias, 1 chamada por minuto) ------------------------------------------------------------ */
+// as auditorias só aceitam 1 consulta por minuto: no uso normal busca só hoje (e ontem até as 02h, para fechar o último trecho do dia)
+function janelaProd() {
+  if (process.env.DE) return T0;
+  const agora = Date.now(), hoje0 = new Date(new Date(agora + TZ).setUTCHours(0, 0, 0, 0) - TZ).getTime(), h = loc(new Date(agora).toISOString()).getUTCHours();
+  return new Date(Math.max(ms(T0), hoje0 - (h < 2 ? 864e5 : 0))).toISOString();
+}
 async function produtividade(get, un, agentes) {
-  const ev = new Map();
+  const ev = new Map(), P0 = janelaProd();
   for (const sec of ['agent-login', 'agent']) {
-    await paginas(get, `/audits/${sec}?from=${enc(T0)}&to=${enc(T1)}&limit=500`, it => {
+    await paginas(get, `/audits/${sec}?from=${enc(P0)}&to=${enc(T1)}&limit=500`, it => {
       for (const a of it) {
         const c = a.change || {}, st = c.AVAILABLE_STATUS, quando = c.LAST_STATUS_CHANGE || a.creationTime;
         if (!st || !quando) continue;
@@ -175,7 +186,7 @@ async function produtividade(get, un, agentes) {
   for (const [email, l] of por) {
     l.sort((a, b) => a.t - b.t);
     for (let i = 0; i < l.length; i++) {
-      const e = l[i], t0 = Math.max(e.t, ms(T0)), t1 = i + 1 < l.length ? l[i + 1].t : fim;
+      const e = l[i], t0 = Math.max(e.t, ms(P0)), t1 = i + 1 < l.length ? l[i + 1].t : fim;
       if (e.st === 'offline' || t1 <= t0) continue;
       const iso0 = new Date(t0).toISOString(), iso1 = new Date(t1).toISOString();
       out.push({ 'Atendente': e.nome, 'E-mail': email, 'Status': STATUS[e.st] || e.st, 'Checkin': brHora(iso0), 'Checkout': brHora(iso1), 'Duração (min)': arred((t1 - t0) / 6e4, 2), 'Fila': '' });
@@ -218,23 +229,30 @@ function resumo(r) {
 }
 
 /* ------------------------------------------------------------ envio ao servidor ------------------------------------------------------------ */
-async function enviar(saida) {
+let reportar = async () => { }, srv = null;
+const etapas = {};
+function avanco(un, pct, texto) { etapas[un] = pct; const v = Object.values(etapas), m = v.reduce((a, b) => a + b, 0) / Math.max(1, CONTAS.length); return reportar('lendo', texto, Math.round(5 + m * 0.7)) }
+async function conectar() {
   const API = process.env.SERVIDOR_URL, usuario = process.env.INTEGRACAO_USUARIO, senha = process.env.INTEGRACAO_SENHA;
   if (!API || !usuario || !senha) throw new Error('Faltam SERVIDOR_URL, INTEGRACAO_USUARIO e INTEGRACAO_SENHA (secrets do repositório).');
   const j = async (p, o = {}) => { const r = await fetch(API + p, o); const t = await r.text(); let b = null; try { b = JSON.parse(t) } catch (e) { } if (!r.ok) throw new Error(p + ' → ' + r.status + ' ' + (b && b.erro || t.slice(0, 120))); return b ?? t };
   const lg = await j('/entrar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ usuario, senha }) });
   const H = { Authorization: 'Bearer ' + lg.token };
   const progresso = (fase, mensagem, pct, extra = {}) => j('/botmaker/progresso', { method: 'POST', headers: { ...H, 'Content-Type': 'application/json' }, body: JSON.stringify({ fase, mensagem, pct, ...extra }) }).catch(() => { });
+  return { j, H, progresso };
+}
+async function enviar(saida) {
+  const { j, H, progresso } = srv;
   const b64 = zlib.gzipSync(Buffer.from(JSON.stringify(saida))).toString('base64'), CH = 600000, rev = Date.now(), de = Math.max(1, Math.ceil(b64.length / CH));
   await progresso('enviando', 'Enviando ' + (b64.length / 1e6).toFixed(1) + ' MB ao servidor…', 80);
   for (let i = 0; i < de; i++) await j(`/arquivo/api-fila?rev=${rev}&n=${i}&de=${de}`, { method: 'PUT', headers: { ...H, 'Content-Type': 'text/plain' }, body: b64.slice(i * CH, (i + 1) * CH) });
   await progresso('pronto', 'Dados novos prontos para importar.', 100, { rev, janela: saida.janela, contagem: saida.contagem });
-  return progresso;
 }
 
 /* ------------------------------------------------------------ principal ------------------------------------------------------------ */
 async function principal() {
   console.log('Modo', MODO, 'janela', T0, '→', T1, longo ? '(histórico longo)' : '');
+  if (MODO !== 'validar') { srv = await conectar(); reportar = (f, m, p) => srv.progresso(f, m, p); await srv.progresso('lendo', 'Robô lendo a Botmaker…', 5) }
   const rs = [];
   const tarefas = CONTAS.map(c => lerConta(c).then(r => rs.push(r)));
   const falhas = (await Promise.allSettled(tarefas)).filter(x => x.status === 'rejected').map(x => String(x.reason && x.reason.message || x.reason));
@@ -244,12 +262,13 @@ async function principal() {
     fs.writeFileSync('servidor/botmaker/resultado/validacao.json', JSON.stringify(out, null, 1));
     console.log('validação gravada');
   } else {
+    if (!rs.length) throw new Error(falhas.join(' | ') || 'Nenhuma universidade foi lida.');
     const clean = a => a.map(o => Object.fromEntries(Object.entries(o).filter(([k]) => !k.startsWith('__'))));
     const saida = { gerado_em: new Date().toISOString(), janela: [T0, T1], falhas, contas: Object.fromEntries(rs.map(r => [r.un, { sess: clean(r.sess), conv: clean(r.conv), prod: r.prod, agente: r.agente }])) };
     saida.contagem = Object.fromEntries(rs.map(r => [r.un, { sess: r.sess.length, conv: r.conv.length, prod: r.prod.length }]));
     await enviar(saida);
     console.log('enviado', JSON.stringify(saida.contagem));
   }
-  if (falhas.length) { console.error('Falhas:', falhas.join(' | ')); process.exitCode = 1 }
+  if (falhas.length) { console.error('Falhas:', falhas.join(' | ')); if (srv && !rs.length) await srv.progresso('erro', falhas.join(' | ').slice(0, 250), 0); process.exitCode = 1 }
 }
-principal().catch(async e => { console.error(e); process.exit(1) });
+principal().catch(async e => { console.error(e); try { if (srv) await srv.progresso('erro', String(e.message || e).slice(0, 250), 0) } catch (x) { } process.exit(1) });

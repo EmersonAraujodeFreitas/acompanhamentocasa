@@ -1,0 +1,33 @@
+name: Botmaker - atualizar dados pela API
+on:
+  schedule:
+    - cron: '7 * * * *'      # de hora em hora: a Botmaker só guarda a tipificação do último atendimento
+  workflow_dispatch:
+    inputs:
+      dias:
+        description: 'Quantos dias buscar (contando hoje)'
+        default: '2'
+concurrency:
+  group: botmaker-sync
+  cancel-in-progress: false
+permissions:
+  contents: read
+jobs:
+  sincronizar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Ler a API e enviar ao servidor (nada é gravado no GitHub)
+        env:
+          MODO: sincronizar
+          DIAS: ${{ inputs.dias || '2' }}
+          BOTMAKER_TOKEN_UVA: ${{ secrets.UNIVERSIDADEVEIGAALMEIDA }}
+          BOTMAKER_TOKEN_UJ: ${{ secrets.UNIJORGE }}
+          SERVIDOR_URL: ${{ secrets.SERVIDOR_URL }}
+          INTEGRACAO_USUARIO: ${{ secrets.INTEGRACAO_USUARIO }}
+          INTEGRACAO_SENHA: ${{ secrets.INTEGRACAO_SENHA }}
+        run: node servidor/botmaker/sync.mjs

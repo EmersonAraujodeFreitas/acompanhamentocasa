@@ -454,12 +454,12 @@ const HS = {
 const VERSAO_CODIGO = '2026-10-29-acesso-1';
 const PERFIS = ['Leitura', 'Editor', 'Administrador'];
 /* guias (páginas do site) e ambientes */
-const TODAS_ABAS = ['exec', 'uni', 'sess', 'team', 'a360', 'sla', 'qual', 'prod', 'cap', 'cross', 'rec', 'cons', 'bd', 'data', 'consimp', 'stat', 'olos', 'hubspot', 'buscar'];
+const TODAS_ABAS = ['exec', 'uni', 'sess', 'team', 'a360', 'sla', 'qual', 'prod', 'cap', 'cross', 'rec', 'cons', 'bd', 'pres', 'data', 'consimp', 'stat', 'olos', 'hubspot', 'buscar'];
 /* botões que precisam de permissão */
 const TODOS_BOTOES = ['importar', 'remover', 'publicar', 'exportar', 'atualizar', 'parametros', 'logo'];
-const PAGINAS_BOTMAKER = ['exec', 'uni', 'sess', 'team', 'a360', 'sla', 'qual', 'prod', 'cap', 'cross', 'rec', 'cons', 'bd', 'data', 'consimp', 'stat'];
+const PAGINAS_BOTMAKER = ['exec', 'uni', 'sess', 'team', 'a360', 'sla', 'qual', 'prod', 'cap', 'cross', 'rec', 'cons', 'bd', 'pres', 'data', 'consimp', 'stat'];
 const PERM_PADRAO = {
-  'Leitura': { abas: ['exec', 'uni', 'sess', 'team', 'a360', 'sla', 'qual', 'prod', 'cap', 'cross', 'rec', 'cons', 'bd', 'olos', 'hubspot', 'buscar'], botoes: ['exportar'] },
+  'Leitura': { abas: ['exec', 'uni', 'sess', 'team', 'a360', 'sla', 'qual', 'prod', 'cap', 'cross', 'rec', 'cons', 'bd', 'pres', 'olos', 'hubspot', 'buscar'], botoes: ['exportar'] },
   'Editor': { abas: TODAS_ABAS.slice(), botoes: ['importar', 'remover', 'publicar', 'exportar', 'atualizar', 'parametros', 'logo'] }
 };
 /* arquivos de dados: quem lê (qualquer uma das guias) e quem grava (uma guia E um botão) */
@@ -470,6 +470,7 @@ const ARQUIVOS = {
   jb: { ler: ['olos', 'buscar'], esc: { abas: ['olos'], botoes: ['importar', 'remover', 'publicar'] } },
   rc: { ler: ['rec'], esc: { abas: ['rec', 'data'], botoes: ['importar', 'publicar'] } },
   analise: { ler: ['olos', 'hubspot'], esc: { abas: ['olos', 'hubspot'], botoes: ['atualizar', 'publicar'] } },
+  'api-fila': { ler: ['data'], esc: { abas: ['data'], botoes: ['importar'] } },
   meta: { ler: PAGINAS_BOTMAKER, esc: { abas: ['data', 'consimp', 'stat', 'cons'], botoes: ['importar', 'remover', 'parametros', 'logo', 'publicar'] } }
 };
 function regraArquivo(nome) {
@@ -773,6 +774,50 @@ async function diagnostico(env) {
   return d;
 }
 
+
+/* ---------------- atualização pela API da Botmaker (o robô roda no GitHub Actions; o servidor só dispara e acompanha) ---------------- */
+async function permApi(env, u) {
+  const perm = await permissoesDe(env, u.perfil, u.ambientes);
+  return { perm, pode: podeGravar(u, perm, 'api-fila') };
+}
+async function rotaBotmakerEstado(env, u) {
+  const { perm } = await permApi(env, u);
+  if (!podeLer(u, perm, 'api-fila')) throw new Erro(403, 'Sem permissão.');
+  return { ...(await lerValor(env, 'api:estado', { fase: 'ocioso' })), configurado: !!(env.GH_TOKEN && env.GH_REPO) };
+}
+async function rotaBotmakerAtualizar(env, u, req) {
+  const { pode } = await permApi(env, u);
+  if (!pode) { await registrar(env, u.usuario, 'api-recusado', ''); throw new Erro(403, 'Sem permissão para atualizar os dados.'); }
+  if (!env.GH_TOKEN || !env.GH_REPO) throw new Erro(503, 'A atualização por API ainda não foi configurada no servidor (faltam GH_TOKEN e GH_REPO).');
+  let corpo = {}; try { corpo = await req.json(); } catch (e) { /* sem corpo */ }
+  const dias = Math.max(1, Math.min(60, parseInt(corpo.dias, 10) || 2));
+  const ant = await lerValor(env, 'api:estado', { fase: 'ocioso' });
+  if (['iniciado', 'lendo', 'enviando'].includes(ant.fase) && ant.em && Date.now() - Date.parse(ant.em) < 25 * 6e4) throw new Erro(409, 'Já existe uma atualização em andamento. Aguarde terminar.');
+  const r = await fetch('https://api.github.com/repos/' + env.GH_REPO + '/actions/workflows/botmaker-sync.yml/dispatches', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + env.GH_TOKEN, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', 'User-Agent': 'central-indicadores', 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ref: env.GH_REF || 'main', inputs: { dias: String(dias) } })
+  });
+  if (r.status !== 204) { await registrar(env, u.usuario, 'api-falhou', 'GitHub ' + r.status); throw new Erro(502, 'Não foi possível iniciar o robô (GitHub respondeu ' + r.status + '). Confira o token GH_TOKEN e o nome do repositório.'); }
+  const est = { fase: 'iniciado', mensagem: 'Robô iniciado. Lendo a Botmaker…', pct: 5, em: agora(), por: u.usuario, dias };
+  await gravarValor(env, 'api:estado', est, u.usuario);
+  await registrar(env, u.usuario, 'api-atualizar', dias + ' dia(s)');
+  return est;
+}
+async function rotaBotmakerProgresso(env, u, req) {
+  const { pode } = await permApi(env, u);
+  if (!pode) throw new Erro(403, 'Sem permissão.');
+  const b = await req.json();
+  const ant = await lerValor(env, 'api:estado', { fase: 'ocioso' });
+  const fases = ['iniciado', 'lendo', 'enviando', 'pronto', 'erro', 'importado'];
+  const fase = fases.includes(b.fase) ? b.fase : ant.fase;
+  const est = { ...ant, fase, mensagem: String(b.mensagem || '').slice(0, 300), pct: Math.max(0, Math.min(100, +b.pct || 0)), em: agora() };
+  if (fase === 'pronto') { est.rev = +b.rev || 0; est.janela = b.janela || null; est.contagem = b.contagem || null; est.pronto_em = est.em; }
+  if (fase === 'importado') est.importado_em = est.em;
+  await gravarValor(env, 'api:estado', est, u.usuario);
+  return { ok: true };
+}
+
 /* ---------------- entrada ---------------- */
 const origensPermitidas = env => String(env.ORIGENS || '').split(',').map(s => s.trim()).filter(Boolean);
 function cors(env, req) {
@@ -807,6 +852,11 @@ const ACESSO = {
         if (req.method === 'GET') return resposta(env, req, await rotaArquivoLer(env, u, nome));
         if (req.method === 'PUT') return resposta(env, req, await rotaArquivoGravar(env, u, nome, url, req));
         if (req.method === 'DELETE') return resposta(env, req, await rotaArquivoApagar(env, u, nome));
+      }
+      if (rota === 'botmaker') {
+        if (partes[1] === 'estado' && req.method === 'GET') return resposta(env, req, await rotaBotmakerEstado(env, u));
+        if (partes[1] === 'atualizar' && req.method === 'POST') return resposta(env, req, await rotaBotmakerAtualizar(env, u, req));
+        if (partes[1] === 'progresso' && req.method === 'POST') return resposta(env, req, await rotaBotmakerProgresso(env, u, req));
       }
       if (rota === 'admin') return resposta(env, req, await rotaAdmin(env, u, req, partes));
       throw new Erro(404, 'Rota não encontrada.');

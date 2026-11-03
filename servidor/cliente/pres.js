@@ -1,0 +1,154 @@
+
+/* ===== APRESENTAÇÃO (slides ao vivo, por mês ou semana, exportáveis em PPTX) ===== */
+(()=>{
+const C={navy:'00213D',yel:'F5B800',slate:'4A5D73',blue:'00487F',line:'D3DEEB',red:'C8102E',bg:'EEF3F9',card:'FBFDFF',soft:'9DB8D8',cream:'FFF7DC',white:'FFFFFF'};
+const UL={UJ:'Unijorge',UVA:'UVA'},MES=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'],MS=['JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT','NOV','DEZ'];
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const f1=x=>x==null||!isFinite(x)?'–':x.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1});
+const pc=x=>x==null||!isFinite(x)?'–':f1(x*100)+'%';
+const nf=x=>Math.round(x||0).toLocaleString('pt-BR');
+const dmy=d=>d.split('-').reverse().join('/');
+const ST={modo:'mes',org:'S',de:'',ate:'',txt:{}};
+try{Object.assign(ST.txt,JSON.parse(localStorage.getItem('pres_txt')||'{}'))}catch(e){}
+const TX=(k,d)=>ST.txt[k]!=null&&ST.txt[k]!==''?ST.txt[k]:d;
+
+/* ---------- períodos ---------- */
+const isoD=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+function periodos(){
+  const ds=SR.map(x=>x.d).filter(Boolean).sort();if(!ds.length)return[];
+  const min=ds[0],max=ds[ds.length-1],P=[];
+  if(ST.modo=='mes'){let [y,m]=min.slice(0,7).split('-').map(Number);const [y2,m2]=max.slice(0,7).split('-').map(Number);while(y<y2||(y==y2&&m<=m2)){const k=y+'-'+String(m).padStart(2,'0');P.push({k,label:MES[m-1],curto:MS[m-1],a:k+'-01',b:k+'-31'});m++;if(m>12){m=1;y++}}}
+  else{const d=new Date(min+'T12:00:00');d.setDate(d.getDate()-((d.getDay()+6)%7));const fim=new Date(max+'T12:00:00');while(d<=fim){const a=isoD(d),e=new Date(d);e.setDate(e.getDate()+6);const b=isoD(e);P.push({k:a,label:'Sem '+dmy(a).slice(0,5),curto:dmy(a).slice(0,5)+'–'+dmy(b).slice(0,5),a,b});d.setDate(d.getDate()+7)}}
+  const ini=ST.de||P[Math.max(0,P.length-(ST.modo=='mes'?3:8))].a,fi=ST.ate||max;
+  const r=P.filter(p=>p.b>=ini&&p.a<=fi);return r.length?r:P.slice(-3);
+}
+const okOrg=x=>ST.org=='T'||(ST.org=='S'?x.ar=='S':x.ar=='A');
+const GRUPOS_MOTIVO=g=>!['Sem tipificação','Abandono','Resolvido pelo robô'].includes(g);
+
+/* ---------- números ---------- */
+function calcular(P){
+  const R={P,un:['UJ','UVA'],per:{},mot:{},tip:{},tot:{}};
+  for(const p of P)for(const u of ['UJ','UVA','T'])R.per[p.k+'|'+u]={n:0,tr:0,msg:0,ab:0};
+  for(const x of SR){if(!x.d||!okOrg(x))continue;const p=P.find(q=>x.d>=q.a&&x.d<=q.b);if(!p)continue;
+    for(const u of [x.un,'T']){const a=R.per[p.k+'|'+u];if(!a)continue;a.n+=x.n;if(x.o)a.tr+=x.n;a.msg+=(x.u||0)+(x.bt||0)+(x.op||0);if(x.g=='Abandono')a.ab+=x.n}
+    if(GRUPOS_MOTIVO(x.g)){const m=R.mot[x.g]??={UJ:0,UVA:0};m[x.un]+=x.n;const t=R.tip[x.t]??={n:0,g:x.g};t.n+=x.n}}
+  return R;
+}
+const val=(R,p,u,k)=>{const a=R.per[p.k+'|'+u];return !a||!a.n?null:k=='tr'?a.tr/a.n:k=='msg'?a.msg/a.n:k=='ab'?a.ab/a.n:a.n};
+/* recorrência: voltas em 24 h, motivo do retorno e última sessão (usa a base de contatos já carregada) */
+function retornos(P){
+  const a=P[0].a,b=P[P.length-1].b,out={contatos:0,dist:[0,0,0,0,0,0],voltas:0,quemVolta:0,motivo:{},ult:{robo:0,cons:0},ultTip:{},ok:false,semOrg:false};
+  for(const u of ['UJ','UVA']){const r=RC[u];if(!r||!r.len||!r.s)continue;out.ok=true;
+    const d0=r.d0,da=rcd(a)-d0,db=rcd(b)-d0;let i=0;if(ST.org!='T'&&!r.z)out.semOrg=true;
+    for(const n of r.len){const L=[];for(let k=0;k<n;k++){const c=r.s[i+k],z=r.z?r.z.charCodeAt(i+k)-35:0;L.push({day:Math.floor(c/131072),hh:c%32,op:Math.floor(c/256)%2,ti:Math.floor(c/512)%256,z})}i+=n;
+      if(ST.org!='T'&&r.z){const z=L[0].z;if(ST.org=='S'?z!=2:z!=1)continue}
+      L.forEach(x=>x.h=x.day*24+x.hh);L.sort((x,y)=>x.h-y.h);
+      const dentro=L.filter(x=>x.day>=da&&x.day<=db);if(!dentro.length)continue;
+      out.contatos++;const h0=dentro[0].h,v=L.filter(x=>x.h>h0&&x.h<=h0+24).length;out.dist[Math.min(5,v)]++;if(v){out.quemVolta++;out.voltas+=v;const ult=dentro[dentro.length-1];if(ult.op){out.ult.cons++;const lb=r.T[ult.ti]||'(nulo)';out.ultTip[lb]=(out.ultTip[lb]||0)+1}else out.ult.robo++}
+      for(let k=0;k<L.length-1;k++){const x=L[k];if(x.day<da||x.day>db)continue;if(L[k+1].h-x.h<=168){const lb=r.T[x.ti]||'(nulo)';out.motivo[lb]=(out.motivo[lb]||0)+1}}}}
+  return out;
+}
+
+/* ---------- desenho dos slides (um só desenho serve para a prévia e para o PPTX) ---------- */
+const card=(x,y,w,h,o={})=>({k:'r',x,y,w,h,fill:o.fill||C.card,line:o.line===undefined?C.line:o.line,r:o.r==null?12:o.r});
+const txt=(x,y,w,h,t,o={})=>({k:'t',x,y,w,h,t,size:o.size||14,bold:!!o.bold,color:o.color||C.navy,al:o.al||'l',va:o.va||'m',sp:o.sp||0});
+const cab=(S,kick,tit)=>{S.push(txt(64,40,1150,24,kick,{size:13,bold:1,color:C.blue,sp:2,va:'t'}));S.push(txt(64,66,1150,44,tit,{size:30,bold:1,va:'t'}))};
+const leg=(S,x,y,itens)=>{let cx=x;for(const [c,n] of itens){S.push({k:'r',x:cx,y:y+5,w:14,h:14,fill:c,line:null,r:3});S.push(txt(cx+20,y,90,24,n,{size:12,color:C.slate}));cx+=34+n.length*8}};
+function slides(R,RT){
+  const P=R.P,p0=P[0],pn=P[P.length-1],pa=P[P.length-2]||p0,out=[],ref=(ST.org=='S'?'SERVIÇOS':ST.org=='A'?'ADMISSÃO':'TODOS')+' · '+(P.length>1?p0.curto.toUpperCase()+(ST.modo=='mes'?'–':' → ')+pn.curto.toUpperCase():p0.curto.toUpperCase());
+  const orgN=ST.org=='S'?'Serviços':ST.org=='A'?'Admissão':'Todas as sessões';
+  /* 1 · motivos de contato */
+  {const S=[],tot=u=>P.reduce((s,p)=>s+(R.per[p.k+'|'+u].n),0),mots=Object.entries(R.mot).map(([g,m])=>({g,UJ:m.UJ,UVA:m.UVA,T:m.UJ+m.UVA})).sort((a,b)=>b.T-a.T).slice(0,6),sj=mots.reduce((s,m)=>s+m.UJ,0)||1,sv=mots.reduce((s,m)=>s+m.UVA,0)||1,st=mots.reduce((s,m)=>s+m.T,0)||1;
+   cab(S,'MOTIVOS DE CONTATO · '+ref,mots.length>1?mots[0].g+' e '+mots[1].g+' lideram os motivos de contato':'Motivos de contato');
+   [['Sessões abertas · Unijorge',tot('UJ'),64],['Sessões abertas · UVA',tot('UVA'),441],['Total · '+orgN,tot('T'),818]].forEach(([l,v,x])=>{S.push(card(x,128,360,64,{fill:C.navy,line:null}));S.push(txt(x+18,128,150,64,l,{size:12,color:C.soft}));S.push(txt(x+170,128,175,64,nf(v),{size:28,bold:1,color:C.yel,al:'r'}))});
+   S.push(card(64,208,716,430));S.push(txt(86,220,380,30,'% das sessões com motivo registrado',{size:16,bold:1}));leg(S,470,222,[[C.red,'Unijorge'],[C.yel,'UVA']]);S.push(txt(86,250,670,22,'Cada universidade soma 100% entre os motivos mostrados',{size:12,color:C.slate}));
+   const mx=Math.max(...mots.map(m=>Math.max(m.UJ/sj,m.UVA/sv)),.01);
+   mots.forEach((m,i)=>{const y=284+i*58;S.push(txt(86,y,190,22,m.g,{size:15,bold:1}));S.push(txt(86,y+24,190,20,pc(m.T/st)+' do total',{size:12,color:C.slate}));
+     [[m.UJ/sj,C.red,0],[m.UVA/sv,C.yel,26]].forEach(([v,c,dy])=>{S.push({k:'r',x:280,y:y+dy,w:Math.max(4,v/mx*370),h:22,fill:c,line:null,r:3});S.push(txt(280+Math.max(4,v/mx*370)+8,y+dy-2,80,26,pc(v),{size:13,bold:1}))})});
+   S.push(card(800,208,414,430));S.push(txt(822,220,370,30,'Principais tipificações',{size:16,bold:1}));S.push(txt(822,248,370,20,'% das sessões com motivo registrado',{size:12,color:C.slate}));
+   const tp=Object.entries(R.tip).sort((a,b)=>b[1].n-a[1].n).slice(0,8),tt=Object.values(R.tip).reduce((s,x)=>s+x.n,0)||1;
+   tp.forEach(([t,x],i)=>{const y=282+i*43;S.push({k:'l',x:822,y:y-4,w:370,c:C.line});S.push(txt(822,y,310,38,t.length>44?t.slice(0,43)+'…':t,{size:13}));S.push(txt(1120,y,72,38,pc(x.n/tt),{size:14,bold:1,al:'r'}))});
+   out.push(S)}
+  /* 2 · transbordo */
+  {const S=[],N=P.length;cab(S,'TAXA DE TRANSBORDO · '+ref,'Transbordo '+((val(R,pn,'T','tr')??0)<(val(R,p0,'T','tr')??0)?'caiu':'foi')+' para '+pc(val(R,pn,'T','tr'))+' em '+pn.label.toLowerCase());
+   S.push(card(64,128,716,500));S.push(txt(86,140,290,30,'% de sessões com atendente',{size:16,bold:1}));leg(S,380,142,[[C.red,'Unijorge'],[C.yel,'UVA'],[C.blue,'Total']]);
+   const base=560,top=200,vm=Math.max(...P.flatMap(p=>['UJ','UVA','T'].map(u=>val(R,p,u,'tr')||0)),.05),gw=(716-44)/N,bw=Math.min(58,gw/3.6);
+   S.push({k:'l',x:86,y:base,w:672,c:C.line});
+   P.forEach((p,i)=>{const gx=86+i*gw+gw/2-bw*1.5-6;['UJ','UVA','T'].forEach((u,j)=>{const v=val(R,p,u,'tr'),h=v==null?0:Math.max(2,v/vm*(base-top-30)),x=gx+j*(bw+6),c=[C.red,C.yel,C.blue][j];S.push({k:'r',x,y:base-h,w:bw,h,fill:c,line:null,r:4});S.push(txt(x-12,base-h-26,bw+24,24,pc(v),{size:N>6?10:13,bold:1,al:'c'}))});S.push(txt(86+i*gw,base+6,gw,26,N>6?p.curto:p.label,{size:N>6?10:14,bold:1,al:'c'}))});
+   const tn=val(R,pn,'T','tr'),t0=val(R,p0,'T','tr'),tm=val(R,pa,'T','tr'),dd=tn!=null&&t0!=null?(tn-t0)*100:null;
+   S.push(card(800,128,414,170,{fill:C.navy,line:null}));S.push(txt(822,140,370,22,'TOTAL · '+pn.label.toUpperCase(),{size:12,bold:1,color:C.soft,sp:1.5}));S.push(txt(822,164,370,56,pc(tn),{size:44,bold:1,color:C.yel}));
+   S.push(txt(822,224,370,24,P.length>1?'era '+pc(t0)+' em '+p0.label.toLowerCase()+(P.length>2?' e '+pc(tm)+' em '+pa.label.toLowerCase():''):'',{size:14,color:C.white}));S.push(txt(822,250,370,24,dd==null||P.length<2?'':(dd<=0?'queda':'alta')+' de '+f1(Math.abs(dd))+' p.p. desde '+p0.label.toLowerCase(),{size:13,bold:1,color:C.soft}));
+   [['UJ',800],['UVA',1010]].forEach(([u,x])=>{S.push(card(x,312,204,100));S.push(txt(x+14,318,180,24,UL[u].toUpperCase()+' · '+pn.label.toUpperCase(),{size:11,bold:1,color:C.blue,sp:1}));S.push(txt(x+14,342,180,38,pc(val(R,pn,u,'tr')),{size:28,bold:1}));S.push(txt(x+14,382,180,24,P.length>1?pc(val(R,p0,u,'tr'))+' em '+p0.label.toLowerCase():'',{size:11,color:C.slate}))});
+   S.push(card(800,428,414,200,{fill:C.cream,line:'F0D37A'}));S.push(txt(822,440,370,24,'PRINCIPAL MOTIVADOR',{size:12,bold:1,color:C.blue,sp:1.5}));S.push(txt(822,466,370,36,TX('mot_t','Informe o principal motivador'),{size:19,bold:1}));S.push(txt(822,504,370,110,TX('mot_d','Descreva em uma frase o que explica a variação.'),{size:14,color:C.slate,va:'t'}));
+   S.push(txt(64,650,1150,24,'Transbordo = sessões em que um atendente falou ÷ total de sessões · '+orgN,{size:12,color:C.slate}));out.push(S)}
+  /* 3 · efetividade */
+  {const S=[],N=P.length;cab(S,'EFETIVIDADE DOS ATENDIMENTOS · '+ref,'Mensagens por sessão '+((val(R,pn,'T','msg')??0)<(val(R,p0,'T','msg')??0)?'caíram':'variaram')+' e a retenção no robô '+((1-(val(R,pn,'T','tr')??0))>(1-(val(R,p0,'T','tr')??0))?'subiu':'variou'));
+   const k=(l,f,x)=>{S.push(card(x,122,380,68,{fill:C.navy,line:null}));S.push(txt(x+18,126,340,22,l,{size:12,color:C.soft}));S.push(txt(x+18,148,340,38,f,{size:24,bold:1,color:C.yel,va:'t'}))};
+   const g=(u,kk)=>val(R,p0,u,kk),h=(u,kk)=>val(R,pn,u,kk),ret=v=>v==null?null:1-v;
+   k('Mensagens por sessão',f1(g('T','msg'))+' → '+f1(h('T','msg')),64);k('Retenção no robô',pc(ret(g('T','tr')))+' → '+pc(ret(h('T','tr'))),450);k('Abandono',pc(g('T','ab'))+' → '+pc(h('T','ab')),836);
+   S.push(card(64,206,380,330));S.push(txt(84,216,340,28,'Mensagens por sessão',{size:16,bold:1}));leg(S,84,246,[[C.red,'Unijorge'],[C.yel,'UVA']]);
+   const vm=Math.max(...P.flatMap(p=>['UJ','UVA'].map(u=>val(R,p,u,'msg')||0)),1),gw=340/N,bw=Math.min(40,gw/2.5),base=500;
+   P.forEach((p,i)=>{const gx=84+i*gw+gw/2-bw-3;['UJ','UVA'].forEach((u,j)=>{const v=val(R,p,u,'msg'),hh=v==null?0:Math.max(2,v/vm*(base-300)),x=gx+j*(bw+6);S.push({k:'r',x,y:base-hh,w:bw,h:hh,fill:[C.red,C.yel][j],line:null,r:4});S.push(txt(x-10,base-hh-22,bw+20,20,f1(v),{size:N>5?9:12,bold:1,al:'c'}))});S.push(txt(84+i*gw,base+4,gw,24,N>5?p.curto:p.label,{size:N>5?9:12,bold:1,al:'c'}))});
+   S.push(card(460,206,320,330));S.push(txt(480,216,290,26,'Quantas vezes volta em 24 h',{size:16,bold:1}));S.push(txt(480,242,290,20,'% dos contatos, por nº de voltas',{size:12,color:C.slate}));
+   if(RT.ok&&RT.contatos){const lb=['Não volta','1 vez','2 vezes','3 vezes','4 vezes','5 ou mais'];lb.forEach((l,i)=>{const y=270+i*38,v=RT.dist[i]/RT.contatos;S.push(txt(480,y,120,22,l,{size:13}));S.push(txt(690,y,70,22,pc(v),{size:13,bold:1,al:'r'}));S.push({k:'r',x:480,y:y+24,w:Math.max(3,v*280),h:8,fill:i?C.blue:C.soft,line:null,r:3})});
+     S.push(card(480,490,280,40,{fill:C.yel,line:null}));S.push(txt(490,490,260,40,pc(RT.quemVolta/RT.contatos)+' voltam em até 24 h'+(RT.quemVolta?' · média '+f1(RT.voltas/RT.quemVolta)+' voltas':''),{size:12,bold:1}))}
+   else S.push(txt(480,300,290,120,'Base de recorrência não carregada para este recorte. Importe Usuários e sessões em Importar bases.',{size:13,color:C.slate,va:'t'}));
+   S.push(card(796,206,418,330));S.push(txt(816,216,380,26,'Motivo do retorno',{size:16,bold:1}));S.push(txt(816,242,380,20,'Top 5 · % dos retornos em até 7 dias',{size:12,color:C.slate}));
+   const mo=Object.entries(RT.motivo).sort((a,b)=>b[1]-a[1]),mt=mo.reduce((s,x)=>s+x[1],0)||1;mo.slice(0,5).forEach(([l,n],i)=>{const y=270+i*40;S.push(txt(816,y,300,22,l.length>34?l.slice(0,33)+'…':l,{size:13}));S.push(txt(1120,y,76,22,pc(n/mt),{size:13,bold:1,al:'r'}));S.push({k:'r',x:816,y:y+24,w:Math.max(3,n/mt*340),h:8,fill:i?C.blue:C.red,line:null,r:3})});
+   S.push(card(64,552,1150,76,{fill:C.navy,line:null}));S.push(txt(86,552,170,76,'ÚLTIMA SESSÃO DE QUEM VOLTA',{size:12,bold:1,color:C.yel,sp:1}));
+   const ut=RT.ult.robo+RT.ult.cons;S.push(txt(270,556,150,38,ut?pc(RT.ult.robo/ut):'–',{size:28,bold:1,color:C.yel}));S.push(txt(270,596,170,24,'terminam no robô',{size:12,color:C.white}));S.push(txt(450,556,150,38,ut?pc(RT.ult.cons/ut):'–',{size:28,bold:1,color:C.yel}));S.push(txt(450,596,200,24,'terminam com consultor',{size:12,color:C.white}));
+   const ct=Object.entries(RT.ultTip).sort((a,b)=>b[1]-a[1])[0];S.push(txt(690,556,500,68,ct?'Com consultor, a última tipificação mais comum é “'+ct[0]+'” ('+pc(ct[1]/(RT.ult.cons||1))+').':'',{size:13,color:C.white}));
+   S.push(txt(64,650,1150,24,'Voltas em 24 h: sessões do mesmo contato até 24 h depois da 1ª sessão do período · retorno: motivo da sessão anterior, até 7 dias · '+orgN,{size:11,color:C.slate}));out.push(S)}
+  /* 4 · frentes de atuação */
+  {const S=[];cab(S,'OPORTUNIDADES DE MELHORIA','Frentes de atuação');
+   const itens=[[TX('f1_t','Acompanhamento diário, hora a hora'),TX('f1_d','Todo dia, por hora'),'FREQUÊNCIA'],['Redução do fluxo',(val(R,pn,'T','tr')!=null&&val(R,p0,'T','tr')!=null?f1((val(R,pn,'T','tr')-val(R,p0,'T','tr'))*100).replace('-','−')+' p.p. de transbordo':'–'),'TRANSBORDO',pc(val(R,p0,'T','tr'))+' → '+pc(val(R,pn,'T','tr'))],['Aplicação de flows',(val(R,pn,'T','msg')!=null&&val(R,p0,'T','msg')!=null?f1(val(R,pn,'T','msg')-val(R,p0,'T','msg')).replace('-','−')+' mensagens por sessão':'–'),'MSGS POR SESSÃO',f1(val(R,p0,'T','msg'))+' → '+f1(val(R,pn,'T','msg'))]];
+   itens.forEach((it,i)=>{const x=64+i*386;S.push(card(x,128,378,290));S.push({k:'r',x:x+20,y:146,w:46,h:46,fill:C.navy,line:null,r:23});S.push(txt(x+20,146,46,46,String(i+1),{size:20,bold:1,color:C.yel,al:'c'}));S.push(txt(x+20,204,340,56,it[0],{size:19,bold:1,va:'t'}));
+     if(i){S.push(card(x+20,262,338,52,{fill:C.bg,line:null}));S.push(txt(x+30,262,320,52,it[1],{size:20,bold:1}))}
+     S.push(card(x+20,326,338,76,{fill:C.bg,line:null}));S.push(txt(x+32,332,300,22,it[2],{size:11,bold:1,color:C.blue,sp:1.5}));S.push(txt(x+32,356,310,38,i?it[3]:it[1],{size:20,bold:1}))});
+   S.push(card(64,436,1150,200));S.push(txt(90,448,1000,24,'PARA REDUZIR O TRANSBORDO AO HUMANO',{size:12,bold:1,color:C.blue,sp:1.5}));
+   [['Revisão da árvore diária','Árvore de atendimento revista todos os dias.'],['Otimização da base de conhecimento','Base de conhecimento otimizada diariamente.'],['Análise de interações','Busca de oportunidades de redução nas interações.']].forEach((d,i)=>{const x=90+i*376;S.push({k:'r',x,y:488,w:46,h:46,fill:C.yel,line:null,r:23});S.push(txt(x,488,46,46,String(4+i),{size:20,bold:1,al:'c'}));S.push(txt(x+58,484,290,54,TX('s'+i+'_t',d[0]),{size:17,bold:1,va:'t'}));S.push(txt(x+58,540,290,80,TX('s'+i+'_d',d[1]),{size:13,color:C.slate,va:'t'}))});
+   S.push(txt(64,650,1150,24,'Indicadores de '+orgN+' Unijorge + UVA · '+dmy(P[0].a)+' a '+dmy(P[P.length-1].b>(SR.map(x=>x.d).sort().pop())?SR.map(x=>x.d).sort().pop():P[P.length-1].b),{size:12,color:C.slate}));out.push(S)}
+  return out;
+}
+
+/* ---------- prévia na tela ---------- */
+function html(S,i){const e=S.map(o=>{const b='left:'+o.x+'px;top:'+o.y+'px;';if(o.k=='r')return'<div style="position:absolute;'+b+'width:'+o.w+'px;height:'+o.h+'px;background:#'+o.fill+';'+(o.line?'border:1px solid #'+o.line+';box-sizing:border-box;':'')+'border-radius:'+o.r+'px"></div>';
+    if(o.k=='l')return'<div style="position:absolute;'+b+'width:'+o.w+'px;height:1px;background:#'+o.c+'"></div>';
+    return'<div style="position:absolute;'+b+'width:'+o.w+'px;height:'+o.h+'px;display:flex;align-items:'+(o.va=='t'?'flex-start':'center')+';justify-content:'+(o.al=='r'?'flex-end':o.al=='c'?'center':'flex-start')+';font-size:'+o.size+'px;font-weight:'+(o.bold?700:400)+';color:#'+o.color+';letter-spacing:'+o.sp+'px;text-align:'+(o.al=='r'?'right':o.al=='c'?'center':'left')+';line-height:1.18;overflow:hidden"><span>'+esc(o.t)+'</span></div>'}).join('');
+  return'<div class="psl" style="width:1280px;height:720px;position:relative;background:#'+C.bg+';font-family:\'IBM Plex Sans\',Arial,sans-serif;overflow:hidden;transform-origin:0 0">'+e+'<div style="position:absolute;right:24px;bottom:10px;font-size:11px;color:#'+C.slate+'">'+(i+1)+'</div></div>'}
+/* ---------- PPTX ---------- */
+function baixar(SL){
+  if(typeof PptxGenJS=='undefined'){alert('A biblioteca de PPTX não carregou (verifique a conexão).');return}
+  const px=new PptxGenJS();px.layout='LAYOUT_WIDE';px.title='Indicadores de Serviços';const q=v=>v/96;
+  SL.forEach(S=>{const s=px.addSlide();s.background={color:C.bg};
+    S.forEach(o=>{if(o.k=='r')s.addShape(o.r>=8?px.ShapeType.roundRect:px.ShapeType.rect,Object.assign({x:q(o.x),y:q(o.y),w:q(o.w),h:q(o.h),fill:{color:o.fill},line:o.line?{color:o.line,width:.75}:{type:'none'}},o.r>=8?{rectRadius:Math.min(.5,o.r/Math.min(o.w,o.h))*.5}:{}));
+      else if(o.k=='l')s.addShape(px.ShapeType.line,{x:q(o.x),y:q(o.y),w:q(o.w),h:0,line:{color:o.c,width:.75}});
+      else s.addText(String(o.t),{x:q(o.x),y:q(o.y),w:q(o.w),h:q(o.h),fontFace:'Arial',fontSize:Math.max(7,Math.round(o.size*.75*10)/10),bold:o.bold,color:o.color,align:o.al=='c'?'center':o.al=='r'?'right':'left',valign:o.va=='t'?'top':'middle',margin:0,charSpacing:o.sp?o.sp*.75:0,fit:'shrink'})})});
+  px.writeFile({fileName:'Indicadores_'+(ST.org=='S'?'Servicos':ST.org=='A'?'Admissao':'Geral')+'_'+(ST.modo=='mes'?'mensal':'semanal')+'_'+new Date().toISOString().slice(0,10)+'.pptx'});
+}
+/* ---------- página ---------- */
+let SL=[];
+function desenhar(){
+  const m=document.getElementById('mn'),P=periodos();
+  if(!P.length){m.innerHTML='<h1>Apresentação</h1><div class="c w"><h3>Sem dados de sessões</h3><p style="color:var(--mu)">Importe ou atualize as bases (Usuários e sessões) para montar a apresentação.</p></div>';return}
+  const R=calcular(P),RT=retornos(P);SL=slides(R,RT);
+  const semOrg=ST.org!='T'&&!SR.some(x=>x.ar&&x.ar!='U');
+  const meses=P.length,opt=(v,t,c)=>'<option value="'+v+'"'+(c?' selected':'')+'>'+t+'</option>';
+  const ed=[['mot_t','Principal motivador (título)','Aplicação de flows no robô'],['mot_d','Principal motivador (explicação)','Mais sessões resolvidas dentro da conversa, sem precisar de atendente'],['f1_t','Frente 1 (título)','Acompanhamento diário, hora a hora'],['f1_d','Frente 1 (detalhe)','Todo dia, por hora'],['s0_t','Ação 4 (título)','Revisão da árvore diária'],['s0_d','Ação 4 (texto)','Árvore de atendimento revista todos os dias.'],['s1_t','Ação 5 (título)','Otimização da base de conhecimento'],['s1_d','Ação 5 (texto)','Base de conhecimento otimizada diariamente.'],['s2_t','Ação 6 (título)','Análise de interações'],['s2_d','Ação 6 (texto)','Busca de oportunidades de redução nas interações.']];
+  m.innerHTML='<h1>Apresentação</h1><p class="sub">Slides montados ao vivo com os dados que já estão no painel, por mês ou por semana. O que você ajustar nos filtros muda os slides na hora; use <b>Baixar PPTX</b> para levar para o PowerPoint.</p>'+
+   '<div class="c w" style="margin-bottom:12px"><div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end"><label class="fl">Visão<select id="prm">'+opt('mes','Por mês',ST.modo=='mes')+opt('sem','Por semana',ST.modo=='sem')+'</select></label><label class="fl">Organização<select id="pro">'+opt('S','Serviços (aluno e ex-aluno)',ST.org=='S')+opt('A','Admissão (lead)',ST.org=='A')+opt('T','Todas',ST.org=='T')+'</select></label><label class="fl">De<input type="date" id="prd" value="'+P[0].a+'"></label><label class="fl">Até<input type="date" id="pra" value="'+(ST.ate||SR.map(x=>x.d).sort().pop())+'"></label><button id="prb">Baixar PPTX</button><span class="tag">'+meses+' '+(ST.modo=='mes'?'mês(es)':'semana(s)')+'</span></div>'+
+   '<details style="margin-top:10px"><summary style="cursor:pointer;color:var(--ac)">Editar textos dos slides</summary><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:8px;margin-top:8px">'+ed.map(([k,l,d])=>'<label class="fl">'+l+'<input data-pt="'+k+'" value="'+esc(TX(k,d))+'" style="width:100%"></label>').join('')+'</div></details></div>'+
+   (semOrg?'<div class="fbar" style="margin-bottom:10px"><svg class="i"><use href="#ic-info"/></svg><span>As sessões ainda não têm a organização (Lead, aluno ou ex-aluno), por isso Serviços e Admissão aparecem vazios. Importe as planilhas em <b>Importar status</b> e reimporte <b>Usuários e sessões</b>, ou escolha <b>Todas</b>.</span></div>':'')+
+   '<div id="psls">'+SL.map((S,i)=>'<div class="pwr" style="margin:0 0 18px;border:1px solid var(--bd,#d3deeb);border-radius:10px;overflow:hidden">'+html(S,i)+'</div>').join('')+'</div>'+
+   '<p class="sub">O slide “Orçamento × Realizado” do modelo não entra aqui porque o painel não guarda o orçamento. Definições: transbordo = sessões com atendente ÷ sessões; retenção no robô = 100% − transbordo; abandono = sessões tipificadas como usuário parou de interagir, encerradas automaticamente ou sem atendimento.</p>';
+  const ajusta=()=>{const w=document.getElementById('psls').clientWidth,k=Math.min(1,w/1280);document.querySelectorAll('#psls .pwr').forEach(d=>{d.style.height=720*k+'px';d.firstChild.style.transform='scale('+k+')'})};ajusta();window.addEventListener('resize',ajusta,{once:true});
+  const $=id=>document.getElementById(id);
+  $('prm').onchange=e=>{ST.modo=e.target.value;ST.de='';desenhar()};$('pro').onchange=e=>{ST.org=e.target.value;desenhar()};
+  $('prd').onchange=e=>{ST.de=e.target.value;desenhar()};$('pra').onchange=e=>{ST.ate=e.target.value;desenhar()};
+  $('prb').onclick=()=>baixar(SL);
+  m.querySelectorAll('[data-pt]').forEach(i=>i.onchange=()=>{ST.txt[i.dataset.pt]=i.value;try{localStorage.setItem('pres_txt',JSON.stringify(ST.txt))}catch(e){}desenhar()});
+}
+{const sty=document.createElement('style');sty.textContent='.prp .tb{display:none}';document.head.appendChild(sty);const sync=()=>{const on=typeof PG!='undefined'&&PG=='pres';if(document.body.classList.contains('prp')!=on){document.body.classList.toggle('prp',on);try{tbh()}catch(e){}}};setInterval(sync,300)}
+PAGES.pres=()=>{document.body.classList.add('prp');try{tbh()}catch(e){}try{desenhar()}catch(e){document.getElementById('mn').innerHTML='<h1>Apresentação</h1><div class="c w"><p>Não foi possível montar os slides: '+esc(e.message)+'</p></div>'}};
+PN.pres='Apresentação';
+})();

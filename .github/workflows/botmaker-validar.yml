@@ -8,6 +8,9 @@ on:
       ate:
         description: 'Data final aaaa-mm-dd'
         default: '2026-10-02'
+      produtividade:
+        description: 'Incluir status dos atendentes (lento: 1 consulta por minuto)'
+        default: 'nao'
 permissions:
   contents: write
 jobs:
@@ -25,6 +28,7 @@ jobs:
           DE: ${{ inputs.de }}
           ATE: ${{ inputs.ate }}
           SEM_VARIAVEIS: '1'
+          SEM_PROD: ${{ inputs.produtividade == 'sim' && '0' || '1' }}
           BOTMAKER_TOKEN_UVA: ${{ secrets.UNIVERSIDADEVEIGAALMEIDA }}
           BOTMAKER_TOKEN_UJ: ${{ secrets.UNIJORGE }}
         run: node servidor/botmaker/sync.mjs

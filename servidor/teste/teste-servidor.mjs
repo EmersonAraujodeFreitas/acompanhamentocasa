@@ -96,4 +96,27 @@ r = await call('GET', '/arquivo/olos', undefined, ajt); chk('admin restrito ao B
 r = await call('GET', '/arquivo/data', undefined, ajt); chk('admin restrito lê data', r.s === 200);
 r = await call('GET', '/admin/usuarios', undefined, ajt); chk('admin restrito ainda administra', r.s === 200);
 r = await call('PATCH', '/admin/usuarios/ELINAI', { ambientes: null }, adm); r = await call('GET', '/estado', undefined, elt); chk('mudar ambientes derruba sessão', r.s === 401);
+// atualização pela API da Botmaker
+await call('PUT', '/admin/permissoes', { perfis: { Leitura: { abas: ['exec', 'sess'], botoes: [] }, Editor: { abas: ['exec', 'sess', 'data'], botoes: ['importar', 'publicar'] } } }, adm);
+const novoUsuario = async (u, perfil, senha) => { await call('POST', '/admin/usuarios', { usuario: u, nome: u, perfil, senha: 'provisoria1' }, adm); const l = await login(u, 'provisoria1'); return (await call('POST', '/trocar-senha', { atual: 'provisoria1', nova: senha }, l.j.token)).j.token; };
+const ea = await novoUsuario('api-ed', 'Editor', 'EditorApi123'), la = await novoUsuario('api-le', 'Leitura', 'LeitorApi123');
+r = await call('GET', '/botmaker/estado', undefined, ea); chk('estado api (editor)', r.s === 200 && r.j.fase === 'ocioso' && r.j.configurado === false);
+r = await call('POST', '/botmaker/atualizar', { dias: 2 }, ea); chk('sem GH_TOKEN: 503', r.s === 503);
+r = await call('GET', '/botmaker/estado', undefined, la); chk('leitor NÃO vê estado api', r.s === 403);
+env.GH_TOKEN = 'ghp_teste'; env.GH_REPO = 'EmersonAraujodeFreitas/acompanhamentocasa';
+const f0 = globalThis.fetch; let chamadas = [];
+globalThis.fetch = async (u, o) => { chamadas.push([String(u), o]); return new Response(null, { status: 204 }); };
+r = await call('POST', '/botmaker/atualizar', { dias: 999 }, la); chk('leitor NÃO dispara robô', r.s === 403 && chamadas.length === 0);
+r = await call('POST', '/botmaker/atualizar', { dias: 999 }, ea);
+chk('editor dispara robô (dias limitado a 60)', r.s === 200 && r.j.fase === 'iniciado' && chamadas.length === 1 && /botmaker-sync\.yml\/dispatches$/.test(chamadas[0][0]) && JSON.parse(chamadas[0][1].body).inputs.dias === '60' && chamadas[0][1].headers.Authorization === 'Bearer ghp_teste');
+r = await call('POST', '/botmaker/atualizar', { dias: 2 }, ea); chk('segunda chamada seguida: 409', r.s === 409 && chamadas.length === 1);
+r = await call('POST', '/botmaker/progresso', { fase: 'pronto', mensagem: 'ok', pct: 100, rev: 5, contagem: { UJ: { sess: 3 } } }, la); chk('leitor NÃO informa progresso', r.s === 403);
+r = await call('POST', '/botmaker/progresso', { fase: 'pronto', mensagem: 'ok', pct: 100, rev: 5, contagem: { UJ: { sess: 3 } } }, ea); chk('progresso ok', r.s === 200);
+r = await call('GET', '/botmaker/estado', undefined, ea); chk('estado pronto', r.j.fase === 'pronto' && r.j.rev === 5 && r.j.configurado === true);
+globalThis.fetch = async () => new Response(null, { status: 401 });
+r = await call('POST', '/botmaker/progresso', { fase: 'importado', pct: 100 }, ea); r = await call('POST', '/botmaker/atualizar', {}, ea); chk('GitHub recusa token: 502', r.s === 502);
+globalThis.fetch = f0;
+r = await up(ea, 'api-fila', 'dados-do-robo', 7); chk('editor grava api-fila', r.s === 200);
+r = await up(la, 'api-fila', 'x', 8); chk('leitor NÃO grava api-fila', r.s === 403);
+r = await call('GET', '/arquivo/api-fila', undefined, la); chk('leitor NÃO lê api-fila', r.s === 403);
 console.log(`ok=${ok} falhas=${bad}`);

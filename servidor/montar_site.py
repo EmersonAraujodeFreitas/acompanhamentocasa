@@ -29,7 +29,10 @@ sub('<a data-p="usr"><svg class="i"><use href="#ic-users"/></svg>Usuários</a>',
 # 4) painel Administrativo no fim do app
 end=s.rfind("</script>",0,s.find("</body>")) if "</body>" in s else -1
 m=re.search(r'(<script type="text/plain" id="app">)(.*?)(</script>)',s,re.S); assert m
-s=s[:m.end(2)]+open(R+'/cliente/admin.js',encoding='utf-8').read()+s[m.end(2):]
+s=s[:m.end(2)]+open(R+'/cliente/admin.js',encoding='utf-8').read()+open(R+'/cliente/api.js',encoding='utf-8').read()+open(R+'/cliente/pres.js',encoding='utf-8').read()+s[m.end(2):]
+# 4b) página Apresentação (menu + biblioteca de PPTX)
+sub('<a data-p="bd"><svg class="i"><use href="#ic-briefcase"/></svg>BD</a>','<a data-p="bd"><svg class="i"><use href="#ic-briefcase"/></svg>BD</a><a data-p="pres"><svg class="i"><use href="#ic-layout"/></svg>Apresentação</a>')
+sub('<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js">','<script src="https://cdnjs.cloudflare.com/ajax/libs/pptxgenjs/3.12.0/pptxgen.bundle.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js">')
 # 5) cabeçalho: sem GitHub, favicons relativos, API liberada no CSP
 sub("https://api.github.com https://central-hubspot.emerson-freitas.workers.dev",API)
 s=s.replace('href="favicon','href="../favicon')

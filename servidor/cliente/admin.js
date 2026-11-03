@@ -1,7 +1,7 @@
 
 /* ===== ADMINISTRATIVO (servidor) ===== */
 (()=>{const E=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>'&#'+c.charCodeAt(0)+';');
-const GL={exec:'Dashboard',uni:'Unijorge × UVA',sess:'Sessões e canais',team:'Equipe',a360:'Atendente 360°',sla:'SLA e conversas',qual:'Qualidade e funil',prod:'Produtividade',cap:'Capacidade × demanda',cross:'Cruzamentos',rec:'Recorrência',cons:'Consumo',bd:'BD',data:'Importar bases',consimp:'Importar consumo',stat:'Importar status',olos:'Olos',hubspot:'HubSpot',buscar:'Buscar'};
+const GL={exec:'Dashboard',uni:'Unijorge × UVA',sess:'Sessões e canais',team:'Equipe',a360:'Atendente 360°',sla:'SLA e conversas',qual:'Qualidade e funil',prod:'Produtividade',cap:'Capacidade × demanda',cross:'Cruzamentos',rec:'Recorrência',cons:'Consumo',bd:'BD',pres:'Apresentação',data:'Importar bases',consimp:'Importar consumo',stat:'Importar status',olos:'Olos',hubspot:'HubSpot',buscar:'Buscar'};
 const BL={importar:'Importar',remover:'Remover / apagar tudo',publicar:'Publicar',exportar:'Exportar',atualizar:'Atualizar dados (HubSpot)',parametros:'Parâmetros de cálculo',logo:'Trocar logo'};
 const fd=t=>{try{return new Date(t).toLocaleString('pt-BR')}catch(e){return t}};
 PAGES.usr=async()=>{const m=document.querySelector('#mn');m.innerHTML='<h1>Administrativo</h1><div class="c w"><p class="sub">Carregando…</p></div>';
