@@ -1,0 +1,255 @@
+// Robô Botmaker -> Central: lê a API e monta linhas no MESMO formato dos relatórios exportados da Botmaker.
+// O site importa essas linhas com a mesma rotina da importação manual (tempos em segundos).
+//
+// Modos (variável MODO):
+//   validar     grava só números agregados em servidor/botmaker/resultado/validacao.json (sem telefone, nome ou texto)
+//   sincronizar calcula e envia ao servidor (usuário "integração"), sem gravar nada no GitHub
+// Janela: DE e ATE (aaaa-mm-dd, horário de Brasília) ou DIAS (padrão 2, contando hoje).
+import fs from 'node:fs';
+import zlib from 'node:zlib';
+
+const BASE = 'https://api.botmaker.com/v2.0';
+const MODO = process.env.MODO || 'validar';
+const CONTAS = [['UVA', process.env.BOTMAKER_TOKEN_UVA], ['UJ', process.env.BOTMAKER_TOKEN_UJ]].filter(c => c[1]);
+const TZ = -3 * 3600e3; // Brasília, sem horário de verão
+const esp = ms => new Promise(r => setTimeout(r, ms));
+const enc = encodeURIComponent;
+const pad = n => String(n).padStart(2, '0');
+const loc = iso => new Date(new Date(iso).getTime() + TZ);               // use getUTC* para ler a hora local
+const diaLoc = iso => { const d = loc(iso); return d.getUTCFullYear() + '-' + pad(d.getUTCMonth() + 1) + '-' + pad(d.getUTCDate()) };
+const brData = iso => { const d = loc(iso); return pad(d.getUTCDate()) + '/' + pad(d.getUTCMonth() + 1) + '/' + d.getUTCFullYear() };
+const brHora = iso => { const d = loc(iso); return brData(iso) + ' ' + pad(d.getUTCHours()) + ':' + pad(d.getUTCMinutes()) };
+const ms = iso => new Date(iso).getTime();
+
+function janela() {
+  const agora = Date.now();
+  if (process.env.DE) {
+    const de = new Date(process.env.DE + 'T00:00:00-03:00').getTime();
+    const ate = process.env.ATE ? new Date(process.env.ATE + 'T23:59:59.999-03:00').getTime() : agora;
+    return [new Date(de).toISOString(), new Date(Math.min(ate, agora)).toISOString()];
+  }
+  const dias = Math.max(1, Math.min(60, parseInt(process.env.DIAS || '2', 10) || 2));
+  const hoje0 = new Date(new Date(agora + TZ).setUTCHours(0, 0, 0, 0) - TZ);        // 00:00 de hoje em Brasília
+  return [new Date(hoje0.getTime() - (dias - 1) * 864e5).toISOString(), new Date(agora).toISOString()];
+}
+const [T0, T1] = janela();
+const longo = Date.now() - ms(T0) > 2.5 * 864e5;                                  // a API só entrega ~3 dias sem long-term-search
+
+const STATUS = { online: 'Online', busy: 'Ocupado', online_not_available: 'On-line (não disponível)', descanso: 'Descanso', treinamento: 'Treinamento', lanche: 'Lanche', banheiro: 'Banheiro', feedback: 'Feedback', falha_sistemica: 'Falha Sistêmica' };
+
+function cliente(token, rotulo) {
+  const H = { 'access-token': token, Accept: 'application/json' };
+  return async function get(u, { minuto = false } = {}) {
+    const url = u.startsWith('http') ? u : BASE + u;
+    for (let i = 0; i < 8; i++) {
+      await esp(250);
+      let x, t;
+      try { x = await fetch(url, { headers: H }); t = await x.text() } catch (e) { await esp(2000 * (i + 1)); continue }
+      if (x.status === 429) { await esp(minuto || /minute/.test(t) ? 65000 : 3000 * (i + 1)); continue }
+      if (x.status >= 500 && i < 3) { await esp(2000 * (i + 1)); continue }
+      let j = null; try { j = JSON.parse(t) } catch (e) { }
+      return { status: x.status, j, texto: j ? '' : t.slice(0, 200) };
+    }
+    throw new Error(rotulo + ': limite de chamadas excedido em ' + url.split('?')[0]);
+  };
+}
+async function paginas(get, caminho, fn, opt = {}) {
+  let url = caminho, n = 0;
+  for (let p = 0; p < (opt.max || 400) && url; p++) {
+    const b = await get(url, opt);
+    if (b.status >= 400 || !b.j) throw new Error('Falha em ' + caminho.split('?')[0] + ' (' + b.status + '): ' + (b.j ? JSON.stringify(b.j).slice(0, 200) : b.texto));
+    const it = b.j.items || [];
+    n += it.length;
+    if (fn(it) === false) break;
+    const nx = b.j.nextPage;
+    if (!nx || !it.length) break;
+    const tk = (String(nx).match(/page-token=([^&]+)/) || [])[1];
+    url = tk ? caminho.replace(/&?page-token=[^&]*/, '') + '&page-token=' + tk : null;
+  }
+  return n;
+}
+const mediana = a => { if (!a.length) return null; const s = [...a].sort((x, y) => x - y), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2 };
+const media = a => a.length ? a.reduce((s, x) => s + x, 0) / a.length : null;
+const arred = (x, c = 1) => x == null ? null : Math.round(x * 10 ** c) / 10 ** c;
+
+/* ------------------------------------------------------------ leitura de uma conta ------------------------------------------------------------ */
+async function lerConta([un, token]) {
+  const get = cliente(token, un), prog = (...a) => console.log('[' + un + ']', ...a);
+  const agentes = new Map(), filas = new Map();
+  await paginas(get, '/agents?limit=500', it => it.forEach(a => agentes.set(a.id, a)));
+  await paginas(get, '/attention-queues?limit=500', it => it.forEach(q => filas.set(q.id, q.name)));
+  prog('atendentes', agentes.size, 'filas', filas.size);
+
+  // sessões com as mensagens aninhadas (uma passada só)
+  const sessoes = [];
+  const q = `/sessions?from=${enc(T0)}&to=${enc(T1)}&limit=100&include-messages=true` + (longo ? '&long-term-search=true' : '');
+  await paginas(get, q, it => { it.forEach(s => sessoes.push(s)); if (sessoes.length % 1000 < it.length) prog('sessões lidas', sessoes.length) });
+  prog('sessões', sessoes.length);
+
+  // variáveis dos chats (tipificação e NPS): só guardam o último valor, por isso o robô precisa rodar com frequência
+  const vars = new Map(), precisa = new Set(sessoes.map(s => s.chat && s.chat.chat && s.chat.chat.chatId).filter(Boolean));
+  if (process.env.SEM_VARIAVEIS !== '1') {
+    let vazias = 0;
+    await paginas(get, '/chats?limit=250', it => {
+      let achou = 0;
+      for (const c of it) {
+        const id = c.chat && c.chat.chatId || c.chatId;
+        if (id && precisa.has(id)) { const v = c.variables || {}; vars.set(id, { t: v.typification || v.tipificacao || null, nps: v.nps ?? null }); achou++ }
+      }
+      vazias = achou ? 0 : vazias + 1;
+      return vazias < 6 && vars.size < precisa.size;
+    }, { max: 120 });
+    prog('chats com variáveis', vars.size, 'de', precisa.size);
+  }
+
+  const { sess, conv } = calcular(un, sessoes, agentes, filas, vars);
+  const prod = await produtividade(get, un, agentes);
+  prog('linhas: sessões', sess.length, 'conversas', conv.length, 'produtividade', prod.length);
+  return { un, sess, conv, prod, agente: porAtendente(un, conv), cand: conv.map(c => c.__c) };
+}
+
+/* ------------------------------------------------------------ cálculo por sessão ------------------------------------------------------------ */
+function calcular(un, sessoes, agentes, filas, vars) {
+  const sess = [], conv = [];
+  for (const s of sessoes) {
+    const ch = s.chat && s.chat.chat || {}, v = vars.get(ch.chatId) || {};
+    const m = (s.messages || []).slice().sort((a, b) => ms(a.creationTime) - ms(b.creationTime));
+    const nu = m.filter(x => x.from === 'user').length, nb = m.filter(x => x.from === 'bot').length, ag = m.filter(x => x.from === 'agent'), np = ag.length;
+    const tip = v.t || null;
+    sess.push({
+      'ID da sessão': s.id, 'Data da sessão': brData(s.creationTime), 'Horário da sessão': loc(s.creationTime).getUTCHours(),
+      'ID do canal': ch.channelId || '', 'ID do contato/Telefone': ch.contactId || '', 'Mensagens do usuário': nu, 'Mensagens do Bot': nb,
+      'Mensagens do operador': np, 'Operador falou': np ? 1 : 0, 'Tipificação': tip, 'Link da conversa': ''
+    });
+    if (!np) continue;
+    const t = m.map(x => ms(x.creationTime)), i1 = m.findIndex(x => x.from === 'agent'), tAg1 = t[i1];
+    const ult = m[m.length - 1], tUlt = ms(ult.creationTime), ultAg = [...m].reverse().find(x => x.from === 'agent');
+    // tempo de resposta: da última mensagem do cliente (antes de uma resposta do atendente) até essa resposta
+    const resp = [], respApos1 = [];
+    let pend = null, primeira = true;
+    for (const x of m) {
+      if (x.from === 'user') { if (pend == null) pend = ms(x.creationTime) }
+      else if (x.from === 'agent' && pend != null) { const d = (ms(x.creationTime) - pend) / 1000; resp.push(d); if (!primeira) respApos1.push(d); primeira = false; pend = null }
+      else if (x.from === 'agent') primeira = false;
+    }
+    // espera: desde a última mensagem do bot (ou do cliente) antes do 1º atendente
+    const antes = m.slice(0, i1);
+    const ultBot = [...antes].reverse().find(x => x.from === 'bot'), ultUser = [...antes].reverse().find(x => x.from === 'user');
+    const aBot = ultBot ? (tAg1 - ms(ultBot.creationTime)) / 1000 : null, aUser = ultUser ? (tAg1 - ms(ultUser.creationTime)) / 1000 : null;
+    // atendente e fila: quem falou por último; transferências = trocas de atendente ou de fila entre mensagens do atendente
+    let tr = 0; for (let k = 1; k < ag.length; k++) if (ag[k].agentId !== ag[k - 1].agentId || (ag[k].queueId && ag[k - 1].queueId && ag[k].queueId !== ag[k - 1].queueId)) tr++;
+    const idAg = ultAg.agentId, nomeAg = (agentes.get(idAg) || {}).name || idAg || '';
+    const qid = ultAg.queueId || [...m].reverse().find(x => x.queueId)?.queueId, fila = filas.get(qid) || qid || '—';
+    const c = {
+      co1: (tUlt - tAg1) / 1000, co2: (ms(ultAg.creationTime) - tAg1) / 1000, tt: (tUlt - t[0]) / 1000,
+      eoUser: aUser, efBot: aBot, tmrTodas: media(resp), tmrApos1: media(respApos1)
+    };
+    conv.push({
+      'ID da sessão': s.id, 'Data do início da sessão': brHora(s.creationTime), 'Nome do operador': nomeAg, 'Fila': fila, 'Tipificação': tip,
+      'Quantidade de Respostas': np, 'Tempo médio de resposta': arred(c.tmrTodas, 0), 'Espera em Fila': arred(c.efBot, 0), 'Espera por operador': arred(c.eoUser, 0),
+      'Conversa com operador': arred(c.co1, 0), 'Total de conversa': arred(c.tt, 0), 'Operador saiu': 0, 'Usuário saiu': 0,
+      'dashboardDownload.header.agentTimeout': 0, 'dashboardDownload.header.userTimeout': 0, 'Transferências realizadas': tr,
+      __nps: v.nps, __c: c, __d: diaLoc(s.creationTime), __ag: idAg
+    });
+  }
+  return { sess, conv };
+}
+
+/* ------------------------------------------------------------ produtividade (auditorias, 1 chamada por minuto) ------------------------------------------------------------ */
+async function produtividade(get, un, agentes) {
+  const ev = new Map();
+  for (const sec of ['agent-login', 'agent']) {
+    await paginas(get, `/audits/${sec}?from=${enc(T0)}&to=${enc(T1)}&limit=500`, it => {
+      for (const a of it) {
+        const c = a.change || {}, st = c.AVAILABLE_STATUS, quando = c.LAST_STATUS_CHANGE || a.creationTime;
+        if (!st || !quando) continue;
+        const email = (c.EMAIL || a.authorEmail || '').toLowerCase(), nome = c.NAME || a.authorName || email;
+        ev.set(email + '|' + quando + '|' + st, { email, nome, st: String(st).toLowerCase(), t: ms(quando) });
+      }
+    }, { minuto: true });
+    await esp(1000);
+  }
+  const por = new Map();
+  for (const e of ev.values()) { if (!por.has(e.email)) por.set(e.email, []); por.get(e.email).push(e) }
+  const out = [], fim = ms(T1);
+  for (const [email, l] of por) {
+    l.sort((a, b) => a.t - b.t);
+    for (let i = 0; i < l.length; i++) {
+      const e = l[i], t0 = Math.max(e.t, ms(T0)), t1 = i + 1 < l.length ? l[i + 1].t : fim;
+      if (e.st === 'offline' || t1 <= t0) continue;
+      const iso0 = new Date(t0).toISOString(), iso1 = new Date(t1).toISOString();
+      out.push({ 'Atendente': e.nome, 'E-mail': email, 'Status': STATUS[e.st] || e.st, 'Checkin': brHora(iso0), 'Checkout': brHora(iso1), 'Duração (min)': arred((t1 - t0) / 6e4, 2), 'Fila': '' });
+    }
+  }
+  return out;
+}
+
+/* ------------------------------------------------------------ por atendente (a partir das conversas da janela) ------------------------------------------------------------ */
+function porAtendente(un, conv) {
+  const g = new Map();
+  for (const c of conv) {
+    const k = c['Nome do operador'] + '|' + c['Fila'];
+    if (!g.has(k)) g.set(k, { o: c['Nome do operador'], q: c['Fila'], n: 0, r: 0, tmr: [], nps: [], tr: 0, co: [] });
+    const x = g.get(k); x.n++; x.r += c['Quantidade de Respostas'] || 0; x.tr += c['Transferências realizadas'] || 0;
+    if (c['Tempo médio de resposta'] != null) x.tmr.push(c['Tempo médio de resposta']);
+    if (c['Conversa com operador'] != null) x.co.push(c['Conversa com operador']);
+    const n = parseFloat(String(c.__nps ?? '').match(/\d+/)?.[0]); if (n >= 1 && n <= 5) x.nps.push(n);
+  }
+  return [...g.values()].map(x => ({ 'Atendente': x.o, 'Fila': x.q, 'Conversas fechadas': x.n, 'Quantidade de respostas': x.r, 'Tempo médio de resposta': arred(media(x.tmr), 0), 'NPS': arred(media(x.nps), 2), 'Transferências recebidas': 0, 'Transferências realizadas': x.tr, 'Atendente saiu': 0, 'Usuário saiu': 0, 'Conversa com atendente': arred(media(x.co), 0) }));
+}
+
+/* ------------------------------------------------------------ validação: só números agregados ------------------------------------------------------------ */
+function resumo(r) {
+  const dias = {};
+  const d = x => dias[x] ??= { sessoes: 0, comOperador: 0, prod_linhas: 0, prod_min: {}, filas: {}, operadores: {}, tip: {}, c: { co1: [], co2: [], tt: [], eoUser: [], efBot: [], tmrTodas: [], tmrApos1: [] }, r: [], tr: 0 };
+  for (const s of r.sess) d(s['Data da sessão'].split('/').reverse().join('-')).sessoes++;
+  for (const c of r.conv) {
+    const x = d(c.__d); x.comOperador++; x.filas[c.Fila] = (x.filas[c.Fila] || 0) + 1; x.operadores[c['Nome do operador']] = (x.operadores[c['Nome do operador']] || 0) + 1;
+    x.tip[c['Tipificação'] || '(nulo)'] = (x.tip[c['Tipificação'] || '(nulo)'] || 0) + 1; x.r.push(c['Quantidade de Respostas']); x.tr += c['Transferências realizadas'];
+    for (const k in x.c) if (c.__c[k] != null && isFinite(c.__c[k])) x.c[k].push(c.__c[k]);
+  }
+  for (const p of r.prod) { const x = d(p.Checkin.slice(0, 10).split('/').reverse().join('-')); x.prod_linhas++; x.prod_min[p.Status] = arred((x.prod_min[p.Status] || 0) + p['Duração (min)'], 1) }
+  const top = (o, n = 12) => Object.fromEntries(Object.entries(o).sort((a, b) => b[1] - a[1]).slice(0, n));
+  return Object.fromEntries(Object.entries(dias).sort().map(([k, x]) => [k, {
+    sessoes: x.sessoes, comOperador: x.comOperador, respostas_media: arred(media(x.r), 2), transferencias: x.tr, prod_linhas: x.prod_linhas, prod_min: x.prod_min,
+    filas: top(x.filas), operadores: top(x.operadores, 15), tipificacao: top(x.tip),
+    candidatos_seg: Object.fromEntries(Object.entries(x.c).map(([c, a]) => [c, { n: a.length, mediana: arred(mediana(a), 0), media: arred(media(a), 0) }]))
+  }]));
+}
+
+/* ------------------------------------------------------------ envio ao servidor ------------------------------------------------------------ */
+async function enviar(saida) {
+  const API = process.env.SERVIDOR_URL, usuario = process.env.INTEGRACAO_USUARIO, senha = process.env.INTEGRACAO_SENHA;
+  if (!API || !usuario || !senha) throw new Error('Faltam SERVIDOR_URL, INTEGRACAO_USUARIO e INTEGRACAO_SENHA (secrets do repositório).');
+  const j = async (p, o = {}) => { const r = await fetch(API + p, o); const t = await r.text(); let b = null; try { b = JSON.parse(t) } catch (e) { } if (!r.ok) throw new Error(p + ' → ' + r.status + ' ' + (b && b.erro || t.slice(0, 120))); return b ?? t };
+  const lg = await j('/entrar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ usuario, senha }) });
+  const H = { Authorization: 'Bearer ' + lg.token };
+  const progresso = (fase, mensagem, pct, extra = {}) => j('/botmaker/progresso', { method: 'POST', headers: { ...H, 'Content-Type': 'application/json' }, body: JSON.stringify({ fase, mensagem, pct, ...extra }) }).catch(() => { });
+  const b64 = zlib.gzipSync(Buffer.from(JSON.stringify(saida))).toString('base64'), CH = 600000, rev = Date.now(), de = Math.max(1, Math.ceil(b64.length / CH));
+  await progresso('enviando', 'Enviando ' + (b64.length / 1e6).toFixed(1) + ' MB ao servidor…', 80);
+  for (let i = 0; i < de; i++) await j(`/arquivo/api-fila?rev=${rev}&n=${i}&de=${de}`, { method: 'PUT', headers: { ...H, 'Content-Type': 'text/plain' }, body: b64.slice(i * CH, (i + 1) * CH) });
+  await progresso('pronto', 'Dados novos prontos para importar.', 100, { rev, janela: saida.janela, contagem: saida.contagem });
+  return progresso;
+}
+
+/* ------------------------------------------------------------ principal ------------------------------------------------------------ */
+async function principal() {
+  console.log('Modo', MODO, 'janela', T0, '→', T1, longo ? '(histórico longo)' : '');
+  const rs = [];
+  const tarefas = CONTAS.map(c => lerConta(c).then(r => rs.push(r)));
+  const falhas = (await Promise.allSettled(tarefas)).filter(x => x.status === 'rejected').map(x => String(x.reason && x.reason.message || x.reason));
+  if (MODO === 'validar') {
+    const out = { gerado_em: new Date().toISOString(), janela: [T0, T1], falhas, contas: Object.fromEntries(rs.map(r => [r.un, resumo(r)])) };
+    fs.mkdirSync('servidor/botmaker/resultado', { recursive: true });
+    fs.writeFileSync('servidor/botmaker/resultado/validacao.json', JSON.stringify(out, null, 1));
+    console.log('validação gravada');
+  } else {
+    const clean = a => a.map(o => Object.fromEntries(Object.entries(o).filter(([k]) => !k.startsWith('__'))));
+    const saida = { gerado_em: new Date().toISOString(), janela: [T0, T1], falhas, contas: Object.fromEntries(rs.map(r => [r.un, { sess: clean(r.sess), conv: clean(r.conv), prod: r.prod, agente: r.agente }])) };
+    saida.contagem = Object.fromEntries(rs.map(r => [r.un, { sess: r.sess.length, conv: r.conv.length, prod: r.prod.length }]));
+    await enviar(saida);
+    console.log('enviado', JSON.stringify(saida.contagem));
+  }
+  if (falhas.length) { console.error('Falhas:', falhas.join(' | ')); process.exitCode = 1 }
+}
+principal().catch(async e => { console.error(e); process.exit(1) });

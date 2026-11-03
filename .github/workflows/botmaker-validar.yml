@@ -1,0 +1,39 @@
+name: Botmaker - validar números da API (só agregados)
+on:
+  workflow_dispatch:
+    inputs:
+      de:
+        description: 'Data inicial aaaa-mm-dd'
+        default: '2026-09-30'
+      ate:
+        description: 'Data final aaaa-mm-dd'
+        default: '2026-10-02'
+permissions:
+  contents: write
+jobs:
+  validar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Calcular e gravar só agregados
+        env:
+          MODO: validar
+          DE: ${{ inputs.de }}
+          ATE: ${{ inputs.ate }}
+          SEM_VARIAVEIS: '1'
+          BOTMAKER_TOKEN_UVA: ${{ secrets.UNIVERSIDADEVEIGAALMEIDA }}
+          BOTMAKER_TOKEN_UJ: ${{ secrets.UNIJORGE }}
+        run: node servidor/botmaker/sync.mjs
+      - name: Salvar agregados no repositório
+        if: always()
+        run: |
+          git config user.name "robo-botmaker"
+          git config user.email "robo@users.noreply.github.com"
+          git add servidor/botmaker/resultado/validacao.json
+          git commit -m "Validação da API Botmaker (agregados)" || echo "sem mudanças"
+          git pull --rebase
+          git push
