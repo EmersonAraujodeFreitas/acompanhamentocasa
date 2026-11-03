@@ -77,6 +77,7 @@ async function paginas(get, caminho, fn, opt = {}) {
   return n;
 }
 const mediana = a => { if (!a.length) return null; const s = [...a].sort((x, y) => x - y), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2 };
+const pct = (a, q) => { if (!a.length) return null; const s = [...a].sort((x, y) => x - y); return s[Math.min(s.length - 1, Math.floor(q * s.length))] };
 const media = a => a.length ? a.reduce((s, x) => s + x, 0) / a.length : null;
 const arred = (x, c = 1) => x == null ? null : Math.round(x * 10 ** c) / 10 ** c;
 
@@ -154,7 +155,10 @@ function calcular(un, sessoes, agentes, filas, vars) {
     let tr = 0; for (let k = 1; k < ag.length; k++) if (ag[k].agentId !== ag[k - 1].agentId || (ag[k].queueId && ag[k - 1].queueId && ag[k].queueId !== ag[k - 1].queueId)) tr++;
     const idAg = ultAg.agentId, nomeAg = (agentes.get(idAg) || {}).name || idAg || '';
     const qid = ultAg.queueId || [...m].reverse().find(x => x.queueId)?.queueId, fila = filas.get(qid) || qid || '—';
+    const pq = m.findIndex(x => x.queueId), tQ = pq >= 0 ? t[pq] : null, tUserPrimeira = (m.find(x => x.from === 'user') || {}).creationTime;
     const c = {
+      esperaInicio: (tAg1 - t[0]) / 1000, esperaFila1: tQ != null && tQ <= tAg1 ? (tAg1 - tQ) / 1000 : null,
+      esperaUser1: tUserPrimeira ? Math.max(0, (tAg1 - ms(tUserPrimeira)) / 1000) : null, respPrimeira: resp.length ? resp[0] : null,
       co1: (tUlt - tAg1) / 1000, co2: (ms(ultAg.creationTime) - tAg1) / 1000, tt: (tUlt - t[0]) / 1000,
       eoUser: aUser, efBot: aBot, tmrTodas: media(resp), tmrApos1: media(respApos1)
     };
@@ -221,7 +225,7 @@ function porAtendente(un, conv) {
 /* ------------------------------------------------------------ validação: só números agregados ------------------------------------------------------------ */
 function resumo(r) {
   const dias = {};
-  const d = x => dias[x] ??= { sessoes: 0, comOperador: 0, prod_linhas: 0, prod_min: {}, filas: {}, operadores: {}, tip: {}, c: { co1: [], co2: [], tt: [], eoUser: [], efBot: [], tmrTodas: [], tmrApos1: [] }, r: [], tr: 0 };
+  const d = x => dias[x] ??= { sessoes: 0, comOperador: 0, prod_linhas: 0, prod_min: {}, filas: {}, operadores: {}, tip: {}, c: { co1: [], co2: [], tt: [], eoUser: [], efBot: [], tmrTodas: [], tmrApos1: [], esperaInicio: [], esperaFila1: [], esperaUser1: [], respPrimeira: [] }, r: [], tr: 0 };
   for (const s of r.sess) d(s['Data da sessão'].split('/').reverse().join('-')).sessoes++;
   for (const c of r.conv) {
     const x = d(c.__d); x.comOperador++; x.filas[c.Fila] = (x.filas[c.Fila] || 0) + 1; x.operadores[c['Nome do operador']] = (x.operadores[c['Nome do operador']] || 0) + 1;
@@ -233,7 +237,7 @@ function resumo(r) {
   return Object.fromEntries(Object.entries(dias).sort().map(([k, x]) => [k, {
     sessoes: x.sessoes, comOperador: x.comOperador, respostas_media: arred(media(x.r), 2), transferencias: x.tr, prod_linhas: x.prod_linhas, prod_min: x.prod_min,
     filas: top(x.filas), operadores: top(x.operadores, 15), tipificacao: top(x.tip),
-    candidatos_seg: Object.fromEntries(Object.entries(x.c).map(([c, a]) => [c, { n: a.length, mediana: arred(mediana(a), 0), media: arred(media(a), 0) }]))
+    candidatos_seg: Object.fromEntries(Object.entries(x.c).map(([c, a]) => [c, { n: a.length, p25: arred(pct(a, .25), 0), mediana: arred(mediana(a), 0), p75: arred(pct(a, .75), 0), media: arred(media(a), 0) }]))
   }]));
 }
 
