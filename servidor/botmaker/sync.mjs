@@ -54,17 +54,25 @@ function cliente(token, rotulo) {
   };
 }
 async function paginas(get, caminho, fn, opt = {}) {
-  let url = caminho, n = 0;
+  let url = caminho, n = 0, ant = null;
+  const comMsgs = /include-messages=true/.test(caminho), comLongo = /long-term-search=true/.test(caminho);
   for (let p = 0; p < (opt.max || 400) && url; p++) {
     const b = await get(url, opt);
     if (b.status >= 400 || !b.j) throw new Error('Falha em ' + caminho.split('?')[0] + ' (' + b.status + '): ' + (b.j ? JSON.stringify(b.j).slice(0, 200) : b.texto));
     const it = b.j.items || [];
-    n += it.length;
+    const marca = it.length ? JSON.stringify([it[0].id || it[0].creationTime || '', it[it.length - 1].id || it[it.length - 1].creationTime || '']) : '';
+    if (marca && marca === ant) { console.warn('Paginação repetiu a mesma página em ' + caminho.split('?')[0] + '; parando.'); break }
+    ant = marca; n += it.length;
     if (fn(it) === false) break;
-    const nx = b.j.nextPage;
+    let nx = b.j.nextPage;
     if (!nx || !it.length) break;
-    const tk = (String(nx).match(/page-token=([^&]+)/) || [])[1];
-    url = tk ? caminho.replace(/&?page-token=[^&]*/, '') + '&page-token=' + tk : null;
+    nx = String(nx);
+    if (!nx.startsWith('http')) { const tk = nx; nx = caminho.replace(/&?page-token=[^&]*/, '') + '&page-token=' + enc(tk) }
+    else {   // o endereço devolvido já carrega a consulta; só refazemos o que ele pode ter perdido
+      if (comMsgs) nx = nx.replace(/include-messages=false/, 'include-messages=true');
+      if (comLongo && !/long-term-search=/.test(nx)) nx += '&long-term-search=true';
+    }
+    url = nx;
   }
   return n;
 }
@@ -84,7 +92,8 @@ async function lerConta([un, token]) {
   // sessões com as mensagens aninhadas (uma passada só)
   const sessoes = [];
   const q = `/sessions?from=${enc(T0)}&to=${enc(T1)}&limit=100&include-messages=true` + (longo ? '&long-term-search=true' : '');
-  await paginas(get, q, it => { it.forEach(s => sessoes.push(s)); if (sessoes.length % 1000 < it.length) prog('sessões lidas', sessoes.length) });
+  const vistas = new Set(), i0 = ms(T0), i1 = ms(T1);
+  await paginas(get, q, it => { it.forEach(s => { const t = ms(s.creationTime); if (t >= i0 && t <= i1 && !vistas.has(s.id)) { vistas.add(s.id); sessoes.push(s) } }); if (it.length && ms(it[it.length - 1].creationTime) > i1) return false; if (sessoes.length % 1000 < it.length) prog('sessões lidas', sessoes.length) });
   prog('sessões', sessoes.length);
   await avanco(un, 45, 'Lendo ' + nome + ': ' + sessoes.length + ' sessões com mensagens…');
 
