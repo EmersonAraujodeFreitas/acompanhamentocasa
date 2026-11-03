@@ -1,0 +1,556 @@
+{
+ "gerado_em": "2026-11-03T16:50:47.343Z",
+ "contas": {
+  "UVA": {
+   "sessoes": {
+    "status": 200,
+    "ms": 1264,
+    "n": 500,
+    "startingCause": {
+     "Organic": 279,
+     "WhatsAppTemplate": 195,
+     "Referral": 26
+    },
+    "primeira": "2026-11-02T15:57:13Z",
+    "ultima": "2026-11-03T12:05:11Z",
+    "filtro ?from": {
+     "status": 200,
+     "n": 500,
+     "primeira": "2026-11-02T16:52:21Z",
+     "ultima": "2026-11-03T12:09:01Z"
+    },
+    "filtro ?startDate": {
+     "status": 200,
+     "n": 500,
+     "primeira": "2026-11-02T15:57:13Z",
+     "ultima": "2026-11-03T12:05:11Z"
+    },
+    "filtro ?creationTimeFrom": {
+     "status": 200,
+     "n": 500,
+     "primeira": "2026-11-02T15:57:13Z",
+     "ultima": "2026-11-03T12:05:11Z"
+    },
+    "filtro ?sessionCreationTimeFrom": {
+     "status": 200,
+     "n": 500,
+     "primeira": "2026-11-02T15:57:13Z",
+     "ultima": "2026-11-03T12:05:11Z"
+    }
+   },
+   "mensagens": {
+    "status": 200,
+    "ms": 187,
+    "n": 250,
+    "from": {
+     "user": 99,
+     "bot": 89,
+     "agent": 62
+    },
+    "tipo": {
+     "text": 148,
+     "buttons": 46,
+     "button-click": 40,
+     "image": 15,
+     "file": 1
+    },
+    "comQueue": {
+     "com fila": 228,
+     "sem fila": 22
+    },
+    "campos": [
+     "id",
+     "creationTime",
+     "from",
+     "agentId",
+     "queueId",
+     "content",
+     "sessionCreationTime",
+     "chat",
+     "sessionId"
+    ],
+    "porSessao": {
+     "status": 429,
+     "n": null
+    }
+   },
+   "atendentes": {
+    "status": 200,
+    "n": 65,
+    "status_valores": {
+     "busy": 35,
+     "online_not_available": 15,
+     "online": 12,
+     "descanso": 2,
+     "treinamento": 1
+    },
+    "role": {
+     "OPERATOR": 21,
+     "ADMIN": 17,
+     "SUPERVISOR": 13,
+     "W5621GWKNWQVE8GAUIAY": 11,
+     "CONFIGURATOR": 2,
+     "AZVMEMYL4JT5XB4MVUPI": 1
+    },
+    "online": {
+     "false": 51,
+     "true": 14
+    },
+    "prioridade": {
+     "never": 35,
+     "high": 25,
+     "normal": 5
+    }
+   },
+   "chats": {
+    "status": 200,
+    "n": 250,
+    "canais": {
+     "universidadeveigaalmeida-whatsapp-552139": 211,
+     "universidadeveigaalmeida-webchat-null-H3": 30,
+     "universidadeveigaalmeida-instagram_chat-": 9
+    },
+    "variaveis_mais_comuns": {
+     "nomeCandidato": 198,
+     "status": 185,
+     "curso": 174,
+     "fluxo": 168,
+     "classificargradpos": 137,
+     "template": 130,
+     "CPF": 129,
+     "dealId": 111,
+     "categoria": 111,
+     "platformContactId": 109,
+     "campus": 105,
+     "origem": 101,
+     "IES": 98,
+     "cursoBaseDeDados": 96,
+     "cursocc": 91,
+     "turno": 87,
+     "cursoPrecoBruto": 87,
+     "primeiraMensalComDesconto": 87,
+     "primeiraMensalidade": 87,
+     "outrasMensalidades": 87,
+     "outrasMensalComDesconto": 87,
+     "matchCursos": 84,
+     "campusBaseDeDados": 84,
+     "origem_integracao": 82,
+     "periodo_atual": 82,
+     "tipoLead": 82,
+     "chavecursoturno": 81,
+     "origemcontact": 78,
+     "email": 78,
+     "ca_error": 77,
+     "UltimaPaginaVista": 77,
+     "contactId": 76,
+     "emailCandidato": 73,
+     "nome_deal": 73,
+     "codCampus": 73,
+     "codCurso": 73,
+     "actionCallerOperatorId": 72,
+     "telefonecandidato": 65,
+     "confirmacao_dados": 61,
+     "waApiExposed": 54
+    }
+   },
+   "rotas": {
+    "/audits": {
+     "status": 500,
+     "topo": ""
+    },
+    "/audits/agents": {
+     "status": 400,
+     "topo": [
+      "errors"
+     ]
+    },
+    "/audits/agent-status": {
+     "status": 400,
+     "topo": [
+      "errors"
+     ]
+    },
+    "/audit": {
+     "status": 500,
+     "topo": ""
+    },
+    "/agents/status": {
+     "status": 500,
+     "topo": ""
+    },
+    "/agents/audits": {
+     "status": 500,
+     "topo": ""
+    },
+    "/agents/activity": {
+     "status": 500,
+     "topo": ""
+    },
+    "/agents/status-history": {
+     "status": 500,
+     "topo": ""
+    },
+    "/agent-status": {
+     "status": 500,
+     "topo": ""
+    },
+    "/agents/reports": {
+     "status": 500,
+     "topo": ""
+    },
+    "/reports": {
+     "status": 500,
+     "topo": ""
+    },
+    "/reports/agents": {
+     "status": 500,
+     "topo": ""
+    },
+    "/reports/conversations": {
+     "status": 500,
+     "topo": ""
+    },
+    "/reports/sessions": {
+     "status": 500,
+     "topo": ""
+    },
+    "/metrics": {
+     "status": 500,
+     "topo": ""
+    },
+    "/dashboards/agents": {
+     "status": 500,
+     "topo": ""
+    },
+    "/dashboards/sessions": {
+     "status": 500,
+     "topo": ""
+    },
+    "/dashboards/conversations": {
+     "status": 500,
+     "topo": ""
+    },
+    "/dashboards": {
+     "status": 500,
+     "topo": ""
+    },
+    "/billing": {
+     "status": 500,
+     "topo": ""
+    },
+    "/billing/usage": {
+     "status": 500,
+     "topo": ""
+    },
+    "/billing/messages": {
+     "status": 500,
+     "topo": ""
+    },
+    "/chats/metrics": {
+     "status": 404,
+     "topo": [
+      "servlet",
+      "message",
+      "url",
+      "status"
+     ]
+    },
+    "/sessions/metrics": {
+     "status": 500,
+     "topo": ""
+    },
+    "/attention-queues/metrics": {
+     "status": 404,
+     "topo": [
+      "error"
+     ]
+    },
+    "/chats-actions": {
+     "status": 500,
+     "topo": ""
+    },
+    "/chats/actions": {
+     "status": 404,
+     "topo": [
+      "servlet",
+      "message",
+      "url",
+      "status"
+     ]
+    },
+    "/ratings": {
+     "status": 500,
+     "topo": ""
+    },
+    "/surveys": {
+     "status": 500,
+     "topo": ""
+    },
+    "/nps": {
+     "status": 500,
+     "topo": ""
+    }
+   }
+  },
+  "UJ": {
+   "sessoes": {
+    "status": 200,
+    "ms": 1313,
+    "n": 500,
+    "startingCause": {
+     "WhatsAppTemplate": 313,
+     "Organic": 178,
+     "Referral": 9
+    },
+    "primeira": "2026-11-02T16:03:49Z",
+    "ultima": "2026-11-03T12:03:22Z",
+    "filtro ?from": {
+     "status": 200,
+     "n": 500,
+     "primeira": "2026-11-02T16:53:03Z",
+     "ultima": "2026-11-03T12:03:24Z"
+    },
+    "filtro ?startDate": {
+     "status": 200,
+     "n": 500,
+     "primeira": "2026-11-02T16:03:49Z",
+     "ultima": "2026-11-03T12:03:22Z"
+    },
+    "filtro ?creationTimeFrom": {
+     "status": 200,
+     "n": 500,
+     "primeira": "2026-11-02T16:03:49Z",
+     "ultima": "2026-11-03T12:03:22Z"
+    },
+    "filtro ?sessionCreationTimeFrom": {
+     "status": 200,
+     "n": 500,
+     "primeira": "2026-11-02T16:03:49Z",
+     "ultima": "2026-11-03T12:03:22Z"
+    }
+   },
+   "mensagens": {
+    "status": 204,
+    "ms": 41,
+    "n": 0,
+    "from": {},
+    "tipo": {},
+    "comQueue": {},
+    "campos": []
+   },
+   "atendentes": {
+    "status": 200,
+    "n": 54,
+    "status_valores": {
+     "busy": 28,
+     "online_not_available": 15,
+     "online": 11
+    },
+    "role": {
+     "OPERATOR": 22,
+     "ADMIN": 18,
+     "SUPERVISOR": 12,
+     "CONFIGURATOR": 2
+    },
+    "online": {
+     "false": 43,
+     "true": 11
+    },
+    "prioridade": {
+     "never": 31,
+     "high": 20,
+     "normal": 3
+    }
+   },
+   "chats": {
+    "status": 200,
+    "n": 250,
+    "canais": {
+     "unijorge-whatsapp-557132068001": 231,
+     "unijorge-webchat-null-XMKY5EMFFV": 18,
+     "unijorge-instagram_chat-1784140105462502": 1
+    },
+    "variaveis_mais_comuns": {
+     "nomeCandidato": 222,
+     "template": 195,
+     "contactId": 190,
+     "platformContactId": 187,
+     "curso": 135,
+     "status": 90,
+     "fluxo": 80,
+     "Classificargrapos": 63,
+     "CPF": 58,
+     "categoria": 49,
+     "modalidade": 48,
+     "campus": 47,
+     "dealId": 47,
+     "cursoBaseDeDados": 46,
+     "formaDeIngresso": 45,
+     "IES": 45,
+     "periodo_atual": 43,
+     "email": 41,
+     "cursoPrecoBruto": 40,
+     "primeiraMensalComDesconto": 40,
+     "primeiraMensalidade": 40,
+     "outrasMensalidades": 40,
+     "outrasMensalComDesconto": 40,
+     "actionCallerOperatorId": 40,
+     "origem_integracao": 39,
+     "turno": 39,
+     "ca_error": 39,
+     "tipoLead": 39,
+     "matchCursos": 39,
+     "campusBaseDeDados": 38,
+     "origem": 36,
+     "Origemcontact": 36,
+     "Marcas": 36,
+     "emailCandidato": 33,
+     "nome_deal": 32,
+     "codCampus": 31,
+     "codCurso": 31,
+     "confirmacaodadoscada": 31,
+     "waApiExposed": 30,
+     "encontrou_registro": 29
+    }
+   },
+   "rotas": {
+    "/audits": {
+     "status": 500,
+     "topo": ""
+    },
+    "/audits/agents": {
+     "status": 400,
+     "topo": [
+      "errors"
+     ]
+    },
+    "/audits/agent-status": {
+     "status": 400,
+     "topo": [
+      "errors"
+     ]
+    },
+    "/audit": {
+     "status": 500,
+     "topo": ""
+    },
+    "/agents/status": {
+     "status": 500,
+     "topo": ""
+    },
+    "/agents/audits": {
+     "status": 500,
+     "topo": ""
+    },
+    "/agents/activity": {
+     "status": 500,
+     "topo": ""
+    },
+    "/agents/status-history": {
+     "status": 500,
+     "topo": ""
+    },
+    "/agent-status": {
+     "status": 500,
+     "topo": ""
+    },
+    "/agents/reports": {
+     "status": 500,
+     "topo": ""
+    },
+    "/reports": {
+     "status": 500,
+     "topo": ""
+    },
+    "/reports/agents": {
+     "status": 500,
+     "topo": ""
+    },
+    "/reports/conversations": {
+     "status": 500,
+     "topo": ""
+    },
+    "/reports/sessions": {
+     "status": 500,
+     "topo": ""
+    },
+    "/metrics": {
+     "status": 500,
+     "topo": ""
+    },
+    "/dashboards/agents": {
+     "status": 500,
+     "topo": ""
+    },
+    "/dashboards/sessions": {
+     "status": 500,
+     "topo": ""
+    },
+    "/dashboards/conversations": {
+     "status": 500,
+     "topo": ""
+    },
+    "/dashboards": {
+     "status": 500,
+     "topo": ""
+    },
+    "/billing": {
+     "status": 500,
+     "topo": ""
+    },
+    "/billing/usage": {
+     "status": 500,
+     "topo": ""
+    },
+    "/billing/messages": {
+     "status": 500,
+     "topo": ""
+    },
+    "/chats/metrics": {
+     "status": 404,
+     "topo": [
+      "servlet",
+      "message",
+      "url",
+      "status"
+     ]
+    },
+    "/sessions/metrics": {
+     "status": 500,
+     "topo": ""
+    },
+    "/attention-queues/metrics": {
+     "status": 404,
+     "topo": [
+      "error"
+     ]
+    },
+    "/chats-actions": {
+     "status": 500,
+     "topo": ""
+    },
+    "/chats/actions": {
+     "status": 404,
+     "topo": [
+      "servlet",
+      "message",
+      "url",
+      "status"
+     ]
+    },
+    "/ratings": {
+     "status": 500,
+     "topo": ""
+    },
+    "/surveys": {
+     "status": 500,
+     "topo": ""
+    },
+    "/nps": {
+     "status": 500,
+     "topo": ""
+    }
+   }
+  }
+ }
+}
