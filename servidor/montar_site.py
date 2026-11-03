@@ -12,7 +12,7 @@ i=s.find("o.innerHTML=`");j=s.find("`;",i);tpl=s[i+len("o.innerHTML=`"):j]
 # 2) shell novo
 a=s.find("<script>(async()=>{const mn=document.getElementById('mn')");b=s.find("})();</script>",a)+len("})();</script>")
 assert a>0 and b>a
-shell=open(R+'/cliente/shell.js',encoding='utf-8').read().replace('__API__',json.dumps(API)).replace('__LGT__',json.dumps(tpl,ensure_ascii=False))
+shell=open(R+'/cliente/shell.js',encoding='utf-8').read().replace('__API__',json.dumps(API)).replace('__LGT__',json.dumps(tpl,ensure_ascii=False)).replace('__STUBJSON__',open(R+'/cliente/stub.json',encoding='utf-8').read())
 s=s[:a]+'<script>'+shell+'</script>'+s[b:]
 # 3) app: dados e permissões pelo servidor
 k=re.search(r"const tokGet=\(\)=>\{try\{return localStorage.getItem\('ghtok'\)\|\|''\}catch\(e\)\{return''\}\}",s); assert k

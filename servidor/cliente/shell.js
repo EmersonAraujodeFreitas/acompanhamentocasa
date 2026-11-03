@@ -37,9 +37,14 @@ try{const sv=localStorage.getItem('sess2');if(sv){A.tok=sv;const r=await F0(API+
 while(!est){await loginUI(msg);msg='';const r=await F0(API+'/estado',{headers:{Authorization:'Bearer '+A.tok},cache:'no-store'});if(r.ok)est=await r.json();else{let j={};try{j=await r.json()}catch(e){}msg=j.erro||'Não foi possível entrar.';A.tok=''}}
 try{localStorage.setItem('sess2',A.tok)}catch(e){}
 aplicar(est);
-let txt=null;try{let t;try{t=await A.get('data')}catch(e){if(e.status==403){parar('<p>Seu perfil não tem acesso aos dados deste painel. Peça ao administrador para liberar as guias.</p>');return}throw e}
+let txt=null;try{let t;try{t=await A.get('data')}catch(e){if(e.status==403){if(A.perm.abas.length){t='__STUB__'}else{parar('<p>Seu perfil não tem acesso aos dados deste painel. Peça ao administrador para liberar as guias.</p>');return}}else throw e}
 if(!t){parar('<p>O servidor ainda não tem os dados do painel.</p><p>O administrador deve usar o botão <b>Migrar para o servidor novo</b> no site atual (ou importar as bases e publicar).</p>');return}
-txt=await A.dec(b64d(t).buffer);window.__BOOT=JSON.parse(txt);txt=null}catch(e){mn.innerHTML='<div class="c w" style="margin:40px"><h3>Não foi possível carregar os dados</h3><p>Verifique a conexão e tente de novo. Detalhe: '+e.message+'</p></div>';return}
+if(t=='__STUB__')window.__BOOT=__STUBJSON__;else{txt=await A.dec(b64d(t).buffer);window.__BOOT=JSON.parse(txt)}txt=null}catch(e){mn.innerHTML='<div class="c w" style="margin:40px"><h3>Não foi possível carregar os dados</h3><p>Verifique a conexão e tente de novo. Detalhe: '+e.message+'</p></div>';return}
+/* a página abre no ambiente e na guia que o usuário tem liberados */
+try{let ln=null;try{ln=JSON.parse(localStorage.getItem('lastnav')||'null')}catch(e){}
+const okm=m=>!A.env||A.env.includes(m),ORD=['exec','uni','sess','team','a360','sla','qual','prod','cap','cross','rec','cons','bd','data','consimp','stat'],okp=p=>A.guia(p)&&!(['data','consimp','stat'].includes(p)&&!A.can('importar'));
+const m=ln&&okm(ln.m)?ln.m:(['s','b','o','h'].find(okm)||'b');let nv=ln&&ln.m==m?Object.assign({},ln):{};nv.m=m;if(m=='b'&&!okp(nv.pg))nv.pg=ORD.find(okp)||'exec';
+if(m=='o'&&nv.pnl&&0)delete nv.pnl;localStorage.setItem('lastnav',JSON.stringify(nv))}catch(e){}
 const s=document.createElement('script');s.textContent=document.getElementById('app').textContent;document.body.appendChild(s);
 /* ---------- menus e botões conforme o perfil ---------- */
 const ROT={data:'Importar bases',consimp:'Importar consumo',stat:'Importar status'};
