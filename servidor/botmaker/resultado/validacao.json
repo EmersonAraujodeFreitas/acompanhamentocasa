@@ -1,149 +1,169 @@
 {
- "gerado_em": "2026-11-03T20:03:57.576Z",
+ "gerado_em": "2026-11-03T20:07:06.097Z",
  "janela": [
-  "2026-09-30T03:00:00.000Z",
-  "2026-10-03T02:59:59.999Z"
+  "2026-10-01T03:00:00.000Z",
+  "2026-10-02T02:59:59.999Z"
  ],
  "falhas": [],
  "contas": {
   "UJ": {
-   "2026-09-30": {
-    "sessoes": 200000,
-    "comOperador": 6800,
-    "respostas_media": 9.35,
-    "transferencias": 800,
+   "2026-10-01": {
+    "sessoes": 632,
+    "comOperador": 207,
+    "respostas_media": 7.92,
+    "transferencias": 27,
     "prod_linhas": 0,
     "prod_min": {},
     "filas": {
-     "Fila Maturação": 2000,
-     "Fora do Horário | Admissão": 1200,
-     "fila-Aluno-ForaDoHorario": 800,
-     "Aluno | Serviços | fh": 800,
-     "Ex-aluno | Serviços | f.h": 400,
-     "Ex-aluno | Serviços": 400,
-     "fila-Alunos": 400,
-     "Pós Online | Lead": 400,
-     "Aluno | Serviços": 400
+     "Fila Maturação": 47,
+     "Default Queue": 47,
+     "Aluno | Serviços": 39,
+     "Pós Online | Lead": 15,
+     "Fora do Horário | Admissão": 13,
+     "Ex-aluno | Serviços": 12,
+     "Retenção de Alunos": 7,
+     "Fila_Graduação_Presencial": 5,
+     "Aluno | Serviços | fh": 5,
+     "Fila Conversão": 5,
+     "fila-Alunos": 4,
+     "admissao_webchat": 2
     },
     "operadores": {
-     "Paloma Amorim": 3200,
-     "Grécia Silva": 2800,
-     "Jota M": 800
+     "Grécia Silva": 55,
+     "Edilaine Ferreira": 46,
+     "Paloma Amorim": 40,
+     "Sabrina Fonseca de Almeida": 22,
+     "Matheus Barbosa Sousa": 18,
+     "Jota T": 7,
+     "Jota M": 4,
+     "Emerson": 4,
+     "Tais Silva": 3,
+     "Stephany Barbara Santos da Silva": 2,
+     "Alex Alves": 1,
+     "Daniela Rocha Da Silva": 1,
+     "Gilmar Santos Ribeiro Junior": 1,
+     "Ana Beatriz Marques De Andrade": 1,
+     "Antonio Daniel Fernandez Vale de Sous": 1
     },
     "tipificacao": {
-     "(nulo)": 6800
+     "(nulo)": 207
     },
     "candidatos_seg": {
      "co1": {
-      "n": 6800,
-      "mediana": 2572,
-      "media": 2707
+      "n": 207,
+      "mediana": 1767,
+      "media": 2655
      },
      "co2": {
-      "n": 6800,
-      "mediana": 1337,
-      "media": 1930
+      "n": 207,
+      "mediana": 1248,
+      "media": 1976
      },
      "tt": {
-      "n": 6800,
-      "mediana": 4243,
-      "media": 7340
+      "n": 207,
+      "mediana": 3294,
+      "media": 8499
      },
      "eoUser": {
-      "n": 5600,
-      "mediana": 48,
-      "media": 676
+      "n": 168,
+      "mediana": 80,
+      "media": 3351
      },
      "efBot": {
-      "n": 5600,
+      "n": 170,
       "mediana": 37,
-      "media": 299
+      "media": 912
      },
      "tmrTodas": {
-      "n": 6400,
-      "mediana": 496,
-      "media": 1271
+      "n": 184,
+      "mediana": 322,
+      "media": 3504
      },
      "tmrApos1": {
-      "n": 6000,
-      "mediana": 140,
-      "media": 180
+      "n": 151,
+      "mediana": 148,
+      "media": 240
      }
     }
    }
   },
   "UVA": {
-   "2026-09-30": {
-    "sessoes": 200000,
-    "comOperador": 16000,
-    "respostas_media": 8.57,
-    "transferencias": 4800,
+   "2026-10-01": {
+    "sessoes": 1401,
+    "comOperador": 444,
+    "respostas_media": 9.18,
+    "transferencias": 100,
     "prod_linhas": 0,
     "prod_min": {},
     "filas": {
-     "Fila Maturação": 4800,
-     "Serviços | Aluno": 4400,
-     "Default Queue": 1200,
-     "Fora de Horário | Admissão": 1200,
-     "Fila Log Admissão": 800,
-     "Pós Online | Lead": 800,
-     "Fila medicina - Ativo": 800,
-     "Fila Conversão": 400,
-     "Fila medicina": 400,
-     "Fila Informação": 400,
-     "Serviços | Ex-Aluno": 400,
-     "—": 400
+     "Fila Maturação": 169,
+     "Serviços | Aluno": 87,
+     "Fila medicina": 35,
+     "Fila Conversão": 27,
+     "Serviços | Ex-Aluno": 23,
+     "Default Queue": 14,
+     "Fila Log Admissão": 14,
+     "Fila medicina - Ativo": 14,
+     "Pós Online | Lead": 13,
+     "Fora de Horário | Admissão": 11,
+     "Fila Informação": 10,
+     "UVA Fila Ativo": 6
     },
     "operadores": {
-     "Jose Alberto Soares Gramacho": 4800,
-     "Adrielle Santiago": 4000,
-     "Jessica Souza": 2400,
-     "Marina M": 1200,
-     "giovanna santana": 800,
-     "Quezia Mendes Silva": 800,
-     "Lara Silva": 800,
-     "Emerson Valois Coutinho de Souza": 400,
-     "Leylane Moura": 400,
-     "Bruna Veloso": 400
+     "Jaciele Pereira": 72,
+     "Adrielle Santiago": 64,
+     "Leylane Moura": 50,
+     "Jose Alberto Soares Gramacho": 45,
+     "Gabriele Santos": 43,
+     "Jessica Souza": 39,
+     "giovanna santana": 39,
+     "Emerson Valois Coutinho de Souza": 38,
+     "Anna Luiza Dourado de Lima": 32,
+     "Marina T": 9,
+     "Marina M": 6,
+     "Evelin  Vieira Bahia de Oliveira": 3,
+     "Jheyson Kaua Nogueira Moura": 2,
+     "Quezia Mendes Silva": 1,
+     "Ana Beatriz Marques De Andrade": 1
     },
     "tipificacao": {
-     "(nulo)": 16000
+     "(nulo)": 444
     },
     "candidatos_seg": {
      "co1": {
-      "n": 16000,
-      "mediana": 2272,
-      "media": 3229
+      "n": 444,
+      "mediana": 2031,
+      "media": 3001
      },
      "co2": {
-      "n": 16000,
-      "mediana": 1693,
-      "media": 2608
+      "n": 444,
+      "mediana": 1450,
+      "media": 2254
      },
      "tt": {
-      "n": 16000,
-      "mediana": 2881,
-      "media": 5353
+      "n": 444,
+      "mediana": 3300,
+      "media": 7616
      },
      "eoUser": {
-      "n": 13600,
-      "mediana": 19,
-      "media": 1413
+      "n": 344,
+      "mediana": 48,
+      "media": 1767
      },
      "efBot": {
-      "n": 13600,
-      "mediana": 18,
-      "media": 1204
+      "n": 355,
+      "mediana": 30,
+      "media": 812
      },
      "tmrTodas": {
-      "n": 14400,
-      "mediana": 204,
-      "media": 1289
+      "n": 384,
+      "mediana": 246,
+      "media": 1677
      },
      "tmrApos1": {
-      "n": 13200,
-      "mediana": 165,
-      "media": 172
+      "n": 331,
+      "mediana": 171,
+      "media": 190
      }
     }
    }
