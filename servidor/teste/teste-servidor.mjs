@@ -119,4 +119,14 @@ globalThis.fetch = f0;
 r = await up(ea, 'api-fila', 'dados-do-robo', 7); chk('editor grava api-fila', r.s === 200);
 r = await up(la, 'api-fila', 'x', 8); chk('leitor NÃO grava api-fila', r.s === 403);
 r = await call('GET', '/arquivo/api-fila', undefined, la); chk('leitor NÃO lê api-fila', r.s === 403);
+// robô que falha antes de avisar: o servidor consulta o GitHub e mostra o erro
+globalThis.fetch = async (u) => String(u).includes('/dispatches') ? new Response(null, { status: 204 }) : new Response(JSON.stringify({ workflow_runs: [{ created_at: new Date(Date.now() + 5000).toISOString(), status: 'completed', conclusion: 'failure' }] }), { status: 200 });
+await call('POST', '/botmaker/progresso', { fase: 'importado', pct: 100 }, ea);
+r = await call('POST', '/botmaker/atualizar', { dias: 2 }, ea); chk('inicia de novo', r.s === 200);
+r = await call('GET', '/botmaker/estado', undefined, ea); chk('falha no GitHub vira erro explicado', r.j.fase === 'erro' && /secrets/.test(r.j.mensagem));
+r = await call('POST', '/botmaker/atualizar', { dias: 2 }, ea); chk('depois do erro dá para tentar de novo', r.s === 200);
+globalThis.fetch = async () => new Response(JSON.stringify({ workflow_runs: [] }), { status: 200 });
+await db.exec("UPDATE valores SET dados = json_set(dados, '$.em', '2020-01-01T00:00:00.000Z') WHERE chave = 'api:estado'");
+r = await call('GET', '/botmaker/estado', undefined, ea); chk('robô parado há mais de 30 min vira erro', r.j.fase === 'erro' && /30 minutos/.test(r.j.mensagem));
+globalThis.fetch = f0;
 console.log(`ok=${ok} falhas=${bad}`);

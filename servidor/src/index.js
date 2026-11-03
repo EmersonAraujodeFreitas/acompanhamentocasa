@@ -348,7 +348,27 @@ async function permApi(env, u) {
 async function rotaBotmakerEstado(env, u) {
   const { perm } = await permApi(env, u);
   if (!podeLer(u, perm, 'api-fila')) throw new Erro(403, 'Sem permissão.');
-  return { ...(await lerValor(env, 'api:estado', { fase: 'ocioso' })), configurado: !!(env.GH_TOKEN && env.GH_REPO) };
+  let est = await lerValor(env, 'api:estado', { fase: 'ocioso' });
+  /* se o robô morreu antes de conseguir avisar (ex.: faltam secrets), o servidor confere o resultado no GitHub */
+  if (['iniciado', 'lendo', 'enviando'].includes(est.fase) && est.em) {
+    const parado = Date.now() - Date.parse(est.em) > 30 * 6e4;
+    let falha = null;
+    if (env.GH_TOKEN && env.GH_REPO) {
+      try {
+        const r = await fetch('https://api.github.com/repos/' + env.GH_REPO + '/actions/workflows/botmaker-sync.yml/runs?per_page=3', { headers: { Authorization: 'Bearer ' + env.GH_TOKEN, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', 'User-Agent': 'central-indicadores' } });
+        if (r.ok) {
+          const j = await r.json(), ini = Date.parse(est.pedido_em || est.em) - 90e3;
+          const run = (j.workflow_runs || []).find(x => Date.parse(x.created_at) >= ini);
+          if (run && run.status === 'completed' && run.conclusion !== 'success') falha = 'O robô terminou com falha no GitHub (aba Actions mostra o motivo). Confira se os secrets SERVIDOR_URL, INTEGRACAO_USUARIO e INTEGRACAO_SENHA foram criados e se a senha do usuário de integração está correta.';
+        }
+      } catch (e) { /* sem acesso ao GitHub agora: mantém o estado */ }
+    }
+    if (falha || parado) {
+      est = { ...est, fase: 'erro', mensagem: falha || 'O robô não respondeu em 30 minutos. Tente de novo; se repetir, confira a aba Actions no GitHub.', pct: 0, em: agora() };
+      await gravarValor(env, 'api:estado', est, 'servidor');
+    }
+  }
+  return { ...est, configurado: !!(env.GH_TOKEN && env.GH_REPO) };
 }
 async function rotaBotmakerAtualizar(env, u, req) {
   const { pode } = await permApi(env, u);
@@ -364,7 +384,7 @@ async function rotaBotmakerAtualizar(env, u, req) {
     body: JSON.stringify({ ref: env.GH_REF || 'main', inputs: { dias: String(dias) } })
   });
   if (r.status !== 204) { await registrar(env, u.usuario, 'api-falhou', 'GitHub ' + r.status); throw new Erro(502, 'Não foi possível iniciar o robô (GitHub respondeu ' + r.status + '). Confira o token GH_TOKEN e o nome do repositório.'); }
-  const est = { fase: 'iniciado', mensagem: 'Robô iniciado. Lendo a Botmaker…', pct: 5, em: agora(), por: u.usuario, dias };
+  const est = { fase: 'iniciado', mensagem: 'Robô iniciado. Lendo a Botmaker…', pct: 5, em: agora(), pedido_em: agora(), por: u.usuario, dias };
   await gravarValor(env, 'api:estado', est, u.usuario);
   await registrar(env, u.usuario, 'api-atualizar', dias + ' dia(s)');
   return est;
