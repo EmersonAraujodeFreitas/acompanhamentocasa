@@ -1,0 +1,436 @@
+{
+ "gerado_em": "2026-11-03T16:57:45.475Z",
+ "janela": [
+  "2026-10-31T00:00:00.000Z",
+  "2026-11-01T00:00:00.000Z"
+ ],
+ "contas": {
+  "UVA": {
+   "mensagens": {
+    "?from=DATA&to=DATA&limit=50": {
+     "status": 400,
+     "n": 0,
+     "faixa": null,
+     "erro": "{\"errors\":[{\"type\":\"LONG_TERM_SEARCH_PARAM_REQUIRED\",\"source\":\"from\",\"message\":\"Cannot query before '2026-10-31T16:52:46.227Z' without query param `long-term-search=true`. Param `from` was '2026-10-31T00:00:00.000Z'.\"}]}"
+    },
+    "?fromDate=DATA&toDate=DATA&limit=50": {
+     "status": 200,
+     "n": 250,
+     "faixa": [
+      "2026-10-31T16:52:46.843Z",
+      "2026-10-31T17:23:04.598Z"
+     ]
+    },
+    "?sessionCreationTimeFrom=DATA&limit=50": {
+     "status": 200,
+     "n": 250,
+     "faixa": [
+      "2026-10-31T16:52:49.970Z",
+      "2026-10-31T17:23:04.708Z"
+     ]
+    },
+    "?startDate=DATA&endDate=DATA&limit=50": {
+     "status": 200,
+     "n": 250,
+     "faixa": [
+      "2026-10-31T16:52:49.970Z",
+      "2026-10-31T17:23:04.708Z"
+     ]
+    },
+    "?creationTimeFrom=DATA&creationTimeTo=DATA&limit=50": {
+     "status": 200,
+     "n": 250,
+     "faixa": [
+      "2026-10-31T16:52:49.970Z",
+      "2026-10-31T17:23:04.708Z"
+     ]
+    },
+    "?from=DATA&limit=50": {
+     "status": 400,
+     "n": 0,
+     "faixa": null,
+     "erro": "{\"errors\":[{\"type\":\"LONG_TERM_SEARCH_PARAM_REQUIRED\",\"source\":\"from\",\"message\":\"Cannot query before '2026-10-31T16:52:49.327Z' without query param `long-term-search=true`. Param `from` was '2026-10-31T00:00:00.000Z'.\"}]}"
+    },
+    "?to=DATA&limit=50": {
+     "status": 200,
+     "n": 250,
+     "faixa": [
+      "2026-10-31T16:52:49.970Z",
+      "2026-10-31T17:23:04.708Z"
+     ]
+    },
+    "?start=DATA&end=DATA&limit=50": {
+     "status": 200,
+     "n": 250,
+     "faixa": [
+      "2026-10-31T16:52:52.569Z",
+      "2026-10-31T17:23:07.453Z"
+     ]
+    }
+   },
+   "sessao_com_mensagens": {
+    "status": 200,
+    "n": 299,
+    "esquema": {
+     "id": "string",
+     "creationTime": "string",
+     "startingCause": "string",
+     "chat": {
+      "chat": {
+       "chatId": "string",
+       "channelId": "string",
+       "contactId": "string"
+      },
+      "creationTime": "string",
+      "lastSessionCreationTime": "string",
+      "firstName": "string"
+     },
+     "messages": {
+      "_t": "array",
+      "n": 35,
+      "item": {
+       "id": "string",
+       "creationTime": "string",
+       "from": "string",
+       "queueId": "string",
+       "content": {
+        "type": "string",
+        "text": "string"
+       },
+       "sessionId": "string"
+      }
+     }
+    }
+   },
+   "sessao_individual": {
+    "status": 500,
+    "esquema": ""
+   },
+   "auditorias": {
+    "agent-state": {
+     "status": 200,
+     "campos_topo": [
+      "items"
+     ],
+     "n": 0,
+     "faixa": null,
+     "esquema_item": null,
+     "valores": {}
+    },
+    "agent-login": {
+     "status": 200,
+     "campos_topo": [
+      "items"
+     ],
+     "n": 112,
+     "faixa": [
+      "2026-10-31T17:53:31Z",
+      "2026-10-31T00:08:03Z"
+     ],
+     "esquema_item": {
+      "authorEmail": "string",
+      "authorRole": "string",
+      "creationTime": "string",
+      "authorName": "string",
+      "change": {
+       "NAME_ALIAS": "string",
+       "AVAILABLE_STATUS": "string",
+       "ip": "string",
+       "LAST_STATUS_CHANGE": "string",
+       "_id_": "string",
+       "userAgent": "string",
+       "LAST_LOGIN": "string",
+       "LAST_LOGOUT": "string",
+       "EMAIL": "string",
+       "NAME": "string"
+      },
+      "action": "string",
+      "entityId": "string"
+     },
+     "valores": {
+      "action": {
+       "UPDATE": 112
+      }
+     }
+    },
+    "typification": {
+     "status": 200,
+     "campos_topo": [
+      "items"
+     ],
+     "n": 0,
+     "faixa": null,
+     "esquema_item": null,
+     "valores": {}
+    },
+    "queue": {
+     "status": 200,
+     "campos_topo": [
+      "items"
+     ],
+     "n": 0,
+     "faixa": null,
+     "esquema_item": null,
+     "valores": {}
+    },
+    "agent": {
+     "status": 200,
+     "campos_topo": [
+      "items"
+     ],
+     "n": 88,
+     "faixa": [
+      "2026-10-31T17:11:03Z",
+      "2026-10-31T10:58:38Z"
+     ],
+     "esquema_item": {
+      "authorEmail": "string",
+      "authorRole": "string",
+      "creationTime": "string",
+      "authorName": "string",
+      "change": {
+       "SLOTS": "string",
+       "NAME_ALIAS": "string",
+       "GROUPS": {
+        "_t": "array",
+        "n": 0,
+        "item": null
+       },
+       "QUEUES": {
+        "_t": "array",
+        "n": 16,
+        "item": "string"
+       },
+       "REGISTRATION_TS": "string",
+       "PRIORITY": "string",
+       "EMAIL": "string",
+       "LANG": "string",
+       "NAME": "string",
+       "ROLE": "string",
+       "CUSTOMERS_FIXED_FILTER": {
+        "_t": "array",
+        "n": 0,
+        "item": null
+       },
+       "AVAILABLE_STATUS": "string",
+       "LAST_STATUS_CHANGE": "string",
+       "USER_DEFINED_VALUE": "string"
+      },
+      "action": "string",
+      "entityId": "string"
+     },
+     "valores": {
+      "action": {
+       "UPDATE": 88
+      }
+     }
+    }
+   }
+  },
+  "UJ": {
+   "mensagens": {
+    "?from=DATA&to=DATA&limit=50": {
+     "status": 400,
+     "n": 0,
+     "faixa": null,
+     "erro": "{\"errors\":[{\"type\":\"LONG_TERM_SEARCH_PARAM_REQUIRED\",\"source\":\"from\",\"message\":\"Cannot query before '2026-10-31T16:52:46.228Z' without query param `long-term-search=true`. Param `from` was '2026-10-31T00:00:00.000Z'.\"}]}"
+    },
+    "?fromDate=DATA&toDate=DATA&limit=50": {
+     "status": 200,
+     "n": 250,
+     "faixa": [
+      "2026-10-31T16:53:04.491Z",
+      "2026-10-31T18:15:25.129Z"
+     ]
+    },
+    "?sessionCreationTimeFrom=DATA&limit=50": {
+     "status": 200,
+     "n": 250,
+     "faixa": [
+      "2026-10-31T16:53:04.491Z",
+      "2026-10-31T18:15:25.129Z"
+     ]
+    },
+    "?startDate=DATA&endDate=DATA&limit=50": {
+     "status": 204,
+     "n": 0,
+     "faixa": null
+    },
+    "?creationTimeFrom=DATA&creationTimeTo=DATA&limit=50": {
+     "status": 200,
+     "n": 250,
+     "faixa": [
+      "2026-10-31T16:53:04.491Z",
+      "2026-10-31T18:15:25.129Z"
+     ]
+    },
+    "?from=DATA&limit=50": {
+     "status": 400,
+     "n": 0,
+     "faixa": null,
+     "erro": "{\"errors\":[{\"type\":\"LONG_TERM_SEARCH_PARAM_REQUIRED\",\"source\":\"from\",\"message\":\"Cannot query before '2026-10-31T16:52:49.212Z' without query param `long-term-search=true`. Param `from` was '2026-10-31T00:00:00.000Z'.\"}]}"
+    },
+    "?to=DATA&limit=50": {
+     "status": 200,
+     "n": 250,
+     "faixa": [
+      "2026-10-31T16:53:04.491Z",
+      "2026-10-31T18:15:25.129Z"
+     ]
+    },
+    "?start=DATA&end=DATA&limit=50": {
+     "status": 204,
+     "n": 0,
+     "faixa": null
+    }
+   },
+   "sessao_com_mensagens": {
+    "status": 200,
+    "n": 171,
+    "esquema": {
+     "id": "string",
+     "creationTime": "string",
+     "startingCause": "string",
+     "chat": {
+      "chat": {
+       "chatId": "string",
+       "channelId": "string",
+       "contactId": "string"
+      },
+      "creationTime": "string",
+      "lastSessionCreationTime": "string"
+     },
+     "messages": {
+      "_t": "array",
+      "n": 0,
+      "item": null
+     }
+    }
+   },
+   "sessao_individual": {
+    "status": 500,
+    "esquema": ""
+   },
+   "auditorias": {
+    "agent-state": {
+     "status": 200,
+     "campos_topo": [
+      "items"
+     ],
+     "n": 0,
+     "faixa": null,
+     "esquema_item": null,
+     "valores": {}
+    },
+    "agent-login": {
+     "status": 200,
+     "campos_topo": [
+      "items"
+     ],
+     "n": 44,
+     "faixa": [
+      "2026-10-31T18:02:26Z",
+      "2026-10-31T00:06:43Z"
+     ],
+     "esquema_item": {
+      "authorEmail": "string",
+      "authorRole": "string",
+      "creationTime": "string",
+      "authorName": "string",
+      "change": {
+       "NAME_ALIAS": "string",
+       "AVAILABLE_STATUS": "string",
+       "ip": "string",
+       "LAST_STATUS_CHANGE": "string",
+       "_id_": "string",
+       "userAgent": "string",
+       "LAST_LOGIN": "string",
+       "LAST_LOGOUT": "string",
+       "EMAIL": "string",
+       "NAME": "string"
+      },
+      "action": "string",
+      "entityId": "string"
+     },
+     "valores": {
+      "action": {
+       "UPDATE": 44
+      }
+     }
+    },
+    "typification": {
+     "status": 200,
+     "campos_topo": [
+      "items"
+     ],
+     "n": 0,
+     "faixa": null,
+     "esquema_item": null,
+     "valores": {}
+    },
+    "queue": {
+     "status": 200,
+     "campos_topo": [
+      "items"
+     ],
+     "n": 0,
+     "faixa": null,
+     "esquema_item": null,
+     "valores": {}
+    },
+    "agent": {
+     "status": 200,
+     "campos_topo": [
+      "items"
+     ],
+     "n": 47,
+     "faixa": [
+      "2026-10-31T17:11:06Z",
+      "2026-10-31T10:59:31Z"
+     ],
+     "esquema_item": {
+      "authorEmail": "string",
+      "authorRole": "string",
+      "creationTime": "string",
+      "authorName": "string",
+      "change": {
+       "SLOTS": "string",
+       "NAME_ALIAS": "string",
+       "GROUPS": {
+        "_t": "array",
+        "n": 0,
+        "item": null
+       },
+       "QUEUES": {
+        "_t": "array",
+        "n": 17,
+        "item": "string"
+       },
+       "REGISTRATION_TS": "string",
+       "PRIORITY": "string",
+       "EMAIL": "string",
+       "LANG": "string",
+       "NAME": "string",
+       "ROLE": "string",
+       "CUSTOMERS_FIXED_FILTER": {
+        "_t": "array",
+        "n": 0,
+        "item": null
+       },
+       "AVAILABLE_STATUS": "string",
+       "LAST_STATUS_CHANGE": "string",
+       "USER_DEFINED_VALUE": "string"
+      },
+      "action": "string",
+      "entityId": "string"
+     },
+     "valores": {
+      "action": {
+       "UPDATE": 47
+      }
+     }
+    }
+   }
+  }
+ }
+}
