@@ -1,0 +1,152 @@
+{
+ "gerado_em": "2026-11-03T20:03:57.576Z",
+ "janela": [
+  "2026-09-30T03:00:00.000Z",
+  "2026-10-03T02:59:59.999Z"
+ ],
+ "falhas": [],
+ "contas": {
+  "UJ": {
+   "2026-09-30": {
+    "sessoes": 200000,
+    "comOperador": 6800,
+    "respostas_media": 9.35,
+    "transferencias": 800,
+    "prod_linhas": 0,
+    "prod_min": {},
+    "filas": {
+     "Fila Maturação": 2000,
+     "Fora do Horário | Admissão": 1200,
+     "fila-Aluno-ForaDoHorario": 800,
+     "Aluno | Serviços | fh": 800,
+     "Ex-aluno | Serviços | f.h": 400,
+     "Ex-aluno | Serviços": 400,
+     "fila-Alunos": 400,
+     "Pós Online | Lead": 400,
+     "Aluno | Serviços": 400
+    },
+    "operadores": {
+     "Paloma Amorim": 3200,
+     "Grécia Silva": 2800,
+     "Jota M": 800
+    },
+    "tipificacao": {
+     "(nulo)": 6800
+    },
+    "candidatos_seg": {
+     "co1": {
+      "n": 6800,
+      "mediana": 2572,
+      "media": 2707
+     },
+     "co2": {
+      "n": 6800,
+      "mediana": 1337,
+      "media": 1930
+     },
+     "tt": {
+      "n": 6800,
+      "mediana": 4243,
+      "media": 7340
+     },
+     "eoUser": {
+      "n": 5600,
+      "mediana": 48,
+      "media": 676
+     },
+     "efBot": {
+      "n": 5600,
+      "mediana": 37,
+      "media": 299
+     },
+     "tmrTodas": {
+      "n": 6400,
+      "mediana": 496,
+      "media": 1271
+     },
+     "tmrApos1": {
+      "n": 6000,
+      "mediana": 140,
+      "media": 180
+     }
+    }
+   }
+  },
+  "UVA": {
+   "2026-09-30": {
+    "sessoes": 200000,
+    "comOperador": 16000,
+    "respostas_media": 8.57,
+    "transferencias": 4800,
+    "prod_linhas": 0,
+    "prod_min": {},
+    "filas": {
+     "Fila Maturação": 4800,
+     "Serviços | Aluno": 4400,
+     "Default Queue": 1200,
+     "Fora de Horário | Admissão": 1200,
+     "Fila Log Admissão": 800,
+     "Pós Online | Lead": 800,
+     "Fila medicina - Ativo": 800,
+     "Fila Conversão": 400,
+     "Fila medicina": 400,
+     "Fila Informação": 400,
+     "Serviços | Ex-Aluno": 400,
+     "—": 400
+    },
+    "operadores": {
+     "Jose Alberto Soares Gramacho": 4800,
+     "Adrielle Santiago": 4000,
+     "Jessica Souza": 2400,
+     "Marina M": 1200,
+     "giovanna santana": 800,
+     "Quezia Mendes Silva": 800,
+     "Lara Silva": 800,
+     "Emerson Valois Coutinho de Souza": 400,
+     "Leylane Moura": 400,
+     "Bruna Veloso": 400
+    },
+    "tipificacao": {
+     "(nulo)": 16000
+    },
+    "candidatos_seg": {
+     "co1": {
+      "n": 16000,
+      "mediana": 2272,
+      "media": 3229
+     },
+     "co2": {
+      "n": 16000,
+      "mediana": 1693,
+      "media": 2608
+     },
+     "tt": {
+      "n": 16000,
+      "mediana": 2881,
+      "media": 5353
+     },
+     "eoUser": {
+      "n": 13600,
+      "mediana": 19,
+      "media": 1413
+     },
+     "efBot": {
+      "n": 13600,
+      "mediana": 18,
+      "media": 1204
+     },
+     "tmrTodas": {
+      "n": 14400,
+      "mediana": 204,
+      "media": 1289
+     },
+     "tmrApos1": {
+      "n": 13200,
+      "mediana": 165,
+      "media": 172
+     }
+    }
+   }
+  }
+ }
+}
