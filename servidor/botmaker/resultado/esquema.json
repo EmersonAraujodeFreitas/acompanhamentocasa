@@ -1,0 +1,1244 @@
+{
+ "gerado_em": "2026-11-03T16:48:17.996Z",
+ "contas": {
+  "UVA": {
+   "endpoints": {
+    "chats": {
+     "status": 200,
+     "query": "?limit=…",
+     "esquema": {
+      "nextPage": "string",
+      "items": {
+       "_t": "array",
+       "n": 250,
+       "item": {
+        "chat": {
+         "chatId": "string",
+         "channelId": "string",
+         "contactId": "string"
+        },
+        "creationTime": "string",
+        "lastSessionCreationTime": "string",
+        "firstName": "string",
+        "country": "string",
+        "whatsAppWindowCloseDatetime": "string",
+        "variables": {
+         "template": "string",
+         "origem_integracao": "string",
+         "telefonecandidato": "string",
+         "nomeCandidato": "string",
+         "dealId": "string",
+         "nome_deal": "string",
+         "origem": "string",
+         "turno": "string",
+         "origemcontact": "string",
+         "validadoremail": "string",
+         "classificargradpos": "string",
+         "cursocc": "string",
+         "codCampus": "string",
+         "nomecompleto": "string",
+         "ca_error": "string",
+         "CPFvalidacao": "string",
+         "chavecursoturno": "string",
+         "cursoPrecoBruto": "string",
+         "campusBaseDeDados": "string",
+         "periodo_atual": "string",
+         "contactId": "string",
+         "tipoLead": "string",
+         "campus": "string",
+         "ValidacaoTelefone": "string",
+         "categoria": "string",
+         "ValidacaoNome": "string",
+         "primeiraMensalComDesconto": "string",
+         "primeiraMensalidade": "string",
+         "platformContactId": "string",
+         "matchCursos": "string",
+         "outrasMensalidades": "string",
+         "outrasMensalComDesconto": "string",
+         "fluxo": "string",
+         "curso": "string",
+         "IES": "string",
+         "emailCandidato": "string",
+         "codCurso": "string",
+         "CPF": "string",
+         "UltimaPaginaVista": "string",
+         "status": "string",
+         "cursoBaseDeDados": "string"
+        },
+        "tags": {
+         "_t": "array",
+         "n": 1,
+         "item": "string"
+        },
+        "lastUserMessageDatetime": "string",
+        "listMessagesURL": "string"
+       }
+      }
+     }
+    },
+    "chats-actions": {
+     "status": 500,
+     "query": "",
+     "erro": ""
+    },
+    "channels": {
+     "status": 200,
+     "query": "?limit=…",
+     "esquema": {
+      "items": {
+       "_t": "array",
+       "n": 55,
+       "item": {
+        "id": "string",
+        "platform": "string",
+        "active": "boolean",
+        "name": "string"
+       }
+      }
+     }
+    },
+    "agents": {
+     "status": 200,
+     "query": "?limit=…",
+     "esquema": {
+      "nextPage": "null",
+      "items": {
+       "_t": "array",
+       "n": 65,
+       "item": {
+        "id": "string",
+        "email": "string",
+        "name": "string",
+        "isOnline": "boolean",
+        "status": "string",
+        "role": "string",
+        "queues": {
+         "_t": "array",
+         "n": 12,
+         "item": "string"
+        },
+        "slots": "number",
+        "priority": "string",
+        "creationTime": "string"
+       }
+      }
+     }
+    },
+    "roles": {
+     "status": 200,
+     "query": "?limit=…",
+     "esquema": {
+      "nextPage": "null",
+      "items": {
+       "_t": "array",
+       "n": 4,
+       "item": {
+        "id": "string",
+        "name": "string",
+        "description": "string",
+        "queues": {
+         "_t": "array",
+         "n": 0,
+         "item": null
+        },
+        "priority": "string",
+        "slots": "number",
+        "permissions": {
+         "tickets": {
+          "addComments": "boolean",
+          "edit": "boolean",
+          "addAttachments": "boolean",
+          "changeState": "boolean",
+          "create": "boolean",
+          "config": "boolean",
+          "readConversation": "boolean"
+         },
+         "configuration": {
+          "general": "boolean",
+          "livechat": "boolean",
+          "security": "boolean",
+          "automation": "boolean",
+          "payment": "boolean",
+          "notifications": "boolean"
+         },
+         "roles": "boolean",
+         "ecommerceconfig": "boolean",
+         "rule": {
+          "add": "boolean",
+          "view": "boolean",
+          "edit": "boolean",
+          "delete": "boolean"
+         },
+         "dashboards": {
+          "showOperatorsRealTime": "boolean",
+          "showStartingCauses": "boolean",
+          "edit": "boolean",
+          "showFunnels": "boolean",
+          "create": "boolean",
+          "showRealTime": "boolean",
+          "showOperatorsActivity": "boolean",
+          "delete": "boolean",
+          "showUserAndSessions": "boolean"
+         },
+         "segments": "boolean",
+         "platforms": "boolean",
+         "dialog": "boolean",
+         "knowledgeBase": {
+          "add": "boolean",
+          "delete": "boolean"
+         },
+         "shortcut": {
+          "editGlobalShortcuts": "boolean",
+          "edit": "boolean",
+          "create": "boolean",
+          "delete": "boolean"
+         },
+         "campaigns": {
+          "edit": "boolean",
+          "create": "boolean",
+          "archive": "boolean"
+         },
+         "flows": {
+          "publish": "boolean",
+          "upsert": "boolean",
+          "delete": "boolean"
+         },
+         "audit": "boolean",
+         "multibot": {
+          "deleteBots": "boolean",
+          "view": "boolean",
+          "viewBotsIntents": "boolean",
+          "deleteBotsIntents": "boolean",
+          "configureBots": "boolean",
+          "editBotsIntents": "boolean",
+          "addBotsIntents": "boolean",
+          "addBots": "boolean",
+          "publishBotsIntents": "boolean"
+         },
+         "audiences": {
+          "view": "boolean",
+          "edit": "boolean",
+          "create": "boolean",
+          "delete": "boolean"
+         },
+         "tasks": {
+          "addComments": "boolean",
+          "edit": "boolean",
+          "addAttachments": "boolean",
+          "customizeFields": "boolean"
+         },
+         "variables": {
+          "deleteConstants": "boolean",
+          "createConstants": "boolean",
+          "editConstants": "boolean",
+          "deleteVariables": "boolean",
+          "variablesTab": "boolean",
+          "createVariables": "boolean",
+          "constantsTab": "boolean",
+          "editVariables": "boolean"
+         },
+         "contactgroups": {
+          "edit": "boolean",
+          "create": "boolean",
+          "delete": "boolean"
+         },
+         "supportTeams": {
+          "edit": "boolean",
+          "create": "boolean",
+          "delete": "boolean",
+          "manageAll": "boolean"
+         },
+         "mobileApp": "boolean",
+         "flowManager": {
+          "visualizeFlowManager": "boolean",
+          "publishFlowManager": "boolean",
+          "editFlowManager": "boolean"
+         },
+         "users": {
+          "configureOoo": "boolean",
+          "modify": "boolean",
+          "view": "boolean",
+          "deleteAgents": "boolean",
+          "admin": "boolean",
+          "downloadAgents": "boolean"
+         },
+         "home": "boolean",
+         "agents": {
+          "edit": "boolean",
+          "publishAgent": "boolean",
+          "create": "boolean",
+          "delete": "boolean"
+         },
+         "pusheswa": {
+          "view": "boolean",
+          "edit": "boolean",
+          "publish": "boolean",
+          "create": "boolean",
+          "delete": "boolean"
+         },
+         "help": {
+          "contactSupport": "boolean"
+         },
+         "humanInTheLoop": "boolean",
+         "calls": {
+          "startWeblinkVideoCall": "boolean",
+          "startWhatsAppCall": "boolean",
+          "startWeblinkCall": "boolean",
+          "startPhoneCall": "boolean"
+         },
+         "entities": "boolean",
+         "webhooks": "boolean",
+         "queues": {
+          "unassignMultiple": "boolean",
+          "assignMultiple": "boolean"
+         },
+         "customWidgets": {
+          "view": "boolean",
+          "edit": "boolean",
+          "create": "boolean",
+          "delete": "boolean"
+         },
+         "chats": {
+          "releaseAssignedToMe": "boolean",
+          "putOnHold": "boolean",
+          "closeConversation": "boolean",
+          "pinCustomer": "boolean",
+          "emoji": "boolean",
+          "gif": "boolean",
+          "mic": "boolean",
+          "redirectAfterWspTemplate": "boolean",
+          "viewMedia": "boolean",
+          "releaseAssignedToOthers": "boolean",
+          "showExecuteFlows": "boolean",
+          "userVariables": "boolean",
+          "AssignToAgent": "boolean",
+          "favouriteTemplates": "boolean",
+          "showPromptsAI": "boolean",
+          "showIntentSuggestions": "boolean",
+          "markChatAsUnread": "boolean",
+          "muteBot": "boolean",
+          "sendChat": "boolean",
+          "markAsSpam": "boolean",
+          "view": "boolean",
+          "downloadChat": "boolean",
+          "uploadMedia": "boolean",
+          "whatsappTemplate": "boolean",
+          "assignToQueue": "boolean",
+          "userMedia": "boolean",
+          "massiveActions": "boolean",
+          "variables": "boolean",
+          "lockToUser": "boolean",
+          "showSuggestWithAI": "boolean",
+          "createTags": "boolean",
+          "viewEvents": "boolean",
+          "showUpdateChats": "boolean",
+          "showStarredMessages": "boolean",
+          "showEcommerceInChats": "boolean",
+          "canMoveConversationsToCentral": "boolean",
+          "showShortcut": "boolean",
+          "tags": "boolean",
+          "filter": "boolean",
+          "markAsTester": "boolean",
+          "transferToAgent": "boolean",
+          "blockMessage": "boolean",
+          "showQuickButtons": "boolean",
+          "editStarredMessages": "boolean",
+          "transferToQueue": "boolean",
+          "newEmail": "boolean",
+          "userNotes": "boolean",
+          "manageContacts": "boolean"
+         },
+         "AIAssistant": "boolean",
+         "importContacts": "boolean",
+         "orders": "boolean",
+         "metrics": "boolean",
+         "inbox": "boolean",
+         "actions": {
+          "deleteTokenSecret": "boolean",
+          "edit": "boolean",
+          "publish": "boolean",
+          "create": "boolean",
+          "saveTokenSecret": "boolean",
+          "delete": "boolean",
+          "logs": "boolean",
+          "getTokenSecret": "boolean"
+         },
+         "integrations": {
+          "api": "boolean",
+          "connections": "boolean",
+          "crm": "boolean"
+         },
+         "contacts": {
+          "add": "boolean",
+          "view": "boolean",
+          "edit": "boolean",
+          "delete": "boolean"
+         },
+         "account": "boolean",
+         "notifications": {
+          "cancel": "boolean",
+          "create": "boolean",
+          "active": "boolean",
+          "archive": "boolean"
+         }
+        }
+       }
+      }
+     }
+    },
+    "calls": {
+     "status": 200,
+     "query": "?limit=…",
+     "esquema": {
+      "nextPage": "null",
+      "items": {
+       "_t": "array",
+       "n": 0,
+       "item": null
+      }
+     }
+    },
+    "billing": {
+     "status": 500,
+     "query": "",
+     "erro": ""
+    },
+    "whatsapp-accounts": {
+     "status": 500,
+     "query": "",
+     "erro": ""
+    },
+    "whatsapp-templates": {
+     "status": 500,
+     "query": "",
+     "erro": ""
+    },
+    "intents": {
+     "status": 200,
+     "query": "?limit=…",
+     "esquema": {
+      "nextPage": "string",
+      "items": {
+       "_t": "array",
+       "n": 200,
+       "item": {
+        "id": "string",
+        "name": "string",
+        "bot": {
+         "id": "string",
+         "name": "string"
+        },
+        "topics": {
+         "_t": "array",
+         "n": 0,
+         "item": null
+        },
+        "triggers": {
+         "_t": "array",
+         "n": 0,
+         "item": null
+        },
+        "active": "boolean"
+       }
+      }
+     }
+    },
+    "contacts": {
+     "status": 200,
+     "query": "?limit=…",
+     "esquema": {
+      "nextPage": "string",
+      "items": {
+       "_t": "array",
+       "n": 100,
+       "item": {
+        "id": "string",
+        "firstName": "string",
+        "language": "string",
+        "country": "string",
+        "phoneNumbers": {
+         "_t": "array",
+         "n": 1,
+         "item": {
+          "value": "string",
+          "label": "string"
+         }
+        },
+        "chats": {
+         "_t": "array",
+         "n": 1,
+         "item": {
+          "id": "string",
+          "platformContactId": "string",
+          "chatChannelId": "string"
+         }
+        }
+       }
+      }
+     }
+    },
+    "audits": {
+     "status": 500,
+     "query": "",
+     "erro": ""
+    },
+    "webhooks": {
+     "status": 200,
+     "query": "?limit=…",
+     "esquema": {
+      "items": {
+       "_t": "array",
+       "n": 1,
+       "item": {
+        "id": "string",
+        "active": "boolean",
+        "messagesNotifications": {
+         "channelsIds": {
+          "_t": "array",
+          "n": 0,
+          "item": null
+         },
+         "notifyBotMessages": "boolean",
+         "notifyUserMessages": "boolean",
+         "notifyOperatorMessages": "boolean",
+         "notifyStatusChanges": "boolean",
+         "includeVariableChanges": "boolean"
+        },
+        "token": "string",
+        "version": "string",
+        "url": "string"
+       }
+      }
+     }
+    },
+    "dashboards": {
+     "status": 500,
+     "query": "",
+     "erro": ""
+    },
+    "attention-queues": {
+     "status": 200,
+     "query": "?limit=…",
+     "esquema": {
+      "nextPage": "null",
+      "items": {
+       "_t": "array",
+       "n": 57,
+       "item": {
+        "id": "string",
+        "name": "string",
+        "slots": "number",
+        "allowedTransferQueues": {
+         "_t": "array",
+         "n": 0,
+         "item": null
+        }
+       }
+      }
+     }
+    },
+    "tickets": {
+     "status": 200,
+     "query": "?limit=…",
+     "esquema": {
+      "total": "number",
+      "tickets": {
+       "_t": "array",
+       "n": 0,
+       "item": null
+      }
+     }
+    },
+    "notifications": {
+     "status": 500,
+     "query": "",
+     "erro": ""
+    },
+    "messages": {
+     "status": 200,
+     "query": "?limit=…",
+     "esquema": {
+      "nextPage": "string",
+      "items": {
+       "_t": "array",
+       "n": 250,
+       "item": {
+        "id": "string",
+        "creationTime": "string",
+        "from": "string",
+        "queueId": "string",
+        "content": {
+         "type": "string",
+         "text": "string"
+        },
+        "sessionCreationTime": "string",
+        "chat": {
+         "chatId": "string",
+         "channelId": "string",
+         "contactId": "string"
+        },
+        "sessionId": "string"
+       }
+      }
+     }
+    },
+    "sessions": {
+     "status": 200,
+     "query": "?limit=…",
+     "esquema": {
+      "nextPage": "string",
+      "items": {
+       "_t": "array",
+       "n": 500,
+       "item": {
+        "id": "string",
+        "creationTime": "string",
+        "startingCause": "string",
+        "chat": {
+         "chat": {
+          "chatId": "string",
+          "channelId": "string",
+          "contactId": "string"
+         },
+         "creationTime": "string",
+         "lastSessionCreationTime": "string"
+        }
+       }
+      }
+     }
+    },
+    "customers": {
+     "status": 500,
+     "query": "",
+     "erro": ""
+    }
+   },
+   "specs": {
+    "https://go.botmaker.com/apidocs/swagger.json": {
+     "status": 404,
+     "paths": null
+    },
+    "https://go.botmaker.com/apidocs/swagger.yaml": {
+     "status": 404,
+     "paths": null
+    },
+    "https://api.botmaker.com/v2.0/swagger.json": {
+     "status": 500,
+     "paths": null
+    },
+    "https://api.botmaker.com/swagger.json": {
+     "status": 404,
+     "paths": null
+    },
+    "https://api.botmaker.com/v2.0/docs/swagger.json": {
+     "status": 500,
+     "paths": null
+    },
+    "https://api.botmaker.com/v2.0/api-docs": {
+     "status": 500,
+     "paths": null
+    }
+   }
+  },
+  "UJ": {
+   "endpoints": {
+    "chats": {
+     "status": 200,
+     "query": "?limit=…",
+     "esquema": {
+      "nextPage": "string",
+      "items": {
+       "_t": "array",
+       "n": 250,
+       "item": {
+        "chat": {
+         "chatId": "string",
+         "channelId": "string",
+         "contactId": "string"
+        },
+        "creationTime": "string",
+        "lastSessionCreationTime": "string",
+        "firstName": "string",
+        "lastName": "string",
+        "country": "string",
+        "whatsAppWindowCloseDatetime": "string",
+        "variables": {
+         "fluxo": "string",
+         "status": "string",
+         "Classificargrapos": "string"
+        },
+        "tags": {
+         "_t": "array",
+         "n": 0,
+         "item": null
+        },
+        "lastUserMessageDatetime": "string",
+        "listMessagesURL": "string"
+       }
+      }
+     }
+    },
+    "chats-actions": {
+     "status": 500,
+     "query": "",
+     "erro": ""
+    },
+    "channels": {
+     "status": 200,
+     "query": "?limit=…",
+     "esquema": {
+      "items": {
+       "_t": "array",
+       "n": 178,
+       "item": {
+        "id": "string",
+        "platform": "string",
+        "active": "boolean",
+        "name": "string"
+       }
+      }
+     }
+    },
+    "agents": {
+     "status": 200,
+     "query": "?limit=…",
+     "esquema": {
+      "nextPage": "null",
+      "items": {
+       "_t": "array",
+       "n": 54,
+       "item": {
+        "id": "string",
+        "email": "string",
+        "name": "string",
+        "isOnline": "boolean",
+        "status": "string",
+        "role": "string",
+        "queues": {
+         "_t": "array",
+         "n": 0,
+         "item": null
+        },
+        "slots": "number",
+        "priority": "string",
+        "creationTime": "string"
+       }
+      }
+     }
+    },
+    "roles": {
+     "status": 200,
+     "query": "?limit=…",
+     "esquema": {
+      "nextPage": "null",
+      "items": {
+       "_t": "array",
+       "n": 4,
+       "item": {
+        "id": "string",
+        "name": "string",
+        "description": "string",
+        "queues": {
+         "_t": "array",
+         "n": 0,
+         "item": null
+        },
+        "priority": "string",
+        "slots": "number",
+        "permissions": {
+         "tickets": {
+          "addComments": "boolean",
+          "edit": "boolean",
+          "addAttachments": "boolean",
+          "changeState": "boolean",
+          "create": "boolean",
+          "config": "boolean",
+          "readConversation": "boolean"
+         },
+         "configuration": {
+          "general": "boolean",
+          "livechat": "boolean",
+          "security": "boolean",
+          "automation": "boolean",
+          "payment": "boolean",
+          "notifications": "boolean"
+         },
+         "roles": "boolean",
+         "ecommerceconfig": "boolean",
+         "rule": {
+          "add": "boolean",
+          "view": "boolean",
+          "edit": "boolean",
+          "delete": "boolean"
+         },
+         "dashboards": {
+          "showOperatorsRealTime": "boolean",
+          "showStartingCauses": "boolean",
+          "edit": "boolean",
+          "showFunnels": "boolean",
+          "create": "boolean",
+          "showRealTime": "boolean",
+          "showOperatorsActivity": "boolean",
+          "delete": "boolean",
+          "showUserAndSessions": "boolean"
+         },
+         "segments": "boolean",
+         "platforms": "boolean",
+         "dialog": "boolean",
+         "knowledgeBase": {
+          "add": "boolean",
+          "delete": "boolean"
+         },
+         "shortcut": {
+          "editGlobalShortcuts": "boolean",
+          "edit": "boolean",
+          "create": "boolean",
+          "delete": "boolean"
+         },
+         "campaigns": {
+          "edit": "boolean",
+          "create": "boolean",
+          "archive": "boolean"
+         },
+         "flows": {
+          "publish": "boolean",
+          "upsert": "boolean",
+          "delete": "boolean"
+         },
+         "audit": "boolean",
+         "multibot": {
+          "deleteBots": "boolean",
+          "view": "boolean",
+          "viewBotsIntents": "boolean",
+          "deleteBotsIntents": "boolean",
+          "configureBots": "boolean",
+          "editBotsIntents": "boolean",
+          "addBotsIntents": "boolean",
+          "addBots": "boolean",
+          "publishBotsIntents": "boolean"
+         },
+         "audiences": {
+          "view": "boolean",
+          "edit": "boolean",
+          "create": "boolean",
+          "delete": "boolean"
+         },
+         "tasks": {
+          "addComments": "boolean",
+          "edit": "boolean",
+          "addAttachments": "boolean",
+          "customizeFields": "boolean"
+         },
+         "variables": {
+          "deleteConstants": "boolean",
+          "createConstants": "boolean",
+          "editConstants": "boolean",
+          "deleteVariables": "boolean",
+          "variablesTab": "boolean",
+          "createVariables": "boolean",
+          "constantsTab": "boolean",
+          "editVariables": "boolean"
+         },
+         "contactgroups": {
+          "edit": "boolean",
+          "create": "boolean",
+          "delete": "boolean"
+         },
+         "supportTeams": {
+          "edit": "boolean",
+          "create": "boolean",
+          "delete": "boolean",
+          "manageAll": "boolean"
+         },
+         "mobileApp": "boolean",
+         "flowManager": {
+          "visualizeFlowManager": "boolean",
+          "publishFlowManager": "boolean",
+          "editFlowManager": "boolean"
+         },
+         "users": {
+          "configureOoo": "boolean",
+          "modify": "boolean",
+          "view": "boolean",
+          "deleteAgents": "boolean",
+          "admin": "boolean",
+          "downloadAgents": "boolean"
+         },
+         "home": "boolean",
+         "agents": {
+          "edit": "boolean",
+          "publishAgent": "boolean",
+          "create": "boolean",
+          "delete": "boolean"
+         },
+         "pusheswa": {
+          "view": "boolean",
+          "edit": "boolean",
+          "publish": "boolean",
+          "create": "boolean",
+          "delete": "boolean"
+         },
+         "help": {
+          "contactSupport": "boolean"
+         },
+         "humanInTheLoop": "boolean",
+         "calls": {
+          "startWeblinkVideoCall": "boolean",
+          "startWhatsAppCall": "boolean",
+          "startWeblinkCall": "boolean",
+          "startPhoneCall": "boolean"
+         },
+         "entities": "boolean",
+         "webhooks": "boolean",
+         "queues": {
+          "unassignMultiple": "boolean",
+          "assignMultiple": "boolean"
+         },
+         "customWidgets": {
+          "view": "boolean",
+          "edit": "boolean",
+          "create": "boolean",
+          "delete": "boolean"
+         },
+         "chats": {
+          "releaseAssignedToMe": "boolean",
+          "putOnHold": "boolean",
+          "closeConversation": "boolean",
+          "pinCustomer": "boolean",
+          "emoji": "boolean",
+          "gif": "boolean",
+          "mic": "boolean",
+          "redirectAfterWspTemplate": "boolean",
+          "viewMedia": "boolean",
+          "releaseAssignedToOthers": "boolean",
+          "showExecuteFlows": "boolean",
+          "userVariables": "boolean",
+          "AssignToAgent": "boolean",
+          "favouriteTemplates": "boolean",
+          "showPromptsAI": "boolean",
+          "showIntentSuggestions": "boolean",
+          "markChatAsUnread": "boolean",
+          "muteBot": "boolean",
+          "sendChat": "boolean",
+          "markAsSpam": "boolean",
+          "view": "boolean",
+          "downloadChat": "boolean",
+          "uploadMedia": "boolean",
+          "whatsappTemplate": "boolean",
+          "assignToQueue": "boolean",
+          "userMedia": "boolean",
+          "massiveActions": "boolean",
+          "variables": "boolean",
+          "lockToUser": "boolean",
+          "showSuggestWithAI": "boolean",
+          "createTags": "boolean",
+          "viewEvents": "boolean",
+          "showUpdateChats": "boolean",
+          "showStarredMessages": "boolean",
+          "showEcommerceInChats": "boolean",
+          "canMoveConversationsToCentral": "boolean",
+          "showShortcut": "boolean",
+          "tags": "boolean",
+          "filter": "boolean",
+          "markAsTester": "boolean",
+          "transferToAgent": "boolean",
+          "blockMessage": "boolean",
+          "showQuickButtons": "boolean",
+          "editStarredMessages": "boolean",
+          "transferToQueue": "boolean",
+          "newEmail": "boolean",
+          "userNotes": "boolean",
+          "manageContacts": "boolean"
+         },
+         "AIAssistant": "boolean",
+         "importContacts": "boolean",
+         "orders": "boolean",
+         "metrics": "boolean",
+         "inbox": "boolean",
+         "actions": {
+          "deleteTokenSecret": "boolean",
+          "edit": "boolean",
+          "publish": "boolean",
+          "create": "boolean",
+          "saveTokenSecret": "boolean",
+          "delete": "boolean",
+          "logs": "boolean",
+          "getTokenSecret": "boolean"
+         },
+         "integrations": {
+          "api": "boolean",
+          "connections": "boolean",
+          "crm": "boolean"
+         },
+         "contacts": {
+          "add": "boolean",
+          "view": "boolean",
+          "edit": "boolean",
+          "delete": "boolean"
+         },
+         "account": "boolean",
+         "notifications": {
+          "cancel": "boolean",
+          "create": "boolean",
+          "active": "boolean",
+          "archive": "boolean"
+         }
+        }
+       }
+      }
+     }
+    },
+    "calls": {
+     "status": 200,
+     "query": "?limit=…",
+     "esquema": {
+      "nextPage": "null",
+      "items": {
+       "_t": "array",
+       "n": 0,
+       "item": null
+      }
+     }
+    },
+    "billing": {
+     "status": 500,
+     "query": "",
+     "erro": ""
+    },
+    "whatsapp-accounts": {
+     "status": 500,
+     "query": "",
+     "erro": ""
+    },
+    "whatsapp-templates": {
+     "status": 500,
+     "query": "",
+     "erro": ""
+    },
+    "intents": {
+     "status": 200,
+     "query": "?limit=…",
+     "esquema": {
+      "nextPage": "string",
+      "items": {
+       "_t": "array",
+       "n": 200,
+       "item": {
+        "id": "string",
+        "name": "string",
+        "bot": {
+         "id": "string",
+         "name": "string"
+        },
+        "topics": {
+         "_t": "array",
+         "n": 1,
+         "item": "string"
+        },
+        "triggers": {
+         "_t": "array",
+         "n": 0,
+         "item": null
+        },
+        "active": "boolean"
+       }
+      }
+     }
+    },
+    "contacts": {
+     "status": 200,
+     "query": "?limit=…",
+     "esquema": {
+      "nextPage": "string",
+      "items": {
+       "_t": "array",
+       "n": 100,
+       "item": {
+        "id": "string",
+        "firstName": "string",
+        "language": "string",
+        "phoneNumbers": {
+         "_t": "array",
+         "n": 1,
+         "item": {
+          "value": "string",
+          "label": "string"
+         }
+        },
+        "chats": {
+         "_t": "array",
+         "n": 1,
+         "item": {
+          "id": "string",
+          "platformContactId": "string",
+          "chatChannelId": "string"
+         }
+        }
+       }
+      }
+     }
+    },
+    "audits": {
+     "status": 500,
+     "query": "",
+     "erro": ""
+    },
+    "webhooks": {
+     "status": 200,
+     "query": "?limit=…",
+     "esquema": {
+      "items": {
+       "_t": "array",
+       "n": 1,
+       "item": {
+        "id": "string",
+        "active": "boolean",
+        "messagesNotifications": {
+         "channelsIds": {
+          "_t": "array",
+          "n": 0,
+          "item": null
+         },
+         "notifyBotMessages": "boolean",
+         "notifyUserMessages": "boolean",
+         "notifyOperatorMessages": "boolean",
+         "notifyStatusChanges": "boolean",
+         "includeVariableChanges": "boolean"
+        },
+        "token": "string",
+        "version": "string",
+        "url": "string"
+       }
+      }
+     }
+    },
+    "dashboards": {
+     "status": 500,
+     "query": "",
+     "erro": ""
+    },
+    "attention-queues": {
+     "status": 200,
+     "query": "?limit=…",
+     "esquema": {
+      "nextPage": "null",
+      "items": {
+       "_t": "array",
+       "n": 60,
+       "item": {
+        "id": "string",
+        "name": "string",
+        "slots": "number",
+        "allowedTransferQueues": {
+         "_t": "array",
+         "n": 0,
+         "item": null
+        }
+       }
+      }
+     }
+    },
+    "tickets": {
+     "status": 200,
+     "query": "?limit=…",
+     "esquema": {
+      "total": "number",
+      "tickets": {
+       "_t": "array",
+       "n": 0,
+       "item": null
+      }
+     }
+    },
+    "notifications": {
+     "status": 500,
+     "query": "",
+     "erro": ""
+    },
+    "messages": {
+     "status": 200,
+     "query": "?limit=…",
+     "esquema": {
+      "nextPage": "string",
+      "items": {
+       "_t": "array",
+       "n": 250,
+       "item": {
+        "id": "string",
+        "creationTime": "string",
+        "from": "string",
+        "content": {
+         "type": "string",
+         "text": "string"
+        },
+        "sessionCreationTime": "string",
+        "chat": {
+         "chatId": "string",
+         "channelId": "string",
+         "contactId": "string"
+        },
+        "sessionId": "string"
+       }
+      }
+     }
+    },
+    "sessions": {
+     "status": 200,
+     "query": "?limit=…",
+     "esquema": {
+      "nextPage": "string",
+      "items": {
+       "_t": "array",
+       "n": 500,
+       "item": {
+        "id": "string",
+        "creationTime": "string",
+        "startingCause": "string",
+        "chat": {
+         "chat": {
+          "chatId": "string",
+          "channelId": "string",
+          "contactId": "string"
+         },
+         "creationTime": "string",
+         "lastSessionCreationTime": "string"
+        }
+       }
+      }
+     }
+    },
+    "customers": {
+     "status": 500,
+     "query": "",
+     "erro": ""
+    }
+   },
+   "specs": {
+    "https://go.botmaker.com/apidocs/swagger.json": {
+     "status": 404,
+     "paths": null
+    },
+    "https://go.botmaker.com/apidocs/swagger.yaml": {
+     "status": 404,
+     "paths": null
+    },
+    "https://api.botmaker.com/v2.0/swagger.json": {
+     "status": 500,
+     "paths": null
+    },
+    "https://api.botmaker.com/swagger.json": {
+     "status": 404,
+     "paths": null
+    },
+    "https://api.botmaker.com/v2.0/docs/swagger.json": {
+     "status": 500,
+     "paths": null
+    },
+    "https://api.botmaker.com/v2.0/api-docs": {
+     "status": 500,
+     "paths": null
+    }
+   }
+  }
+ }
+}
