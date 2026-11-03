@@ -1,0 +1,653 @@
+{
+ "gerado_em": "2026-11-03T16:53:35.300Z",
+ "contas": {
+  "UVA": {
+   "auditorias": {
+    "/audits/agents": {
+     "status": 400,
+     "corpo": "{\"errors\":[{\"type\":\"INVALID_VALUE\",\"source\":\"{auditSection}\",\"message\":\"Invalid value 'agents' for 'auditSection'. You can try with these: 'agent', 'agent-login', 'agent-state', 'audience-push', 'bot', 'campaign', 'channel', 'code-action', 'config', 'console-user-invitation', 'constants', 'contacts-group', 'intent', 'notification', 'out-of-office', 'queue', 'quick-response', 'role', 'typification', 'variables', 'webchat', 'webhook', 'whatsapp-template'.\"}]}",
+     "headers": {}
+    },
+    "/audits/agent-status": {
+     "status": 400,
+     "corpo": "{\"errors\":[{\"type\":\"INVALID_VALUE\",\"source\":\"{auditSection}\",\"message\":\"Invalid value 'agent-status' for 'auditSection'. You can try with these: 'agent', 'agent-login', 'agent-state', 'audience-push', 'bot', 'campaign', 'channel', 'code-action', 'config', 'console-user-invitation', 'constants', 'contacts-group', 'intent', 'notification', 'out-of-office', 'queue', 'quick-response', 'role', 'typification', 'variables', 'webchat', 'webhook', 'whatsapp-template'.\"}]}",
+     "headers": {}
+    },
+    "/audits/agents?from=2026-11-02T00:00:00.000Z&to=2026-11-03T00:00:00.000Z": {
+     "status": 429,
+     "corpo": "{\"errors\":[{\"type\":\"TOO_MANY_REQUESTS\",\"source\":\"\",\"message\":\"This endpoint allows only one request per minute.\"}]}",
+     "headers": {}
+    },
+    "/audits/agent-status?from=2026-11-02T00:00:00.000Z&to=2026-11-03T00:00:00.000Z": {
+     "status": 429,
+     "corpo": "{\"errors\":[{\"type\":\"TOO_MANY_REQUESTS\",\"source\":\"\",\"message\":\"This endpoint allows only one request per minute.\"}]}",
+     "headers": {}
+    },
+    "/audits/agents?startDate=2026-11-02T00:00:00.000Z&endDate=2026-11-03T00:00:00.00": {
+     "status": 429,
+     "corpo": "{\"errors\":[{\"type\":\"TOO_MANY_REQUESTS\",\"source\":\"\",\"message\":\"This endpoint allows only one request per minute.\"}]}",
+     "headers": {}
+    },
+    "/audits/agent-status?startDate=2026-11-02T00:00:00.000Z&endDate=2026-11-03T00:00": {
+     "status": 429,
+     "corpo": "{\"errors\":[{\"type\":\"TOO_MANY_REQUESTS\",\"source\":\"\",\"message\":\"This endpoint allows only one request per minute.\"}]}",
+     "headers": {}
+    },
+    "/audits/agent-status?agentId=x": {
+     "status": 429,
+     "corpo": "{\"errors\":[{\"type\":\"TOO_MANY_REQUESTS\",\"source\":\"\",\"message\":\"This endpoint allows only one request per minute.\"}]}",
+     "headers": {}
+    },
+    "/audits/sessions": {
+     "status": 429,
+     "corpo": "{\"errors\":[{\"type\":\"TOO_MANY_REQUESTS\",\"source\":\"\",\"message\":\"This endpoint allows only one request per minute.\"}]}",
+     "headers": {}
+    },
+    "/audits/chats": {
+     "status": 429,
+     "corpo": "{\"errors\":[{\"type\":\"TOO_MANY_REQUESTS\",\"source\":\"\",\"message\":\"This endpoint allows only one request per minute.\"}]}",
+     "headers": {}
+    },
+    "/audits/messages": {
+     "status": 429,
+     "corpo": "{\"errors\":[{\"type\":\"TOO_MANY_REQUESTS\",\"source\":\"\",\"message\":\"This endpoint allows only one request per minute.\"}]}",
+     "headers": {}
+    },
+    "/audits/queues": {
+     "status": 429,
+     "corpo": "{\"errors\":[{\"type\":\"TOO_MANY_REQUESTS\",\"source\":\"\",\"message\":\"This endpoint allows only one request per minute.\"}]}",
+     "headers": {}
+    },
+    "/audits/status": {
+     "status": 429,
+     "corpo": "{\"errors\":[{\"type\":\"TOO_MANY_REQUESTS\",\"source\":\"\",\"message\":\"This endpoint allows only one request per minute.\"}]}",
+     "headers": {}
+    },
+    "/audits/login": {
+     "status": 400,
+     "corpo": "{\"errors\":[{\"type\":\"INVALID_VALUE\",\"source\":\"{auditSection}\",\"message\":\"Invalid value 'login' for 'auditSection'. You can try with these: 'agent', 'agent-login', 'agent-state', 'audience-push', 'bot', 'campaign', 'channel', 'code-action', 'config', 'console-user-invitation', 'constants', 'contacts-group', 'intent', 'notification', 'out-of-office', 'queue', 'quick-response', 'role', 'typification', 'variables', 'webchat', 'webhook', 'whatsapp-template'.\"}]}",
+     "headers": {}
+    },
+    "/audits/agents-status": {
+     "status": 429,
+     "corpo": "{\"errors\":[{\"type\":\"TOO_MANY_REQUESTS\",\"source\":\"\",\"message\":\"This endpoint allows only one request per minute.\"}]}",
+     "headers": {}
+    }
+   },
+   "sessoes": {
+    "?limit=500": {
+     "status": 200,
+     "n": 500,
+     "faixa": [
+      "2026-11-02T15:57:13Z",
+      "2026-11-03T12:05:11Z"
+     ],
+     "proxima": "https://api.botmaker.com/v2.0/sessions?include-messages=false&page-token=<token>",
+     "ms": 1136,
+     "headers": {},
+     "alvo": [
+      "2026-10-31T00:00:00.000Z",
+      "2026-11-01T00:00:00.000Z"
+     ]
+    },
+    "?from=DATA&to=DATA&limit=500": {
+     "status": 200,
+     "n": 299,
+     "faixa": [
+      "2026-10-31T00:04:27Z",
+      "2026-10-31T23:58:59Z"
+     ],
+     "proxima": null,
+     "ms": 1181,
+     "headers": {},
+     "alvo": [
+      "2026-10-31T00:00:00.000Z",
+      "2026-11-01T00:00:00.000Z"
+     ]
+    },
+    "?startTime=DATA&endTime=DATA&limit=500": {
+     "status": 200,
+     "n": 500,
+     "faixa": [
+      "2026-11-02T15:57:13Z",
+      "2026-11-03T12:05:11Z"
+     ],
+     "proxima": "https://api.botmaker.com/v2.0/sessions?include-messages=false&page-token=<token>",
+     "ms": 1117,
+     "headers": {},
+     "alvo": [
+      "2026-10-31T00:00:00.000Z",
+      "2026-11-01T00:00:00.000Z"
+     ]
+    },
+    "?creationTime=DATA&limit=500": {
+     "status": 200,
+     "n": 500,
+     "faixa": [
+      "2026-11-02T15:57:13Z",
+      "2026-11-03T12:05:11Z"
+     ],
+     "proxima": "https://api.botmaker.com/v2.0/sessions?include-messages=false&page-token=<token>",
+     "ms": 3750,
+     "headers": {},
+     "alvo": [
+      "2026-10-31T00:00:00.000Z",
+      "2026-11-01T00:00:00.000Z"
+     ]
+    },
+    "?fromDate=DATA&toDate=DATA&limit=500": {
+     "status": 200,
+     "n": 500,
+     "faixa": [
+      "2026-11-02T15:57:13Z",
+      "2026-11-03T12:05:11Z"
+     ],
+     "proxima": "https://api.botmaker.com/v2.0/sessions?include-messages=false&page-token=<token>",
+     "ms": 1189,
+     "headers": {},
+     "alvo": [
+      "2026-10-31T00:00:00.000Z",
+      "2026-11-01T00:00:00.000Z"
+     ]
+    },
+    "?after=DATA&before=DATA&limit=500": {
+     "status": 200,
+     "n": 500,
+     "faixa": [
+      "2026-11-02T15:57:13Z",
+      "2026-11-03T12:05:11Z"
+     ],
+     "proxima": "https://api.botmaker.com/v2.0/sessions?include-messages=false&page-token=<token>",
+     "ms": 1186,
+     "headers": {},
+     "alvo": [
+      "2026-10-31T00:00:00.000Z",
+      "2026-11-01T00:00:00.000Z"
+     ]
+    },
+    "?since=DATA&until=DATA&limit=500": {
+     "status": 200,
+     "n": 500,
+     "faixa": [
+      "2026-11-02T15:57:13Z",
+      "2026-11-03T12:05:11Z"
+     ],
+     "proxima": "https://api.botmaker.com/v2.0/sessions?include-messages=false&page-token=<token>",
+     "ms": 1300,
+     "headers": {},
+     "alvo": [
+      "2026-10-31T00:00:00.000Z",
+      "2026-11-01T00:00:00.000Z"
+     ]
+    },
+    "?dateFrom=DATA&dateTo=DATA&limit=500": {
+     "status": 200,
+     "n": 500,
+     "faixa": [
+      "2026-11-02T15:57:13Z",
+      "2026-11-03T12:05:11Z"
+     ],
+     "proxima": "https://api.botmaker.com/v2.0/sessions?include-messages=false&page-token=<token>",
+     "ms": 1388,
+     "headers": {},
+     "alvo": [
+      "2026-10-31T00:00:00.000Z",
+      "2026-11-01T00:00:00.000Z"
+     ]
+    }
+   },
+   "paginacao_sessoes": [
+    {
+     "n": 500,
+     "faixa": [
+      "2026-11-02T15:57:13Z",
+      "2026-11-03T12:05:11Z"
+     ]
+    },
+    {
+     "n": 500,
+     "faixa": [
+      "2026-11-03T12:05:30Z",
+      "2026-11-03T14:00:01Z"
+     ]
+    },
+    {
+     "n": 500,
+     "faixa": [
+      "2026-11-03T14:00:01Z",
+      "2026-11-03T14:01:09Z"
+     ]
+    }
+   ],
+   "mensagens": {
+    "?limit=250": {
+     "status": 200,
+     "n": 250,
+     "faixa": [
+      "2026-10-31T16:49:16.879Z",
+      "2026-10-31T17:14:49.540Z"
+     ],
+     "from": {
+      "bot": 99,
+      "user": 95,
+      "agent": 56
+     },
+     "agentesDistintos": 4,
+     "filasDistintas": 9,
+     "sessoesDistintas": 27,
+     "agentePorFrom": {
+      "bot:sem agentId": 99,
+      "user:sem agentId": 95,
+      "agent:com agentId": 56
+     },
+     "headers": {}
+    },
+    "?from=DATA&to=DATA&limit=250": {
+     "status": 400,
+     "n": 0,
+     "faixa": null,
+     "from": {},
+     "agentesDistintos": 0,
+     "filasDistintas": 0,
+     "sessoesDistintas": 0,
+     "agentePorFrom": {},
+     "headers": {}
+    },
+    "?startTime=DATA&endTime=DATA&limit=250": {
+     "status": 200,
+     "n": 250,
+     "faixa": [
+      "2026-10-31T16:49:16.879Z",
+      "2026-10-31T17:14:49.540Z"
+     ],
+     "from": {
+      "bot": 99,
+      "user": 95,
+      "agent": 56
+     },
+     "agentesDistintos": 4,
+     "filasDistintas": 9,
+     "sessoesDistintas": 27,
+     "agentePorFrom": {
+      "bot:sem agentId": 99,
+      "user:sem agentId": 95,
+      "agent:com agentId": 56
+     },
+     "headers": {}
+    }
+   },
+   "rajada_12": [
+    "200/108ms",
+    "200/91ms",
+    "429/38ms",
+    "200/84ms",
+    "200/100ms",
+    "204/46ms",
+    "200/120ms",
+    "200/86ms",
+    "200/120ms",
+    "200/86ms",
+    "200/145ms",
+    "200/91ms"
+   ],
+   "agentes": {
+    "n": 65,
+    "campos": [
+     "id",
+     "email",
+     "name",
+     "isOnline",
+     "status",
+     "role",
+     "queues",
+     "slots",
+     "priority",
+     "creationTime"
+    ],
+    "idsUnicos": 65,
+    "roles": {
+     "OPERATOR": 21,
+     "ADMIN": 17,
+     "SUPERVISOR": 13,
+     "W5621GWKNWQVE8GAUIAY": 11,
+     "CONFIGURATOR": 2,
+     "AZVMEMYL4JT5XB4MVUPI": 1
+    }
+   },
+   "chat_campos": []
+  },
+  "UJ": {
+   "auditorias": {
+    "/audits/agents": {
+     "status": 400,
+     "corpo": "{\"errors\":[{\"type\":\"INVALID_VALUE\",\"source\":\"{auditSection}\",\"message\":\"Invalid value 'agents' for 'auditSection'. You can try with these: 'agent', 'agent-login', 'agent-state', 'audience-push', 'bot', 'campaign', 'channel', 'code-action', 'config', 'console-user-invitation', 'constants', 'contacts-group', 'intent', 'notification', 'out-of-office', 'queue', 'quick-response', 'role', 'typification', 'variables', 'webchat', 'webhook', 'whatsapp-template'.\"}]}",
+     "headers": {}
+    },
+    "/audits/agent-status": {
+     "status": 400,
+     "corpo": "{\"errors\":[{\"type\":\"INVALID_VALUE\",\"source\":\"{auditSection}\",\"message\":\"Invalid value 'agent-status' for 'auditSection'. You can try with these: 'agent', 'agent-login', 'agent-state', 'audience-push', 'bot', 'campaign', 'channel', 'code-action', 'config', 'console-user-invitation', 'constants', 'contacts-group', 'intent', 'notification', 'out-of-office', 'queue', 'quick-response', 'role', 'typification', 'variables', 'webchat', 'webhook', 'whatsapp-template'.\"}]}",
+     "headers": {}
+    },
+    "/audits/agents?from=2026-11-02T00:00:00.000Z&to=2026-11-03T00:00:00.000Z": {
+     "status": 429,
+     "corpo": "{\"errors\":[{\"type\":\"TOO_MANY_REQUESTS\",\"source\":\"\",\"message\":\"This endpoint allows only one request per minute.\"}]}",
+     "headers": {}
+    },
+    "/audits/agent-status?from=2026-11-02T00:00:00.000Z&to=2026-11-03T00:00:00.000Z": {
+     "status": 429,
+     "corpo": "{\"errors\":[{\"type\":\"TOO_MANY_REQUESTS\",\"source\":\"\",\"message\":\"This endpoint allows only one request per minute.\"}]}",
+     "headers": {}
+    },
+    "/audits/agents?startDate=2026-11-02T00:00:00.000Z&endDate=2026-11-03T00:00:00.00": {
+     "status": 429,
+     "corpo": "{\"errors\":[{\"type\":\"TOO_MANY_REQUESTS\",\"source\":\"\",\"message\":\"This endpoint allows only one request per minute.\"}]}",
+     "headers": {}
+    },
+    "/audits/agent-status?startDate=2026-11-02T00:00:00.000Z&endDate=2026-11-03T00:00": {
+     "status": 400,
+     "corpo": "{\"errors\":[{\"type\":\"INVALID_VALUE\",\"source\":\"{auditSection}\",\"message\":\"Invalid value 'agent-status' for 'auditSection'. You can try with these: 'agent', 'agent-login', 'agent-state', 'audience-push', 'bot', 'campaign', 'channel', 'code-action', 'config', 'console-user-invitation', 'constants', 'contacts-group', 'intent', 'notification', 'out-of-office', 'queue', 'quick-response', 'role', 'typification', 'variables', 'webchat', 'webhook', 'whatsapp-template'.\"}]}",
+     "headers": {}
+    },
+    "/audits/agent-status?agentId=x": {
+     "status": 429,
+     "corpo": "{\"errors\":[{\"type\":\"TOO_MANY_REQUESTS\",\"source\":\"\",\"message\":\"This endpoint allows only one request per minute.\"}]}",
+     "headers": {}
+    },
+    "/audits/sessions": {
+     "status": 429,
+     "corpo": "{\"errors\":[{\"type\":\"TOO_MANY_REQUESTS\",\"source\":\"\",\"message\":\"This endpoint allows only one request per minute.\"}]}",
+     "headers": {}
+    },
+    "/audits/chats": {
+     "status": 429,
+     "corpo": "{\"errors\":[{\"type\":\"TOO_MANY_REQUESTS\",\"source\":\"\",\"message\":\"This endpoint allows only one request per minute.\"}]}",
+     "headers": {}
+    },
+    "/audits/messages": {
+     "status": 429,
+     "corpo": "{\"errors\":[{\"type\":\"TOO_MANY_REQUESTS\",\"source\":\"\",\"message\":\"This endpoint allows only one request per minute.\"}]}",
+     "headers": {}
+    },
+    "/audits/queues": {
+     "status": 429,
+     "corpo": "{\"errors\":[{\"type\":\"TOO_MANY_REQUESTS\",\"source\":\"\",\"message\":\"This endpoint allows only one request per minute.\"}]}",
+     "headers": {}
+    },
+    "/audits/status": {
+     "status": 429,
+     "corpo": "{\"errors\":[{\"type\":\"TOO_MANY_REQUESTS\",\"source\":\"\",\"message\":\"This endpoint allows only one request per minute.\"}]}",
+     "headers": {}
+    },
+    "/audits/login": {
+     "status": 429,
+     "corpo": "{\"errors\":[{\"type\":\"TOO_MANY_REQUESTS\",\"source\":\"\",\"message\":\"This endpoint allows only one request per minute.\"}]}",
+     "headers": {}
+    },
+    "/audits/agents-status": {
+     "status": 429,
+     "corpo": "{\"errors\":[{\"type\":\"TOO_MANY_REQUESTS\",\"source\":\"\",\"message\":\"This endpoint allows only one request per minute.\"}]}",
+     "headers": {}
+    }
+   },
+   "sessoes": {
+    "?limit=500": {
+     "status": 200,
+     "n": 500,
+     "faixa": [
+      "2026-11-02T16:03:49Z",
+      "2026-11-03T12:03:22Z"
+     ],
+     "proxima": "https://api.botmaker.com/v2.0/sessions?include-messages=false&page-token=<token>",
+     "ms": 4309,
+     "headers": {},
+     "alvo": [
+      "2026-10-31T00:00:00.000Z",
+      "2026-11-01T00:00:00.000Z"
+     ]
+    },
+    "?from=DATA&to=DATA&limit=500": {
+     "status": 200,
+     "n": 171,
+     "faixa": [
+      "2026-10-31T00:04:23Z",
+      "2026-10-31T23:29:26Z"
+     ],
+     "proxima": null,
+     "ms": 2146,
+     "headers": {},
+     "alvo": [
+      "2026-10-31T00:00:00.000Z",
+      "2026-11-01T00:00:00.000Z"
+     ]
+    },
+    "?startTime=DATA&endTime=DATA&limit=500": {
+     "status": 200,
+     "n": 500,
+     "faixa": [
+      "2026-11-02T16:03:49Z",
+      "2026-11-03T12:03:22Z"
+     ],
+     "proxima": "https://api.botmaker.com/v2.0/sessions?include-messages=false&page-token=<token>",
+     "ms": 1694,
+     "headers": {},
+     "alvo": [
+      "2026-10-31T00:00:00.000Z",
+      "2026-11-01T00:00:00.000Z"
+     ]
+    },
+    "?creationTime=DATA&limit=500": {
+     "status": 200,
+     "n": 500,
+     "faixa": [
+      "2026-11-02T16:03:49Z",
+      "2026-11-03T12:03:22Z"
+     ],
+     "proxima": "https://api.botmaker.com/v2.0/sessions?include-messages=false&page-token=<token>",
+     "ms": 1267,
+     "headers": {},
+     "alvo": [
+      "2026-10-31T00:00:00.000Z",
+      "2026-11-01T00:00:00.000Z"
+     ]
+    },
+    "?fromDate=DATA&toDate=DATA&limit=500": {
+     "status": 200,
+     "n": 500,
+     "faixa": [
+      "2026-11-02T16:03:49Z",
+      "2026-11-03T12:03:22Z"
+     ],
+     "proxima": "https://api.botmaker.com/v2.0/sessions?include-messages=false&page-token=<token>",
+     "ms": 1581,
+     "headers": {},
+     "alvo": [
+      "2026-10-31T00:00:00.000Z",
+      "2026-11-01T00:00:00.000Z"
+     ]
+    },
+    "?after=DATA&before=DATA&limit=500": {
+     "status": 200,
+     "n": 500,
+     "faixa": [
+      "2026-11-02T16:03:49Z",
+      "2026-11-03T12:03:22Z"
+     ],
+     "proxima": "https://api.botmaker.com/v2.0/sessions?include-messages=false&page-token=<token>",
+     "ms": 1252,
+     "headers": {},
+     "alvo": [
+      "2026-10-31T00:00:00.000Z",
+      "2026-11-01T00:00:00.000Z"
+     ]
+    },
+    "?since=DATA&until=DATA&limit=500": {
+     "status": 200,
+     "n": 500,
+     "faixa": [
+      "2026-11-02T16:03:49Z",
+      "2026-11-03T12:03:22Z"
+     ],
+     "proxima": "https://api.botmaker.com/v2.0/sessions?include-messages=false&page-token=<token>",
+     "ms": 1838,
+     "headers": {},
+     "alvo": [
+      "2026-10-31T00:00:00.000Z",
+      "2026-11-01T00:00:00.000Z"
+     ]
+    },
+    "?dateFrom=DATA&dateTo=DATA&limit=500": {
+     "status": 200,
+     "n": 500,
+     "faixa": [
+      "2026-11-02T16:03:49Z",
+      "2026-11-03T12:03:22Z"
+     ],
+     "proxima": "https://api.botmaker.com/v2.0/sessions?include-messages=false&page-token=<token>",
+     "ms": 1070,
+     "headers": {},
+     "alvo": [
+      "2026-10-31T00:00:00.000Z",
+      "2026-11-01T00:00:00.000Z"
+     ]
+    }
+   },
+   "paginacao_sessoes": [
+    {
+     "n": 500,
+     "faixa": [
+      "2026-11-02T16:03:49Z",
+      "2026-11-03T12:03:22Z"
+     ]
+    },
+    {
+     "n": 500,
+     "faixa": [
+      "2026-11-03T12:03:22Z",
+      "2026-11-03T12:08:31Z"
+     ]
+    },
+    {
+     "n": 500,
+     "faixa": [
+      "2026-11-03T12:08:31Z",
+      "2026-11-03T12:13:01Z"
+     ]
+    }
+   ],
+   "mensagens": {
+    "?limit=250": {
+     "status": 200,
+     "n": 250,
+     "faixa": [
+      "2026-10-31T16:49:45.802Z",
+      "2026-10-31T18:13:16.492Z"
+     ],
+     "from": {
+      "bot": 124,
+      "user": 100,
+      "agent": 26
+     },
+     "agentesDistintos": 3,
+     "filasDistintas": 4,
+     "sessoesDistintas": 13,
+     "agentePorFrom": {
+      "bot:sem agentId": 124,
+      "user:sem agentId": 100,
+      "agent:com agentId": 26
+     },
+     "headers": {}
+    },
+    "?from=DATA&to=DATA&limit=250": {
+     "status": 400,
+     "n": 0,
+     "faixa": null,
+     "from": {},
+     "agentesDistintos": 0,
+     "filasDistintas": 0,
+     "sessoesDistintas": 0,
+     "agentePorFrom": {},
+     "headers": {}
+    },
+    "?startTime=DATA&endTime=DATA&limit=250": {
+     "status": 200,
+     "n": 250,
+     "faixa": [
+      "2026-10-31T16:49:45.802Z",
+      "2026-10-31T18:13:16.492Z"
+     ],
+     "from": {
+      "bot": 124,
+      "user": 100,
+      "agent": 26
+     },
+     "agentesDistintos": 3,
+     "filasDistintas": 4,
+     "sessoesDistintas": 13,
+     "agentePorFrom": {
+      "bot:sem agentId": 124,
+      "user:sem agentId": 100,
+      "agent:com agentId": 26
+     },
+     "headers": {}
+    }
+   },
+   "rajada_12": [
+    "200/134ms",
+    "200/126ms",
+    "200/119ms",
+    "200/91ms",
+    "204/42ms",
+    "200/117ms",
+    "200/110ms",
+    "200/130ms",
+    "200/83ms",
+    "200/132ms",
+    "200/86ms",
+    "200/81ms"
+   ],
+   "agentes": {
+    "n": 54,
+    "campos": [
+     "id",
+     "email",
+     "name",
+     "isOnline",
+     "status",
+     "role",
+     "queues",
+     "slots",
+     "priority",
+     "creationTime"
+    ],
+    "idsUnicos": 54,
+    "roles": {
+     "OPERATOR": 22,
+     "ADMIN": 18,
+     "SUPERVISOR": 12,
+     "CONFIGURATOR": 2
+    }
+   },
+   "chat_campos": [
+    "chat",
+    "creationTime",
+    "lastSessionCreationTime",
+    "variables",
+    "tags",
+    "lastUserMessageDatetime",
+    "listMessagesURL"
+   ],
+   "chat_individual": {
+    "status": 200,
+    "campos": [
+     "chat",
+     "creationTime",
+     "lastSessionCreationTime",
+     "variables",
+     "tags",
+     "lastUserMessageDatetime",
+     "listMessagesURL"
+    ]
+   }
+  }
+ }
+}
