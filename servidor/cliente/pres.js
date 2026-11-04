@@ -27,6 +27,14 @@ const GRUPOS_MOTIVO=g=>!['Sem tipificação','Abandono','Resolvido pelo robô'].
 /* arredonda em 0,1% garantindo soma exata de 100% (maior resto) */
 const a100=v=>{const t=v.reduce((s,x)=>s+x,0);if(!t)return v.map(()=>0);const r=v.map(x=>x/t*1000),f=r.map(Math.floor);let k=1000-f.reduce((s,x)=>s+x,0);r.map((x,i)=>[x-f[i],i]).sort((a,b)=>b[0]-a[0]).slice(0,k).forEach(([_,i])=>f[i]++);return f.map(x=>x/1000)};
 const EMO={'Outros temas':'➕','Acadêmico':'🎓','Financeiro':'💰','Informações gerais':'💬','Rematrícula':'📝','Cancelamento':'🚪','Cancelamento/Trancamento':'🚪'};
+/* classifica o motivo pela própria tipificação (palavras-chave), para não depender do grupo gravado na importação */
+function tema(t,g0){const l=nz(t).replace(/[_\-\s]+/g,' ');
+  if(/boleto|financ|^fin\b|^fin |mensalid|pagament|parcela|fatura|desconto|negocia|ddm|inad|cobranc|bolsa|fies|reembolso/.test(l))return'Financeiro';
+  if(/cancel|trancamento|tranca\b|desist/.test(l))return'Cancelamento';
+  if(/rematric|matricul|inscri|aceite|prouni|enem|vestibular|calouro|proposta|ingress|^vai |^rea |^rem /.test(l))return'Rematrícula';
+  if(/^aca|academ|disciplin|nota|grade|prova|portal|acesso|senha|historico|declaracao|document|estagio|tcc|colacao|diploma|ava\b|plataforma|horario|calendario|aula/.test(l))return'Acadêmico';
+  if(/^info|duvida|curso|contato|ouvidoria|polo|endereco|unidade/.test(l))return'Informações';
+  return g0&&g0!='Outros temas'?g0:'Outros temas'}
 const GNOME={'Informações':'Informações gerais'};
 const nz=s=>String(s==null?'':s).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
 /* nome único para tipificações parecidas (como na apresentação de referência) */
@@ -52,9 +60,9 @@ function calcular(P){
     if(R.all[x.un]!=null){R.all[x.un]+=x.n;R.all.T+=x.n}
     if(!okOrg(x))continue;
     for(const u of [x.un,'T']){const a=R.per[p.k+'|'+u];if(!a)continue;a.n+=x.n;if(x.o)a.tr+=x.n;a.msg+=(x.u||0)+(x.bt||0)+(x.op||0);if(x.g=='Abandono')a.ab+=x.n}
-    if(x.g=='Outros temas'){const o=(R.out??={UJ:{n:0,l:{}},UVA:{n:0,l:{}}})[x.un];if(o){o.n+=x.n;const k=tipCanon(x.t);o.l[k]=(o.l[k]||0)+x.n}}
-    if(GRUPOS_MOTIVO(x.g)){const tgm=((R.tgm??={})[x.un]??={})[x.g]??={},kk=tipCanon(x.t);tgm[kk]=(tgm[kk]||0)+x.n}
-    if(GRUPOS_MOTIVO(x.g)){const m=R.mot[x.g]??={UJ:0,UVA:0};m[x.un]+=x.n;const tc=tipCanon(x.t),t=R.tip[tc]??={n:0,g:x.g};t.n+=x.n}}
+    const g2=GRUPOS_MOTIVO(x.g)?tema(x.t,x.g):x.g;
+    if(g2=='Outros temas'){const o=(R.out??={UJ:{n:0,l:{}},UVA:{n:0,l:{}}})[x.un];if(o){o.n+=x.n;const k=tipCanon(x.t);o.l[k]=(o.l[k]||0)+x.n}}
+    if(GRUPOS_MOTIVO(x.g)){const tgm=((R.tgm??={})[x.un]??={})[g2]??={},kk=tipCanon(x.t);tgm[kk]=(tgm[kk]||0)+x.n;const m=R.mot[g2]??={UJ:0,UVA:0};m[x.un]+=x.n;const t=R.tip[kk]??={n:0,g:g2};t.n+=x.n}}
   return R;
 }
 const val=(R,p,u,k)=>{const a=R.per[p.k+'|'+u];return !a||!a.n?null:k=='tr'?a.tr/a.n:k=='msg'?a.msg/a.n:k=='ab'?a.ab/a.n:a.n};
