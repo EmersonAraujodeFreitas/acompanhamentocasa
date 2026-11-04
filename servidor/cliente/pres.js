@@ -117,6 +117,7 @@ function slides(R,RT){
    S.push(txt(822,224,370,24,P.length>1?'era '+pc(t0)+' em '+p0.label.toLowerCase()+(P.length>2?' e '+pc(tm)+' em '+pa.label.toLowerCase():''):'',{size:14,color:C.white}));S.push(txt(822,250,370,24,dd==null||P.length<2?'':(dd<=0?'queda':'alta')+' de '+f1(Math.abs(dd))+' p.p. desde '+p0.label.toLowerCase(),{size:13,bold:1,color:C.soft}));
    [['UJ',800],['UVA',1010]].forEach(([u,x])=>{S.push(card(x,312,204,100));S.push(txt(x+14,318,180,24,UL[u].toUpperCase()+' · '+pn.label.toUpperCase(),{size:11,bold:1,color:C.blue,sp:1}));S.push(txt(x+14,342,180,38,pc(val(R,pn,u,'tr')),{size:28,bold:1}));S.push(txt(x+14,382,180,24,P.length>1?pc(val(R,p0,u,'tr'))+' em '+p0.label.toLowerCase():'',{size:11,color:C.slate}))});
    S.push(card(800,428,414,200,{fill:C.cream,line:'F0D37A'}));S.push(txt(822,440,370,24,'PRINCIPAL MOTIVADOR',{size:12,bold:1,color:C.blue,sp:1.5}));S.push(txt(822,466,370,36,TX('mot_t','Informe o principal motivador'),{size:19,bold:1}));S.push(txt(822,504,370,110,TX('mot_d','Descreva em uma frase o que explica a variação.'),{size:14,color:C.slate,va:'t'}));
+   out.push(S)}
   /* 3 · efetividade */
   {const S=[],N=P.length;cab(S,'EFETIVIDADE DOS ATENDIMENTOS · '+ref,'Mensagens por sessão '+((val(R,pn,'T','msg')??0)<(val(R,p0,'T','msg')??0)?'caíram':'variaram')+' e a retenção no robô '+((1-(val(R,pn,'T','tr')??0))>(1-(val(R,p0,'T','tr')??0))?'subiu':'variou'));
    const k=(l,f,x)=>{S.push(card(x,122,380,68,{fill:C.navy,line:null}));S.push(txt(x+18,126,340,22,l,{size:12,color:C.soft}));S.push(txt(x+18,148,340,38,f,{size:24,bold:1,color:C.yel,va:'t'}))};
@@ -136,6 +137,7 @@ function slides(R,RT){
    S.push(card(64,552,1150,76,{fill:C.navy,line:null}));S.push(txt(86,552,170,76,'ÚLTIMA SESSÃO DE QUEM VOLTA',{size:12,bold:1,color:C.yel,sp:1}));
    const ut=RT.ult.robo+RT.ult.cons;S.push(txt(270,556,150,38,ut?pc(RT.ult.robo/ut):'–',{size:28,bold:1,color:C.yel}));S.push(txt(270,596,170,24,'terminam no robô',{size:12,color:C.white}));S.push(txt(450,556,150,38,ut?pc(RT.ult.cons/ut):'–',{size:28,bold:1,color:C.yel}));S.push(txt(450,596,200,24,'terminam com consultor',{size:12,color:C.white}));
    const ct=Object.entries(RT.ultTip).sort((a,b)=>b[1]-a[1])[0];S.push(txt(690,556,500,68,ct?'Com consultor, a última tipificação mais comum é “'+ct[0]+'” ('+pc(ct[1]/(RT.ult.cons||1))+').':'',{size:13,color:C.white}));
+   out.push(S)}
   /* 4 · frentes de atuação */
   {const S=[];cab(S,'OPORTUNIDADES DE MELHORIA','Frentes de atuação');
    const itens=[[TX('f1_t','Acompanhamento diário, hora a hora'),TX('f1_d','Todo dia, por hora'),'FREQUÊNCIA'],['Redução do fluxo',(val(R,pn,'T','tr')!=null&&val(R,p0,'T','tr')!=null?f1((val(R,pn,'T','tr')-val(R,p0,'T','tr'))*100).replace('-','−')+' p.p. de transbordo':'–'),'TRANSBORDO',pc(val(R,p0,'T','tr'))+' → '+pc(val(R,pn,'T','tr'))],['Aplicação de flows',(val(R,pn,'T','msg')!=null&&val(R,p0,'T','msg')!=null?f1(val(R,pn,'T','msg')-val(R,p0,'T','msg')).replace('-','−')+' mensagens por sessão':'–'),'MSGS POR SESSÃO',f1(val(R,p0,'T','msg'))+' → '+f1(val(R,pn,'T','msg'))]];
