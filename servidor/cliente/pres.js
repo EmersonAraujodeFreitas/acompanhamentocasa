@@ -23,7 +23,24 @@ function periodos(){
   const r=P.filter(p=>p.b>=ini&&p.a<=fi);return r.length?r:P.slice(-3);
 }
 const okOrg=x=>ST.org=='T'||(ST.org=='S'?x.ar=='S':x.ar=='A');
-const GRUPOS_MOTIVO=g=>!['Sem tipificação','Abandono','Resolvido pelo robô'].includes(g);
+const GRUPOS_MOTIVO=g=>!['Sem tipificação','Abandono','Resolvido pelo robô','Outros temas'].includes(g);
+const EMO={'Acadêmico':'🎓','Financeiro':'💰','Informações gerais':'💬','Rematrícula':'📝','Cancelamento':'🚪','Cancelamento/Trancamento':'🚪'};
+const GNOME={'Informações':'Informações gerais'};
+const nz=s=>String(s==null?'':s).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+/* nome único para tipificações parecidas (como na apresentação de referência) */
+function tipCanon(t){const raw=t==null||/^\(nulo\)$|^notypification$/i.test(String(t))?'Sem tipificação':String(t),l=nz(raw).replace(/[_\-\s]+/g,' ').trim();
+  if(/parou.*interagir/.test(l))return'Usuário parou de interagir';
+  if(/encerrad[ao].*autom|inatividade/.test(l))return'Encerrada automaticamente';
+  if(/24 ?h(rs|oras)?\b|24 ?hr/.test(l))return'Encerrado em 24 h';
+  if(/pagou boleto/.test(l))return/cartao/.test(l)?'Financeiro – Pagou boleto no cartão':'Financeiro – Pagou boleto (AD)';
+  if(/ddm|inad\b/.test(l))return'Financeiro – DDM (INAD)';
+  if(/trancamento|cancelamento/.test(l))return'Trancamento / cancelamento';
+  if(/^aca/.test(l)&&/incl|excl|insercao|ajuste|disciplin|grade/.test(l))return'Acadêmico – Incl./Excl. disciplinas';
+  if(/^info/.test(l)&&/gerais/.test(l))return'Informações gerais';
+  if(/^rem\b|rematric/.test(l))return'Rematrícula';
+  if(/finalizou sem atendimento/.test(l))return'Finalizou sem atendimento';
+  if(/ja (esta|e) (matriculado|aluno)/.test(l))return'Já matriculado';
+  return raw.replace(/_/g,' ').replace(/^ACAs?\s*-\s*/i,'Acadêmico – ').replace(/^FIN\s*-\s*/i,'Financeiro – ').replace(/^CON\s*-\s*/i,'Contratos – ').replace(/^REM\s*-\s*/i,'Rematrícula – ')}
 
 /* ---------- números ---------- */
 function calcular(P){
@@ -33,7 +50,7 @@ function calcular(P){
     if(R.all[x.un]!=null){R.all[x.un]+=x.n;R.all.T+=x.n}
     if(!okOrg(x))continue;
     for(const u of [x.un,'T']){const a=R.per[p.k+'|'+u];if(!a)continue;a.n+=x.n;if(x.o)a.tr+=x.n;a.msg+=(x.u||0)+(x.bt||0)+(x.op||0);if(x.g=='Abandono')a.ab+=x.n}
-    if(GRUPOS_MOTIVO(x.g)){const m=R.mot[x.g]??={UJ:0,UVA:0};m[x.un]+=x.n;const t=R.tip[x.t]??={n:0,g:x.g};t.n+=x.n}}
+    if(GRUPOS_MOTIVO(x.g)){const m=R.mot[x.g]??={UJ:0,UVA:0};m[x.un]+=x.n;const tc=tipCanon(x.t),t=R.tip[tc]??={n:0,g:x.g};t.n+=x.n}}
   return R;
 }
 const val=(R,p,u,k)=>{const a=R.per[p.k+'|'+u];return !a||!a.n?null:k=='tr'?a.tr/a.n:k=='msg'?a.msg/a.n:k=='ab'?a.ab/a.n:a.n};
@@ -46,33 +63,36 @@ function retornos(P){
       if(ST.org!='T'&&r.z){const z=L[0].z;if(ST.org=='S'?z!=2:z!=1)continue}
       L.forEach(x=>x.h=x.day*24+x.hh);L.sort((x,y)=>x.h-y.h);
       const dentro=L.filter(x=>x.day>=da&&x.day<=db);if(!dentro.length)continue;
-      out.contatos++;const h0=dentro[0].h,v=L.filter(x=>x.h>h0&&x.h<=h0+24).length;out.dist[Math.min(5,v)]++;if(v){out.quemVolta++;out.voltas+=v;const ult=dentro[dentro.length-1];if(ult.op){out.ult.cons++;const lb=r.T[ult.ti]||'(nulo)';out.ultTip[lb]=(out.ultTip[lb]||0)+1}else out.ult.robo++}
-      for(let k=0;k<L.length-1;k++){const x=L[k];if(x.day<da||x.day>db)continue;if(L[k+1].h-x.h<=168){const lb=r.T[x.ti]||'(nulo)';out.motivo[lb]=(out.motivo[lb]||0)+1}}}}
+      out.contatos++;const h0=dentro[0].h,v=L.filter(x=>x.h>h0&&x.h<=h0+24).length;out.dist[Math.min(5,v)]++;if(v){out.quemVolta++;out.voltas+=v;const ult=dentro[dentro.length-1];if(ult.op){out.ult.cons++;const lb=tipCanon(r.T[ult.ti]);out.ultTip[lb]=(out.ultTip[lb]||0)+1}else out.ult.robo++}
+      for(let k=0;k<L.length-1;k++){const x=L[k];if(x.day<da||x.day>db)continue;if(L[k+1].h-x.h<=168){const lb=tipCanon(r.T[x.ti]);out.motivo[lb]=(out.motivo[lb]||0)+1}}}}
   return out;
 }
 
 /* ---------- desenho dos slides (um só desenho serve para a prévia e para o PPTX) ---------- */
 const card=(x,y,w,h,o={})=>({k:'r',x,y,w,h,fill:o.fill||C.card,line:o.line===undefined?C.line:o.line,r:o.r==null?12:o.r});
 const txt=(x,y,w,h,t,o={})=>({k:'t',x,y,w,h,t,size:o.size||14,bold:!!o.bold,color:o.color||C.navy,al:o.al||'l',va:o.va||'m',sp:o.sp||0});
-const cab=(S,kick,tit)=>{S.push(txt(64,40,1150,24,kick,{size:13,bold:1,color:C.blue,sp:2,va:'t'}));S.push(txt(64,66,1150,44,tit,{size:30,bold:1,va:'t'}))};
+const KE={'MOTIVOS':'💬','TAXA D':'🤝','EFETIV':'⚡','FRENTES':'🎯'};
+const cab=(S,kick,tit)=>{kick=(KE[Object.keys(KE).find(k=>kick.startsWith(k))]||'')+' '+kick;S.push(txt(64,40,1150,24,kick,{size:13,bold:1,color:C.blue,sp:2,va:'t'}));S.push(txt(64,66,1150,44,tit,{size:30,bold:1,va:'t'}))};
 const leg=(S,x,y,itens)=>{let cx=x;for(const [c,n] of itens){S.push({k:'r',x:cx,y:y+5,w:14,h:14,fill:c,line:null,r:3});S.push(txt(cx+20,y,90,24,n,{size:12,color:C.slate}));cx+=34+n.length*8}};
 function slides(R,RT){
   const P=R.P,p0=P[0],pn=P[P.length-1],pa=P[P.length-2]||p0,out=[],ref=(ST.org=='S'?'SERVIÇOS':ST.org=='A'?'ADMISSÃO':'TODOS')+' · '+(P.length>1?p0.curto.toUpperCase()+(ST.modo=='mes'?'–':' → ')+pn.curto.toUpperCase():p0.curto.toUpperCase());
   const orgN=ST.org=='S'?'Serviços':ST.org=='A'?'Admissão':'Todas as sessões';
   /* 1 · motivos de contato */
-  {const S=[],tot=u=>P.reduce((s,p)=>s+(R.per[p.k+'|'+u].n),0),mots=Object.entries(R.mot).map(([g,m])=>({g,UJ:m.UJ,UVA:m.UVA,T:m.UJ+m.UVA})).sort((a,b)=>b.T-a.T).slice(0,6),sj=mots.reduce((s,m)=>s+m.UJ,0)||1,sv=mots.reduce((s,m)=>s+m.UVA,0)||1,st=mots.reduce((s,m)=>s+m.T,0)||1;
+  {const S=[],tot=u=>P.reduce((s,p)=>s+(R.per[p.k+'|'+u].n),0),mots=Object.entries(R.mot).map(([g,m])=>({g:GNOME[g]||g,UJ:m.UJ,UVA:m.UVA,T:m.UJ+m.UVA})).sort((a,b)=>b.T-a.T).slice(0,6),sj=mots.reduce((s,m)=>s+m.UJ,0)||1,sv=mots.reduce((s,m)=>s+m.UVA,0)||1,st=mots.reduce((s,m)=>s+m.T,0)||1;
    cab(S,'MOTIVOS DE CONTATO · '+ref,mots.length>1?mots[0].g+' e '+mots[1].g+' lideram os motivos de contato':'Motivos de contato');
-   [['Sessões · Unijorge',R.all.UJ,64],['Sessões · UVA',R.all.UVA,441],['Total de sessões',R.all.T,818]].forEach(([l,v,x])=>{S.push(card(x,128,360,64,{fill:C.navy,line:null}));S.push(txt(x+18,128,150,64,l+' · '+(P.length>1?p0.curto+(ST.modo=='mes'?'–':' → ')+pn.curto:p0.curto),{size:12,color:C.soft}));S.push(txt(x+170,128,175,64,nf(v),{size:28,bold:1,color:C.yel,al:'r'}))});
-   const mx=Math.max(...mots.map(m=>Math.max(m.UJ/sj,m.UVA/sv)),.01);
+   [['🏫 Sessões · Unijorge',R.all.UJ,64],['🎒 Sessões · UVA',R.all.UVA,441],['🚀 Total de sessões',R.all.T,818]].forEach(([l,v,x])=>{S.push(card(x,128,360,64,{fill:C.navy,line:null}));S.push(txt(x+18,128,150,64,l+' · '+(P.length>1?p0.curto+(ST.modo=='mes'?'–':' → ')+pn.curto:p0.curto),{size:12,color:C.soft}));S.push(txt(x+170,128,175,64,nf(v),{size:28,bold:1,color:C.yel,al:'r'}))});
+   const mx=Math.max(...mots.map(m=>Math.max(m.UJ/(mots.reduce((s,x)=>s+x.UJ,0)||1),m.UVA/(mots.reduce((s,x)=>s+x.UVA,0)||1))),.01);
    [['UJ','Unijorge',C.red,sj,64],['UVA','UVA',C.yel,sv,430]].forEach(([u,nm,col,sm,x0])=>{
      S.push(card(x0,208,350,430));S.push({k:'r',x:x0+20,y:223,w:14,h:14,fill:col,line:null,r:3});S.push(txt(x0+42,216,290,28,nm,{size:16,bold:1}));
      S.push(txt(x0+20,244,316,34,'% das sessões com motivo registrado · soma 100% entre os motivos mostrados',{size:11,color:C.slate,va:'t'}));
-     mots.forEach((m,i)=>{const y=290+i*57,v=m[u]/sm,w=Math.max(4,v/mx*226);
-       S.push(txt(x0+20,y,190,22,m.g,{size:14,bold:1}));S.push(txt(x0+206,y,124,22,pc(m.T/st)+' do total',{size:11,color:C.slate,al:'r'}));
+     const ord=mots.filter(m=>m[u]>0).sort((a,b)=>b[u]-a[u]),so=ord.reduce((s,m)=>s+m[u],0)||1;
+     if(!ord.length)S.push(txt(x0+20,300,310,40,'Sem motivos registrados no período',{size:13,color:C.slate}));
+     ord.forEach((m,i)=>{const y=290+i*57,v=m[u]/so,w=Math.max(4,v/mx*226);
+       S.push(txt(x0+20,y,190,22,(EMO[m.g]||'')+' '+m.g,{size:14,bold:1}));S.push(txt(x0+206,y,124,22,pc(m.T/st)+' do total',{size:11,color:C.slate,al:'r'}));
        S.push({k:'r',x:x0+20,y:y+26,w,h:20,fill:col,line:null,r:3});S.push(txt(x0+20+w+8,y+24,84,24,pc(v),{size:13,bold:1}))})});
-   S.push(card(800,208,414,430));S.push(txt(822,220,370,30,'Principais tipificações',{size:16,bold:1}));S.push(txt(822,248,370,20,'% das sessões com motivo registrado',{size:12,color:C.slate}));
-   const tp=Object.entries(R.tip).sort((a,b)=>b[1].n-a[1].n).slice(0,8),tt=Object.values(R.tip).reduce((s,x)=>s+x.n,0)||1;
-   tp.forEach(([t,x],i)=>{const y=282+i*43;S.push({k:'l',x:822,y:y-4,w:370,c:C.line});S.push(txt(822,y,310,38,t.length>44?t.slice(0,43)+'…':t,{size:13}));S.push(txt(1120,y,72,38,pc(x.n/tt),{size:14,bold:1,al:'r'}))});
+   S.push(card(800,208,414,430));S.push(txt(822,220,370,30,'🔎 Principais tipificações',{size:16,bold:1}));S.push(txt(822,248,370,20,'Soma 100% entre as seis mais frequentes',{size:12,color:C.slate}));
+   const tp=Object.entries(R.tip).sort((a,b)=>b[1].n-a[1].n).slice(0,6),tt=tp.reduce((s,x)=>s+x[1].n,0)||1;
+   tp.forEach(([t,x],i)=>{const y=282+i*57;S.push({k:'l',x:822,y:y-4,w:370,c:C.line});S.push(txt(822,y,310,38,t.length>44?t.slice(0,43)+'…':t,{size:13}));S.push(txt(1120,y,72,38,pc(x.n/tt),{size:14,bold:1,al:'r'}))});
    out.push(S)}
   /* 2 · transbordo */
   {const S=[],N=P.length;cab(S,'TAXA DE TRANSBORDO · '+ref,'Transbordo '+((val(R,pn,'T','tr')??0)<(val(R,p0,'T','tr')??0)?'caiu':'foi')+' para '+pc(val(R,pn,'T','tr'))+' em '+pn.label.toLowerCase());
@@ -98,8 +118,10 @@ function slides(R,RT){
    if(RT.ok&&RT.contatos){const lb=['Não volta','1 vez','2 vezes','3 vezes','4 vezes','5 ou mais'];lb.forEach((l,i)=>{const y=270+i*38,v=RT.dist[i]/RT.contatos;S.push(txt(480,y,120,22,l,{size:13}));S.push(txt(690,y,70,22,pc(v),{size:13,bold:1,al:'r'}));S.push({k:'r',x:480,y:y+24,w:Math.max(3,v*280),h:8,fill:i?C.blue:C.soft,line:null,r:3})});
      S.push(card(480,490,280,40,{fill:C.yel,line:null}));S.push(txt(490,490,260,40,pc(RT.quemVolta/RT.contatos)+' voltam em até 24 h'+(RT.quemVolta?' · média '+f1(RT.voltas/RT.quemVolta)+' voltas':''),{size:12,bold:1}))}
    else S.push(txt(480,300,290,120,'Base de recorrência não carregada para este recorte. Importe Usuários e sessões em Importar bases.',{size:13,color:C.slate,va:'t'}));
-   S.push(card(796,206,418,330));S.push(txt(816,216,380,26,'Motivo do retorno',{size:16,bold:1}));S.push(txt(816,242,380,20,'Top 5 · % dos retornos em até 7 dias',{size:12,color:C.slate}));
-   const mo=Object.entries(RT.motivo).sort((a,b)=>b[1]-a[1]),mt=mo.reduce((s,x)=>s+x[1],0)||1;mo.slice(0,5).forEach(([l,n],i)=>{const y=270+i*40;S.push(txt(816,y,300,22,l.length>34?l.slice(0,33)+'…':l,{size:13}));S.push(txt(1120,y,76,22,pc(n/mt),{size:13,bold:1,al:'r'}));S.push({k:'r',x:816,y:y+24,w:Math.max(3,n/mt*340),h:8,fill:i?C.blue:C.red,line:null,r:3})});
+   S.push(card(796,206,418,330));S.push(txt(816,216,380,26,'Motivo do retorno',{size:16,bold:1}));S.push(txt(816,242,380,20,'Top 5 · % dos retornos em até 7 dias (total 100%)',{size:12,color:C.slate}));
+   const mo0=Object.entries(RT.motivo).sort((a,b)=>b[1]-a[1]),mt=mo0.reduce((s,x)=>s+x[1],0)||1,rest=mo0.slice(5),mo=mo0.slice(0,5).concat(rest.length?[['Outros motivos',rest.reduce((s,x)=>s+x[1],0)]]:[]);
+   if(rest.length)S.push(txt(816,500,380,32,'Outros: '+rest.slice(0,5).map(x=>x[0].toLowerCase()).join(', ')+'.',{size:10,color:C.slate,va:'t'}));
+   mo.forEach(([l,n],i)=>{const y=262+i*40;S.push(txt(816,y,300,22,l.length>34?l.slice(0,33)+'…':l,{size:13}));S.push(txt(1120,y,76,22,pc(n/mt),{size:13,bold:1,al:'r'}));S.push({k:'r',x:816,y:y+24,w:Math.max(3,n/mt*340),h:8,fill:i?C.blue:C.red,line:null,r:3})});
    S.push(card(64,552,1150,76,{fill:C.navy,line:null}));S.push(txt(86,552,170,76,'ÚLTIMA SESSÃO DE QUEM VOLTA',{size:12,bold:1,color:C.yel,sp:1}));
    const ut=RT.ult.robo+RT.ult.cons;S.push(txt(270,556,150,38,ut?pc(RT.ult.robo/ut):'–',{size:28,bold:1,color:C.yel}));S.push(txt(270,596,170,24,'terminam no robô',{size:12,color:C.white}));S.push(txt(450,556,150,38,ut?pc(RT.ult.cons/ut):'–',{size:28,bold:1,color:C.yel}));S.push(txt(450,596,200,24,'terminam com consultor',{size:12,color:C.white}));
    const ct=Object.entries(RT.ultTip).sort((a,b)=>b[1]-a[1])[0];S.push(txt(690,556,500,68,ct?'Com consultor, a última tipificação mais comum é “'+ct[0]+'” ('+pc(ct[1]/(RT.ult.cons||1))+').':'',{size:13,color:C.white}));
@@ -119,8 +141,8 @@ function slides(R,RT){
 /* ---------- prévia na tela ---------- */
 function html(S,i){const e=S.map(o=>{const b='left:'+o.x+'px;top:'+o.y+'px;';if(o.k=='r')return'<div style="position:absolute;'+b+'width:'+o.w+'px;height:'+o.h+'px;background:#'+o.fill+';'+(o.line?'border:1px solid #'+o.line+';box-sizing:border-box;':'')+'border-radius:'+o.r+'px"></div>';
     if(o.k=='l')return'<div style="position:absolute;'+b+'width:'+o.w+'px;height:1px;background:#'+o.c+'"></div>';
-    return'<div style="position:absolute;'+b+'width:'+o.w+'px;height:'+o.h+'px;display:flex;align-items:'+(o.va=='t'?'flex-start':'center')+';justify-content:'+(o.al=='r'?'flex-end':o.al=='c'?'center':'flex-start')+';font-size:'+o.size+'px;font-weight:'+(o.bold?700:400)+';color:#'+o.color+';letter-spacing:'+o.sp+'px;text-align:'+(o.al=='r'?'right':o.al=='c'?'center':'left')+';line-height:1.18;overflow:hidden"><span>'+esc(o.t)+'</span></div>'}).join('');
-  return'<div class="psl" style="width:1280px;height:720px;position:relative;background:#'+C.bg+';font-family:\'IBM Plex Sans\',Arial,sans-serif;overflow:hidden;transform-origin:0 0">'+e+'<div style="position:absolute;right:24px;bottom:10px;font-size:11px;color:#'+C.slate+'">'+(i+1)+'</div></div>'}
+    return'<div style="position:absolute;'+b+'width:'+o.w+'px;height:'+o.h+'px;display:flex;align-items:'+(o.va=='t'?'flex-start':'center')+';justify-content:'+(o.al=='r'?'flex-end':o.al=='c'?'center':'flex-start')+';font-size:'+o.size+'px;font-weight:'+(o.bold?700:400)+';color:#'+o.color+';letter-spacing:'+o.sp+'px;text-align:'+(o.al=='r'?'right':o.al=='c'?'center':'left')+';line-height:1.18;overflow:hidden"><span>'+esc(o.t).replace(/(\p{Extended_Pictographic}\uFE0F?)/gu,'<i class="pem">$1</i>')+'</span></div>'}).join('');
+  return'<style>.pem{font-style:normal;display:inline-block;animation:pem 2.2s ease-in-out infinite}@keyframes pem{0%,100%{transform:translateY(0) rotate(0)}30%{transform:translateY(-4px) rotate(-8deg)}60%{transform:translateY(0) rotate(8deg)}}@media(prefers-reduced-motion:reduce){.pem{animation:none}}</style><div class="psl" style="width:1280px;height:720px;position:relative;background:#'+C.bg+';font-family:\'IBM Plex Sans\',Arial,sans-serif;overflow:hidden;transform-origin:0 0">'+e+'<div style="position:absolute;right:24px;bottom:10px;font-size:11px;color:#'+C.slate+'">'+(i+1)+'</div></div>'}
 /* ---------- PPTX ---------- */
 function baixar(SL){
   if(typeof PptxGenJS=='undefined'){alert('A biblioteca de PPTX não carregou (verifique a conexão).');return}
