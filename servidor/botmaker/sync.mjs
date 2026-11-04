@@ -154,13 +154,29 @@ async function lerConta([un, token]) {
 }
 
 /* ------------------------------------------------------------ cálculo por sessão ------------------------------------------------------------ */
+// motivo inferido pelo texto do cliente, só para sessões SEM tipificação. Guarda apenas o tema (nunca o texto).
+const semAc = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+const REGRAS_MOTIVO = [
+  ['Cancelamento', /cancel|trancar|trancamento|desisti|nao quero mais|encerrar (a )?matricula/],
+  ['Financeiro', /boleto|2\s*via|segunda via|mensalidade|pagament|pagar|parcela|fatura|negocia|divida|debito|cobranc|financeir|inadimpl|desconto|fies\b/],
+  ['Academico', /\bnotas?\b|prova|disciplina|grade|historico|declaracao|diploma|certificado|portal|senha|\bava\b|professor|\baulas?\b|estagio|\btcc\b|colacao|segunda chamada|protocolo|coordena/],
+  ['Rematricula', /rematricul|matricul|inscri|vestibular|\benem\b|prouni|aceite|contrato|ingress|calouro|processo seletivo|reabertura|bolsa|\bcurso\b/],
+  ['Informacoes', /informac|duvida|\bpolo\b|endereco|funciona|quero saber|gostaria de saber|horario de atendimento/]
+];
+function inferirMotivo(m) {
+  if (process.env.SEM_INFERENCIA === '1') return null;
+  const txt = semAc(m.filter(x => x.from === 'user').slice(0, 10).map(x => x.content && x.content.text || '').join(' ')).slice(0, 2000);
+  if (!txt.trim()) return null;
+  for (const [tema, re] of REGRAS_MOTIVO) if (re.test(txt)) return 'Inferido-' + tema;
+  return null;
+}
 function calcular(un, sessoes, agentes, filas, vars) {
   const sess = [], conv = [];
   for (const s of sessoes) {
     const ch = s.chat && s.chat.chat || {}, v = vars.get(ch.chatId) || {};
     const m = (s.messages || []).slice().sort((a, b) => ms(a.creationTime) - ms(b.creationTime));
     const nu = m.filter(x => x.from === 'user').length, nb = m.filter(x => x.from === 'bot').length, ag = m.filter(x => x.from === 'agent'), np = ag.length;
-    const tip = v.t || null;
+    const tip = v.t || inferirMotivo(m) || null;
     sess.push({
       'ID da sessão': s.id, 'Data da sessão': brData(s.creationTime), 'Horário da sessão': loc(s.creationTime).getUTCHours(),
       'ID do canal': ch.channelId || '', 'ID do contato/Telefone': ch.contactId || '', 'Mensagens do usuário': nu, 'Mensagens do Bot': nb,

@@ -81,3 +81,9 @@ Monta ao vivo slides no estilo do modelo de Serviços (motivos de contato, trans
 
 ## Período fechado e ano inteiro (Atualizar via API)
 No botão **Atualizar via API** há: Mês atual, Mês anterior, Escolher um mês e **Ano inteiro (mês a mês)**. O site pede um mês por vez ao robô (máximo de 35 dias por rodada), importa e segue para o próximo; a janela precisa ficar aberta. Em período fechado o status dos atendentes (Produtividade) só é buscado se a caixa for marcada, porque a Botmaker limita a 1 consulta por minuto. Depois de atualizar o Worker (`worker-unico.mjs`), o workflow novo já aceita `de`, `ate` e `produtividade`.
+
+## Motivo inferido pelo texto (sessões sem tipificação)
+O robô lê as mensagens do cliente (já baixadas com a sessão) e, **só quando a sessão não tem tipificação**, atribui um tema por palavras-chave
+(Cancelamento, Financeiro, Acadêmico, Rematrícula, Informações). O texto nunca é guardado: apenas o rótulo `Inferido-<Tema>` entra como tipificação.
+Para desligar: variável `SEM_INFERENCIA=1`. A Apresentação marca esses motivos como "(inferido pelo texto)" e o diagnóstico mostra quantos são.
+As regras ficam em `REGRAS_MOTIVO`, em `servidor/botmaker/sync.mjs`.
