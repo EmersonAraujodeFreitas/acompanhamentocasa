@@ -50,6 +50,7 @@ function calcular(P){
     if(R.all[x.un]!=null){R.all[x.un]+=x.n;R.all.T+=x.n}
     if(!okOrg(x))continue;
     for(const u of [x.un,'T']){const a=R.per[p.k+'|'+u];if(!a)continue;a.n+=x.n;if(x.o)a.tr+=x.n;a.msg+=(x.u||0)+(x.bt||0)+(x.op||0);if(x.g=='Abandono')a.ab+=x.n}
+    if(x.g=='Outros temas'){const o=(R.out??={UJ:{n:0,l:{}},UVA:{n:0,l:{}}})[x.un];if(o){o.n+=x.n;const k=tipCanon(x.t);o.l[k]=(o.l[k]||0)+x.n}}
     if(GRUPOS_MOTIVO(x.g)){const m=R.mot[x.g]??={UJ:0,UVA:0};m[x.un]+=x.n;const tc=tipCanon(x.t),t=R.tip[tc]??={n:0,g:x.g};t.n+=x.n}}
   return R;
 }
@@ -89,7 +90,9 @@ function slides(R,RT){
      if(!ord.length)S.push(txt(x0+20,300,310,40,'Sem motivos registrados no período',{size:13,color:C.slate}));
      ord.forEach((m,i)=>{const y=290+i*57,v=m[u]/so,w=Math.max(4,v/mx*226);
        S.push(txt(x0+20,y,190,22,(EMO[m.g]||'')+' '+m.g,{size:14,bold:1}));S.push(txt(x0+206,y,124,22,pc(m.T/st)+' do total',{size:11,color:C.slate,al:'r'}));
-       S.push({k:'r',x:x0+20,y:y+26,w,h:20,fill:col,line:null,r:3});S.push(txt(x0+20+w+8,y+24,84,24,pc(v),{size:13,bold:1}))})});
+       S.push({k:'r',x:x0+20,y:y+26,w,h:20,fill:col,line:null,r:3});S.push(txt(x0+20+w+8,y+24,84,24,pc(v),{size:13,bold:1}))});
+     const ou=(R.out||{})[u];if(ou&&ou.n>0){const ls=Object.entries(ou.l).sort((a,b)=>b[1]-a[1]).slice(0,3).map(x=>x[0].replace(/^Sem tipificação$/,'sem tipificação')).join(', ');
+       S.push({k:'l',x:x0+20,y:586,w:310,c:C.line});S.push(txt(x0+20,590,310,42,'➕ Outros temas ('+pc(ou.n/(so+ou.n))+' das sessões): '+ls+'.',{size:10.5,color:C.slate,va:'t'}))}});
    S.push(card(800,208,414,430));S.push(txt(822,220,370,30,'🔎 Principais tipificações',{size:16,bold:1}));S.push(txt(822,248,370,20,'Soma 100% entre as seis mais frequentes',{size:12,color:C.slate}));
    const tp=Object.entries(R.tip).sort((a,b)=>b[1].n-a[1].n).slice(0,6),tt=tp.reduce((s,x)=>s+x[1].n,0)||1;
    tp.forEach(([t,x],i)=>{const y=282+i*57;S.push({k:'l',x:822,y:y-4,w:370,c:C.line});S.push(txt(822,y,310,38,t.length>44?t.slice(0,43)+'…':t,{size:13}));S.push(txt(1120,y,72,38,pc(x.n/tt),{size:14,bold:1,al:'r'}))});
@@ -139,10 +142,29 @@ function slides(R,RT){
 }
 
 /* ---------- prévia na tela ---------- */
+
+/* ícones SVG animados (substituem os emojis na visualização) */
+const SV=(b,c)=>'<svg class="psv '+c+'" viewBox="0 0 24 24" width="1.45em" height="1.45em" style="vertical-align:-.3em;margin-right:.2em">'+b+'</svg>';
+const ICO={
+'🎓':SV('<path d="M12 3 1.5 9 12 15l10.5-6z" fill="#00487F"/><path d="M6 12.5v4.2c0 1.3 2.7 2.8 6 2.8s6-1.500 6-2.800v-4.200L12 16z" fill="#F5B800"/><path d="M21 9.500v6" stroke="#C8102E" stroke-width="1.500" stroke-linecap="round"/>','pa-b'),
+'💰':SV('<path d="M8 3h8l-2 4h-4z" fill="#B8860B"/><path d="M9.500 7C4 11 3 21 12 21s8-10 2.500-14z" fill="#F5B800"/><text x="12" y="18" font-size="9" font-weight="700" text-anchor="middle" fill="#7A5A00" font-family="Arial">R$</text>','pa-b'),
+'💬':SV('<path d="M4 4h16a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-8l-5 4v-4H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z" fill="#00487F"/><circle cx="8" cy="10.500" r="1.400" fill="#fff"/><circle cx="12" cy="10.500" r="1.400" fill="#fff"/><circle cx="16" cy="10.500" r="1.400" fill="#fff"/>','pa-p'),
+'📝':SV('<rect x="4" y="3" width="13" height="18" rx="2" fill="#fff" stroke="#00487F" stroke-width="1.600"/><path d="M7 8h7M7 12h7M7 16h4" stroke="#00487F" stroke-width="1.500" stroke-linecap="round"/><path d="m14 19 7-7 2 2-7 7-3 1z" fill="#F5B800" stroke="#B8860B" stroke-width=".8"/>','pa-w'),
+'🚪':SV('<rect x="5" y="2.500" width="12" height="19" rx="1.500" fill="#C8102E"/><circle cx="14" cy="12" r="1.200" fill="#F5B800"/><path d="M18 12h4m-2-2 2 2-2 2" stroke="#00213D" stroke-width="1.500" fill="none" stroke-linecap="round"/>','pa-s'),
+'🏫':SV('<path d="M2 11 12 4l10 7z" fill="#C8102E"/><rect x="4" y="11" width="16" height="10" fill="#F5E6C8"/><rect x="10" y="14" width="4" height="7" fill="#00487F"/><rect x="5.500" y="13" width="3" height="3" fill="#00487F"/><rect x="15.500" y="13" width="3" height="3" fill="#00487F"/>','pa-b'),
+'🎒':SV('<rect x="5" y="6" width="14" height="16" rx="5" fill="#F5B800"/><path d="M9 6a3 3 0 0 1 6 0" stroke="#B8860B" stroke-width="1.600" fill="none"/><rect x="8" y="13" width="8" height="6" rx="1.500" fill="#B8860B"/>','pa-w'),
+'🚀':SV('<path d="M12 2c4 3 5 8 4 13H8c-1-5 0-10 4-13z" fill="#E8EEF4" stroke="#00487F" stroke-width="1"/><circle cx="12" cy="9" r="2" fill="#00487F"/><path d="M8 13 4 17l4-1zM16 13l4 4-4-1z" fill="#C8102E"/><path class="pfl" d="M10 17c0 3 2 5 2 5s2-2 2-5z" fill="#F5B800"/>','pa-r'),
+'🔎':SV('<circle cx="10" cy="10" r="6.500" fill="#DCEBFA" stroke="#00487F" stroke-width="2.200"/><path d="m15 15 6.500 6.500" stroke="#00213D" stroke-width="3" stroke-linecap="round"/>','pa-p'),
+'➕':SV('<circle cx="12" cy="12" r="10" fill="#00487F"/><path d="M12 7v10M7 12h10" stroke="#fff" stroke-width="2.600" stroke-linecap="round"/>','pa-s'),
+'🤝':SV('<path d="M2 11l5-4 5 2 5-2 5 4-4 5-3-1-3 3-3-3-3 1z" fill="#F5B800" stroke="#B8860B" stroke-width="1"/>','pa-w'),
+'⚡':SV('<path d="M13.500 2 4 13.500h7L10 22l10-12.500h-7z" fill="#F5B800" stroke="#B8860B" stroke-width="1"/>','pa-s'),
+'🎯':SV('<circle cx="12" cy="12" r="10" fill="#fff" stroke="#C8102E" stroke-width="2"/><circle cx="12" cy="12" r="6" fill="#fff" stroke="#C8102E" stroke-width="2"/><circle cx="12" cy="12" r="2.400" fill="#C8102E"/>','pa-p')
+};
+const SVGCSS='.psv{display:inline-block;transform-origin:50% 60%}.pa-b{animation:pab 1.800s ease-in-out infinite}.pa-p{animation:pap 1.900s ease-in-out infinite}.pa-w{animation:paw 2s ease-in-out infinite}.pa-s{animation:pas 1.700s ease-in-out infinite}.pa-r{animation:par 1.600s ease-in-out infinite}@keyframes pab{0%,100%{transform:translateY(0)}40%{transform:translateY(-3px)}}@keyframes pap{0%,100%{transform:scale(1)}50%{transform:scale(1.18)}}@keyframes paw{0%,100%{transform:rotate(0)}30%{transform:rotate(-12deg)}60%{transform:rotate(10deg)}}@keyframes pas{0%,100%{transform:scale(1) rotate(0)}50%{transform:scale(1.15) rotate(8deg)}}@keyframes par{0%,100%{transform:translate(0,0)}50%{transform:translate(2px,-3px)}}@media(prefers-reduced-motion:reduce){.psv{animation:none!important}}';
 function html(S,i){const e=S.map(o=>{const b='left:'+o.x+'px;top:'+o.y+'px;';if(o.k=='r')return'<div style="position:absolute;'+b+'width:'+o.w+'px;height:'+o.h+'px;background:#'+o.fill+';'+(o.line?'border:1px solid #'+o.line+';box-sizing:border-box;':'')+'border-radius:'+o.r+'px"></div>';
     if(o.k=='l')return'<div style="position:absolute;'+b+'width:'+o.w+'px;height:1px;background:#'+o.c+'"></div>';
-    return'<div style="position:absolute;'+b+'width:'+o.w+'px;height:'+o.h+'px;display:flex;align-items:'+(o.va=='t'?'flex-start':'center')+';justify-content:'+(o.al=='r'?'flex-end':o.al=='c'?'center':'flex-start')+';font-size:'+o.size+'px;font-weight:'+(o.bold?700:400)+';color:#'+o.color+';letter-spacing:'+o.sp+'px;text-align:'+(o.al=='r'?'right':o.al=='c'?'center':'left')+';line-height:1.18;overflow:hidden"><span>'+esc(o.t).replace(/(\p{Extended_Pictographic}\uFE0F?)/gu,'<i class="pem">$1</i>')+'</span></div>'}).join('');
-  return'<style>.pem{font-style:normal;display:inline-block;animation:pem 2.2s ease-in-out infinite}@keyframes pem{0%,100%{transform:translateY(0) rotate(0)}30%{transform:translateY(-4px) rotate(-8deg)}60%{transform:translateY(0) rotate(8deg)}}@media(prefers-reduced-motion:reduce){.pem{animation:none}}</style><div class="psl" style="width:1280px;height:720px;position:relative;background:#'+C.bg+';font-family:\'IBM Plex Sans\',Arial,sans-serif;overflow:hidden;transform-origin:0 0">'+e+'<div style="position:absolute;right:24px;bottom:10px;font-size:11px;color:#'+C.slate+'">'+(i+1)+'</div></div>'}
+    return'<div style="position:absolute;'+b+'width:'+o.w+'px;height:'+o.h+'px;display:flex;align-items:'+(o.va=='t'?'flex-start':'center')+';justify-content:'+(o.al=='r'?'flex-end':o.al=='c'?'center':'flex-start')+';font-size:'+o.size+'px;font-weight:'+(o.bold?700:400)+';color:#'+o.color+';letter-spacing:'+o.sp+'px;text-align:'+(o.al=='r'?'right':o.al=='c'?'center':'left')+';line-height:1.18;overflow:hidden"><span>'+esc(o.t).replace(/(\p{Extended_Pictographic}\uFE0F?)/gu,(m,e)=>ICO[e.replace(/\uFE0F/,'')]||'')+'</span></div>'}).join('');
+  return'<style>'+SVGCSS+'</style><div class="psl" style="width:1280px;height:720px;position:relative;background:#'+C.bg+';font-family:\'IBM Plex Sans\',Arial,sans-serif;overflow:hidden;transform-origin:0 0">'+e+'<div style="position:absolute;right:24px;bottom:10px;font-size:11px;color:#'+C.slate+'">'+(i+1)+'</div></div>'}
 /* ---------- PPTX ---------- */
 function baixar(SL){
   if(typeof PptxGenJS=='undefined'){alert('A biblioteca de PPTX não carregou (verifique a conexão).');return}
