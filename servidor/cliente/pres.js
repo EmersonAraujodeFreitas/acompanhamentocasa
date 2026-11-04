@@ -86,7 +86,7 @@ function slides(R,RT){
    [['UJ','Unijorge',C.red,sj,64],['UVA','UVA',C.yel,sv,430]].forEach(([u,nm,col,sm,x0])=>{
      S.push(card(x0,208,350,430));S.push({k:'r',x:x0+20,y:223,w:14,h:14,fill:col,line:null,r:3});S.push(txt(x0+42,216,290,28,nm,{size:16,bold:1}));
      S.push(txt(x0+20,244,316,34,'% das sessões com motivo registrado · soma 100% entre os motivos mostrados',{size:11,color:C.slate,va:'t'}));
-     const ord=mots.filter(m=>m[u]>0).sort((a,b)=>b[u]-a[u]),so=ord.reduce((s,m)=>s+m[u],0)||1;
+     const ord=mots.filter(m=>m.UJ>0||m.UVA>0).sort((a,b)=>b[u]-a[u]),so=ord.reduce((s,m)=>s+m[u],0)||1;
      if(!ord.length)S.push(txt(x0+20,300,310,40,'Sem motivos registrados no período',{size:13,color:C.slate}));
      ord.forEach((m,i)=>{const y=290+i*57,v=m[u]/so,w=Math.max(4,v/mx*226);
        S.push(txt(x0+20,y,190,22,(EMO[m.g]||'')+' '+m.g,{size:14,bold:1}));S.push(txt(x0+206,y,124,22,pc(m.T/st)+' do total',{size:11,color:C.slate,al:'r'}));
