@@ -31,6 +31,7 @@ const CAT=[["usu�rio_parou_de_interagir","Improdutiva - usuario parou de inter
 const CATX=CAT.map(([id,nm])=>({nm,re:new RegExp('^'+id.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9\ufffd?]/g,'').replace(/\ufffd/g,'[a-z]').replace(/\?/g,'[a-z]{0,2}')+'$')})),CATC=new Map();
 const IMPROD=/^imp[._ -]|improdut|encerrad|ultrapassou|\b24 ?h|parou de interagir|usuario parou|inatividade|automatic|sem atendimento|teste\b/;
 const ADMRE=/^(aceite|potencial|recusa|imp\.? ?negocio|crivo|blacklist|mencao|comentario|pos graduacao|atendimento no corporativo)|matricula prouni|resultado de inscricao|curso, valores|^(vai|dar aceite|aluno de outra|curso (n|i)ao|curso indisp)|aceite|potencial|inscri|vestibular|prouni|enem\b|calouro|proposta/;
+const OUTDET=l=>{const k=nz(l).replace(/^pos-?/,'').trim();return/^financeiro.*outros$/.test(k)?'Inclui: DDM (INAD), Pagou boleto (AD), Negociação':/^academic.*outros$/.test(k)?'Inclui: Incl./Excl. disciplinas, Transf. interna':''};
 function catTema(nm){const l=nz(nm).replace(/^pos-/,''),p=l.split(' - ')[0].trim();
   if(!/^rematricula|^reabertura|^academic|^financeiro|^convenio|^pessoais|^solicitacoes|^informacoes - (portal|convenios|documentos|polos|duvidas|reembolso)/.test(l)&&ADMRE.test(l))return'ADM';
   if(/^improdutiva|^imp\.? ?negocio/.test(p))return null;
@@ -124,13 +125,14 @@ function slides(R,RT){
      const ad=a100(top.map(x=>x[1].n).concat(rest?[rest]:[])),mxv=Math.max(...ad,.01);
      top.forEach(([l,x],i)=>{const y=282+i*43,v=ad[i],w=Math.max(4,v/mxv*196),th=GNOME[x.g]||x.g;
        const dl=(d=>/^outros$/i.test(d)?l.replace(/\s*–\s*Outros$/i,'')+' – outros':d)(l.includes(' – ')?l.slice(l.indexOf(' – ')+3):l),lb=dl.charAt(0).toUpperCase()+dl.slice(1);
-       S.push(txt(x0+20,y,236,20,(EMO[th]||'')+' '+lb,{size:12,bold:1}));S.push(txt(x0+250,y,80,20,th.replace('Informações gerais','Informações'),{size:9,color:C.slate,al:'r'}));
-       S.push({k:'r',x:x0+20,y:y+23,w:242,h:12,fill:'EEF2F6',line:null,r:3});S.push({k:'r',x:x0+20,y:y+23,w:Math.max(4,v/mxv*242),h:12,fill:col,line:null,r:3});S.push(txt(x0+270,y+18,60,20,pc(v),{size:12.5,bold:1,al:'r'}))});
+       S.push(txt(x0+20,y,236,16,(EMO[th]||'')+' '+lb,{size:12,bold:1}));S.push(txt(x0+250,y,80,16,th.replace('Informações gerais','Informações'),{size:9,color:C.slate,al:'r'}));
+       const od=OUTDET(l);if(od)S.push(txt(x0+20,y+15,236,12,od,{size:8.5,color:C.slate,va:'t'}));
+       S.push({k:'r',x:x0+20,y:y+28,w:242,h:10,fill:'EEF2F6',line:null,r:3});S.push({k:'r',x:x0+20,y:y+28,w:Math.max(4,v/mxv*242),h:10,fill:col,line:null,r:3});S.push(txt(x0+270,y+21,60,20,pc(v),{size:12.5,bold:1,al:'r'}))});
      if(rest){S.push({k:'l',x:x0+20,y:588,w:310,c:C.line});S.push(txt(x0+20,596,236,22,'Demais motivos ('+Math.max(0,tu.length-7)+')',{size:11.5,color:C.slate}));S.push(txt(x0+270,596,60,22,pc(ad[ad.length-1]),{size:12.5,bold:1,al:'r'}))}});
    S.push(card(800,208,414,430));S.push(txt(822,220,370,30,'🔎 Principais tipificações',{size:16,bold:1}));S.push(txt(822,248,370,20,'% das sessões com motivo registrado · soma 100%',{size:12,color:C.slate}));
    const tp0=Object.entries(R.tip).sort((a,b)=>b[1].n-a[1].n),tt=tp0.reduce((s,x)=>s+x[1].n,0)||1,rs=tp0.slice(5),tp=tp0.slice(0,5).concat(rs.length?[['Demais tipificações',{n:rs.reduce((s,x)=>s+x[1].n,0)}]]:[]);
    const at=a100(tp.map(x=>x[1].n)),mic=(t,x)=>{if(t=='Demais tipificações'){const L=rs.slice(0,3).map(z=>(z[0].length>26?z[0].slice(0,25)+'…':z[0])+' '+pc(z[1].n/tt));return L.join(' · ')+(rs.length>3?' · +'+(rs.length-3)+' outras':'')}
-     const rw=Object.entries((R.tipr||{})[t]||{}).sort((a,b)=>b[1]-a[1]);if(!/outros$|^outras tipifica/i.test(t)&&t!='Encerrado em 24 h')return'';
+     if(OUTDET(t))return OUTDET(t);const rw=Object.entries((R.tipr||{})[t]||{}).sort((a,b)=>b[1]-a[1]);if(!/outros$|^outras tipifica/i.test(t)&&t!='Encerrado em 24 h')return'';
      return rw.length>1?'Reúne: '+rw.slice(0,3).map(z=>(z[0].length>26?z[0].slice(0,25)+'…':z[0])+' '+pc(z[1]/x.n)).join(' · '):(rw.length?'Tipificação genérica "'+rw[0][0]+'", sem detalhe do motivo':'')};
    tp.forEach(([t,x],i)=>{const y=282+i*57,mc=mic(t,x[1]||x);S.push({k:'l',x:822,y:y-4,w:370,c:C.line});S.push(txt(822,y,310,mc?20:38,t.length>44?t.slice(0,43)+'…':t,{size:13}));if(mc)S.push(txt(822,y+20,290,34,mc,{size:9.5,color:C.slate,va:'t'}));S.push(txt(1120,y,72,38,pc(at[i]),{size:14,bold:1,al:'r'}))});
    out.push(S)}
