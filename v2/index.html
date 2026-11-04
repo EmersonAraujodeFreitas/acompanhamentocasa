@@ -2531,7 +2531,8 @@ function slides(R,RT){
      if(!tu.length)S.push(txt(x0+20,300,310,40,'Sem motivos registrados no período',{size:13,color:C.slate}));
      const ad=a100(top.map(x=>x[1].n).concat(rest?[rest]:[])),mxv=Math.max(...ad,.01);
      top.forEach(([l,x],i)=>{const y=282+i*43,v=ad[i],w=Math.max(4,v/mxv*196),th=GNOME[x.g]||x.g;
-       S.push(txt(x0+20,y,236,20,(EMO[th]||'')+' '+(l.length>30?l.slice(0,29)+'…':l),{size:12.5,bold:1}));S.push(txt(x0+256,y,74,20,th.replace('Informações gerais','Informações'),{size:9,color:C.slate,al:'r'}));
+       const dl=(d=>/^outros$/i.test(d)?l.replace(/\s*–\s*Outros$/i,'')+' – outros':d)(l.includes(' – ')?l.slice(l.indexOf(' – ')+3):l),lb=dl.charAt(0).toUpperCase()+dl.slice(1);
+       S.push(txt(x0+20,y,310,20,(EMO[th]||'')+' '+lb,{size:12,bold:1}));S.push(txt(x0+250,y+19,80,20,th.replace('Informações gerais','Informações'),{size:9,color:C.slate,al:'r'}));
        S.push({k:'r',x:x0+20,y:y+22,w,h:14,fill:col,line:null,r:3});S.push(txt(x0+20+w+8,y+19,84,20,pc(v),{size:12.5,bold:1}))});
      if(rest){S.push({k:'l',x:x0+20,y:588,w:310,c:C.line});S.push(txt(x0+20,594,310,30,'Demais motivos ('+Math.max(0,tu.length-7)+'): '+pc(ad[ad.length-1]),{size:11,color:C.slate,va:'t'}))}});
    S.push(card(800,208,414,430));S.push(txt(822,220,370,30,'🔎 Principais tipificações',{size:16,bold:1}));S.push(txt(822,248,370,20,'% das sessões com motivo registrado · soma 100%',{size:12,color:C.slate}));
