@@ -63,10 +63,13 @@ function slides(R,RT){
   {const S=[],tot=u=>P.reduce((s,p)=>s+(R.per[p.k+'|'+u].n),0),mots=Object.entries(R.mot).map(([g,m])=>({g,UJ:m.UJ,UVA:m.UVA,T:m.UJ+m.UVA})).sort((a,b)=>b.T-a.T).slice(0,6),sj=mots.reduce((s,m)=>s+m.UJ,0)||1,sv=mots.reduce((s,m)=>s+m.UVA,0)||1,st=mots.reduce((s,m)=>s+m.T,0)||1;
    cab(S,'MOTIVOS DE CONTATO · '+ref,mots.length>1?mots[0].g+' e '+mots[1].g+' lideram os motivos de contato':'Motivos de contato');
    [['Sessões · Unijorge',R.all.UJ,64],['Sessões · UVA',R.all.UVA,441],['Total de sessões',R.all.T,818]].forEach(([l,v,x])=>{S.push(card(x,128,360,64,{fill:C.navy,line:null}));S.push(txt(x+18,128,150,64,l+' · '+(P.length>1?p0.curto+(ST.modo=='mes'?'–':' → ')+pn.curto:p0.curto),{size:12,color:C.soft}));S.push(txt(x+170,128,175,64,nf(v),{size:28,bold:1,color:C.yel,al:'r'}))});
-   S.push(card(64,208,716,430));S.push(txt(86,220,380,30,'% das sessões com motivo registrado',{size:16,bold:1}));leg(S,470,222,[[C.red,'Unijorge'],[C.yel,'UVA']]);S.push(txt(86,250,670,22,'Cada universidade soma 100% entre os motivos mostrados',{size:12,color:C.slate}));
    const mx=Math.max(...mots.map(m=>Math.max(m.UJ/sj,m.UVA/sv)),.01);
-   mots.forEach((m,i)=>{const y=284+i*58;S.push(txt(86,y,190,22,m.g,{size:15,bold:1}));S.push(txt(86,y+24,190,20,pc(m.T/st)+' do total',{size:12,color:C.slate}));
-     [[m.UJ/sj,C.red,0],[m.UVA/sv,C.yel,26]].forEach(([v,c,dy])=>{S.push({k:'r',x:280,y:y+dy,w:Math.max(4,v/mx*370),h:22,fill:c,line:null,r:3});S.push(txt(280+Math.max(4,v/mx*370)+8,y+dy-2,80,26,pc(v),{size:13,bold:1}))})});
+   [['UJ','Unijorge',C.red,sj,64],['UVA','UVA',C.yel,sv,430]].forEach(([u,nm,col,sm,x0])=>{
+     S.push(card(x0,208,350,430));S.push({k:'r',x:x0+20,y:223,w:14,h:14,fill:col,line:null,r:3});S.push(txt(x0+42,216,290,28,nm,{size:16,bold:1}));
+     S.push(txt(x0+20,244,316,34,'% das sessões com motivo registrado · soma 100% entre os motivos mostrados',{size:11,color:C.slate,va:'t'}));
+     mots.forEach((m,i)=>{const y=290+i*57,v=m[u]/sm,w=Math.max(4,v/mx*226);
+       S.push(txt(x0+20,y,190,22,m.g,{size:14,bold:1}));S.push(txt(x0+206,y,124,22,pc(m.T/st)+' do total',{size:11,color:C.slate,al:'r'}));
+       S.push({k:'r',x:x0+20,y:y+26,w,h:20,fill:col,line:null,r:3});S.push(txt(x0+20+w+8,y+24,84,24,pc(v),{size:13,bold:1}))})});
    S.push(card(800,208,414,430));S.push(txt(822,220,370,30,'Principais tipificações',{size:16,bold:1}));S.push(txt(822,248,370,20,'% das sessões com motivo registrado',{size:12,color:C.slate}));
    const tp=Object.entries(R.tip).sort((a,b)=>b[1].n-a[1].n).slice(0,8),tt=Object.values(R.tip).reduce((s,x)=>s+x.n,0)||1;
    tp.forEach(([t,x],i)=>{const y=282+i*43;S.push({k:'l',x:822,y:y-4,w:370,c:C.line});S.push(txt(822,y,310,38,t.length>44?t.slice(0,43)+'…':t,{size:13}));S.push(txt(1120,y,72,38,pc(x.n/tt),{size:14,bold:1,al:'r'}))});
