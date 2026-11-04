@@ -164,7 +164,7 @@ const REGRAS_MOTIVO = [
   ['Informacoes', /informac|duvida|\bpolo\b|endereco|funciona|quero saber|gostaria de saber|horario de atendimento/]
 ];
 function inferirMotivo(m) {
-  if (process.env.SEM_INFERENCIA === '1') return null;
+  if (process.env.INFERIR_MOTIVO !== '1') return null; // desligado: a análise usa só as tipificações registradas
   const txt = semAc(m.filter(x => x.from === 'user').slice(0, 10).map(x => x.content && x.content.text || '').join(' ')).slice(0, 2000);
   if (!txt.trim()) return null;
   for (const [tema, re] of REGRAS_MOTIVO) if (re.test(txt)) return 'Inferido-' + tema;

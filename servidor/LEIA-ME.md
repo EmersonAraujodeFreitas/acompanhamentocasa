@@ -85,5 +85,5 @@ No botão **Atualizar via API** há: Mês atual, Mês anterior, Escolher um mês
 ## Motivo inferido pelo texto (sessões sem tipificação)
 O robô lê as mensagens do cliente (já baixadas com a sessão) e, **só quando a sessão não tem tipificação**, atribui um tema por palavras-chave
 (Cancelamento, Financeiro, Acadêmico, Rematrícula, Informações). O texto nunca é guardado: apenas o rótulo `Inferido-<Tema>` entra como tipificação.
-Para desligar: variável `SEM_INFERENCIA=1`. A Apresentação marca esses motivos como "(inferido pelo texto)" e o diagnóstico mostra quantos são.
+**Desligado por padrão**: a análise de motivos usa só as sessões com tipificação registrada. Para ligar: variável `INFERIR_MOTIVO=1`. A Apresentação marca esses motivos como "(inferido pelo texto)" e o diagnóstico mostra quantos são.
 As regras ficam em `REGRAS_MOTIVO`, em `servidor/botmaker/sync.mjs`.
