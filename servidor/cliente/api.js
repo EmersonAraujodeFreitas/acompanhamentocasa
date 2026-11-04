@@ -52,6 +52,7 @@ async function disparar(){
 async function importar(comAgente){
   if(BUSY)return;BUSY=1;window.__APISEM=1;const msg=(t,p)=>{EST=Object.assign({},EST,{mensagem:t,pct:p});tela()};
   try{
+    window.__RCAVISO='';try{await rcLoad()}catch(e){}
     msg('Carregando a base de status (Lead, aluno, ex-aluno) do servidor…',5);
     try{if(typeof stSync=='function'){await stSync(true);if(window.__STREP){window.__STREP=0;for(const u of['UJ','UVA'])if(STS[u]&&AUTH.can('publicar'))await stPublish(u)}}}catch(e){}
     msg('Baixando os dados do servidor…',10);
@@ -79,6 +80,7 @@ async function importar(comAgente){
     if(FILA&&FILA.pos+1<FILA.itens.length&&MODAL){FILA.pos++;await disparar();return}
     if(FILA)FILA.pos=FILA.itens.length;
     try{const sem=us.filter(u=>!STS[u]&&!(D.contas[u].cob&&(D.contas[u].cob.aluno||D.contas[u].cob.ex||D.contas[u].cob.lead)));if(sem.length){EST.aviso='As sessões de '+sem.map(u=>UNN[u]).join(' e ')+' entraram sem a organização (Lead, aluno ou ex-aluno), porque a Botmaker não trouxe a variável status e a base de planilhas também não está no servidor. Elas contam nos totais, mas não nos filtros Serviços e Admissão. Importe as planilhas em Importar status uma vez e depois use Importar novamente aqui.';tela()}}catch(e){}
+    if(window.__RCAVISO){EST.aviso=(EST.aviso?EST.aviso+' ':'')+window.__RCAVISO;tela()}
     try{const l=document.getElementById('lg');if(l){l.style.display='inline-block'}}catch(e){}
   }catch(e){window.__APISEM=0;BUSY=0;EST=Object.assign({},EST,{fase:'erro',mensagem:e.message});tela()}
 }
