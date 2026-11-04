@@ -82,6 +82,8 @@ const media = a => a.length ? a.reduce((s, x) => s + x, 0) / a.length : null;
 const arred = (x, c = 1) => x == null ? null : Math.round(x * 10 ** c) / 10 ** c;
 
 /* ------------------------------------------------------------ leitura de uma conta ------------------------------------------------------------ */
+const semAcento = t => String(t == null ? '' : t).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z]/g, '');
+function codStatus(x) { const t = semAcento(x); if (!t) return null; if (t === 'aluno' || t === 'alunoativo' || t === 'ativo') return 1; if (t === 'exaluno' || t === 'exalunos' || t === 'ex') return 2; if (t === 'lead') return 0; return null }
 async function lerConta([un, token]) {
   const get = cliente(token, un), prog = (...a) => console.log('[' + un + ']', ...a), nome = { UJ: 'Unijorge', UVA: 'UVA' }[un] || un;
   const agentes = new Map(), filas = new Map();
@@ -106,7 +108,7 @@ async function lerConta([un, token]) {
       let achou = 0;
       for (const c of it) {
         const id = c.chat && c.chat.chatId || c.chatId;
-        if (id && precisa.has(id)) { const v = c.variables || {}; vars.set(id, { t: v.typification || v.tipificacao || null, nps: v.nps ?? null }); achou++ }
+        if (id && precisa.has(id)) { const v = c.variables || {}; vars.set(id, { t: v.typification || v.tipificacao || null, nps: v.nps ?? null, st: codStatus(v.status), raw: v.status == null ? null : String(v.status).slice(0, 30) }); achou++ }
       }
       vazias = achou ? 0 : vazias + 1;
       return vazias < 6 && vars.size < precisa.size;
@@ -115,12 +117,19 @@ async function lerConta([un, token]) {
     await avanco(un, 65, 'Lendo ' + nome + ': tipificação e NPS…');
   }
 
+  // organização do contato: a variável "status" da Botmaker (aluno, ex-aluno, lead) -> 1, 2 ou 0
+  const st = {}, cob = { aluno: 0, ex: 0, lead: 0, sem: 0, outros: {} };
+  for (const s of sessoes) {
+    const ch = s.chat && s.chat.chat || {}, v = vars.get(ch.chatId), c = v ? v.st : null;
+    if (c === 1) { cob.aluno++; if (ch.contactId) st[ch.contactId] = 1 } else if (c === 2) { cob.ex++; if (ch.contactId) st[ch.contactId] = 2 } else if (c === 0) cob.lead++; else { cob.sem++; if (v && v.raw) cob.outros[v.raw] = (cob.outros[v.raw] || 0) + 1 }
+  }
+  prog('status do contato (sessões): aluno', cob.aluno, 'ex-aluno', cob.ex, 'lead', cob.lead, 'sem variável', cob.sem);
   const { sess, conv } = calcular(un, sessoes, agentes, filas, vars);
   await avanco(un, 70, 'Lendo ' + nome + ': status dos atendentes (a Botmaker limita a 1 consulta por minuto)…');
   const prod = process.env.SEM_PROD === '1' ? [] : await produtividade(get, un, agentes);
   await avanco(un, 100, nome + ' lido.');
   prog('linhas: sessões', sess.length, 'conversas', conv.length, 'produtividade', prod.length);
-  return { un, sess, conv, prod, agente: porAtendente(un, conv), cand: conv.map(c => c.__c) };
+  return { un, sess, conv, prod, st, cob, agente: porAtendente(un, conv), cand: conv.map(c => c.__c) };
 }
 
 /* ------------------------------------------------------------ cálculo por sessão ------------------------------------------------------------ */
@@ -270,14 +279,14 @@ async function principal() {
   const tarefas = CONTAS.map(c => lerConta(c).then(r => rs.push(r)));
   const falhas = (await Promise.allSettled(tarefas)).filter(x => x.status === 'rejected').map(x => String(x.reason && x.reason.message || x.reason));
   if (MODO === 'validar') {
-    const out = { gerado_em: new Date().toISOString(), janela: [T0, T1], falhas, contas: Object.fromEntries(rs.map(r => [r.un, resumo(r)])) };
+    const out = { gerado_em: new Date().toISOString(), janela: [T0, T1], falhas, status_contatos: Object.fromEntries(rs.map(r => [r.un, r.cob])), contas: Object.fromEntries(rs.map(r => [r.un, resumo(r)])) };
     fs.mkdirSync('servidor/botmaker/resultado', { recursive: true });
     fs.writeFileSync('servidor/botmaker/resultado/validacao.json', JSON.stringify(out, null, 1));
     console.log('validação gravada');
   } else {
     if (!rs.length) throw new Error(falhas.join(' | ') || 'Nenhuma universidade foi lida.');
     const clean = a => a.map(o => Object.fromEntries(Object.entries(o).filter(([k]) => !k.startsWith('__'))));
-    const saida = { gerado_em: new Date().toISOString(), janela: [T0, T1], falhas, contas: Object.fromEntries(rs.map(r => [r.un, { sess: clean(r.sess), conv: clean(r.conv), prod: r.prod, agente: r.agente }])) };
+    const saida = { gerado_em: new Date().toISOString(), janela: [T0, T1], falhas, contas: Object.fromEntries(rs.map(r => [r.un, { sess: clean(r.sess), conv: clean(r.conv), prod: r.prod, agente: r.agente, st: r.st, cob: r.cob }])) };
     saida.contagem = Object.fromEntries(rs.map(r => [r.un, { sess: r.sess.length, conv: r.conv.length, prod: r.prod.length }]));
     await enviar(saida);
     console.log('enviado', JSON.stringify(saida.contagem));

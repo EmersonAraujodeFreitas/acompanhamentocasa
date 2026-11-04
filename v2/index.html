@@ -2365,11 +2365,15 @@ async function importar(comAgente){
       mk('conversa',c.conv);mk('produtividade',c.prod);mk('sessoes',c.sess);if(comAgente)mk('atendente',c.agente);
       if(!fl.length)continue;
       msg('Importando '+UNN[u]+' ('+(c.sess.length)+' sessões, '+(c.conv.length)+' conversas)…',30+Math.round(60*i/us.length));
-      await load(fl,u);i++;
+      // organização pelo status que a Botmaker já guarda no contato (aluno, ex-aluno; o resto é lead). Vale só para esta importação: não substitui a base de planilhas.
+      const antes=STS[u],ant=STM[u],cb=c.cob||{},ap=Object.entries(c.st||{});
+      if(ap.length||cb.lead||cb.aluno||cb.ex){const m=new Map(antes||[]);ap.forEach(([t,x])=>{const k=stKey(t);if(k)m.set(k,x)});STS[u]=m;cb.api=1}
+      try{await load(fl,u)}finally{if(cb.api){STS[u]=antes;STM[u]=ant}}
+      i++;
     }
     try{await AUTH.j('/botmaker/progresso',{method:'POST',body:{fase:'importado',mensagem:'Importado',pct:100}})}catch(e){}
     window.__APISEM=0;BUSY=0;EST=Object.assign({},EST,{fase:'importado',importado_em:new Date().toISOString(),mensagem:''});tela();
-    try{const sem=us.filter(u=>!STS[u]);if(sem.length){EST.aviso='As sessões de '+sem.map(u=>UNN[u]).join(' e ')+' entraram sem a organização (Lead, aluno ou ex-aluno), porque a base de status (telefones de alunos e ex-alunos) ainda não está no servidor. Elas contam nos totais, mas não nos filtros Serviços e Admissão. Importe as planilhas em Importar status uma vez e depois use Importar novamente aqui.';tela()}}catch(e){}
+    try{const sem=us.filter(u=>!STS[u]&&!(D.contas[u].cob&&(D.contas[u].cob.aluno||D.contas[u].cob.ex||D.contas[u].cob.lead)));if(sem.length){EST.aviso='As sessões de '+sem.map(u=>UNN[u]).join(' e ')+' entraram sem a organização (Lead, aluno ou ex-aluno), porque a Botmaker não trouxe a variável status e a base de planilhas também não está no servidor. Elas contam nos totais, mas não nos filtros Serviços e Admissão. Importe as planilhas em Importar status uma vez e depois use Importar novamente aqui.';tela()}}catch(e){}
     try{const l=document.getElementById('lg');if(l){l.style.display='inline-block'}}catch(e){}
   }catch(e){window.__APISEM=0;BUSY=0;EST=Object.assign({},EST,{fase:'erro',mensagem:e.message});tela()}
 }
