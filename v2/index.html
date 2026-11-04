@@ -2503,7 +2503,7 @@ function slides(R,RT){
    [['🏫 Sessões · Unijorge',R.all.UJ,64],['🎒 Sessões · UVA',R.all.UVA,441],['🚀 Total de sessões',R.all.T,818]].forEach(([l,v,x])=>{S.push(card(x,128,360,64,{fill:C.navy,line:null}));S.push(txt(x+18,128,150,64,l+' · '+(P.length>1?p0.curto+(ST.modo=='mes'?'–':' → ')+pn.curto:p0.curto),{size:12,color:C.soft}));S.push(txt(x+170,128,175,64,nf(v),{size:28,bold:1,color:C.yel,al:'r'}))});
    const mx=Math.max(...mots.map(m=>Math.max(m.UJ/(mots.reduce((s,x)=>s+x.UJ,0)||1),m.UVA/(mots.reduce((s,x)=>s+x.UVA,0)||1))),.01);
    const linhas=(u)=>{const ou=(R.out||{})[u],ls=ou?Object.entries(ou.l).sort((a,b)=>b[1]-a[1]):[];
-     return{rs:mots.map(m=>({g:m.g,v:m[u]})).sort((a,b)=>b.v-a.v),rest:ls}};
+     return{rs:mots.map(m=>({g:m.g,v:m[u]})).filter(m=>m.v>0).sort((a,b)=>b.v-a.v),rest:ls}};
    const LL={UJ:linhas('UJ'),UVA:linhas('UVA')};
    [['UJ','Unijorge',C.red,sj,64],['UVA','UVA',C.yel,sv,430]].forEach(([u,nm,col,sm,x0])=>{
      S.push(card(x0,208,350,430));S.push({k:'r',x:x0+20,y:223,w:14,h:14,fill:col,line:null,r:3});S.push(txt(x0+42,216,290,28,nm,{size:16,bold:1}));

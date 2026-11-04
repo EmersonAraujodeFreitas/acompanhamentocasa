@@ -132,7 +132,7 @@ async function lerConta([un, token]) {
           if (feitos % 500 === 0) { prog('chats individuais', feitos, 'de', alvo.length); await avanco(un, 65 + Math.round(4 * feitos / alvo.length), 'Lendo ' + nome + ': tipificação de ' + feitos + ' de ' + alvo.length + ' conversas…') }
         }
       };
-      await Promise.all(Array.from({ length: 6 }, trab));
+      await Promise.all(Array.from({ length: 10 }, trab));
       prog('chats individuais lidos', feitos, 'com variáveis', achados, alvo.length < falta.length ? '(limitado a ' + LIM + ')' : '');
     }
     await avanco(un, 65, 'Lendo ' + nome + ': tipificação e NPS…');
