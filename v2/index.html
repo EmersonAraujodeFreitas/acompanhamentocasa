@@ -2471,7 +2471,7 @@ function calcular(P){
     const g2=GRUPOS_MOTIVO(x.g)?tema(x.t,x.g):x.g;
     {const dg=((R.diag??={})[x.un]??={}),kd=String(x.t==null?'(sem tipificação)':x.t),e=dg[kd]??={n:0,g:x.g,m:g2};e.n+=x.n;const cv=((R.cov??={})[x.un]??={tot:0,mot:0,ab:0,sem:0,rob:0});cv.tot+=x.n;if(GRUPOS_MOTIVO(x.g))cv.mot+=x.n;else if(x.g=='Abandono')cv.ab+=x.n;else if(x.g=='Sem tipificação')cv.sem+=x.n;else cv.rob+=x.n}
     if(g2=='Outros temas'){const o=(R.out??={UJ:{n:0,l:{}},UVA:{n:0,l:{}}})[x.un];if(o){o.n+=x.n;const k=tipCanon(x.t);o.l[k]=(o.l[k]||0)+x.n}}
-    if(GRUPOS_MOTIVO(x.g)){const tgm=((R.tgm??={})[x.un]??={})[g2]??={},kk=tipCanon(x.t);tgm[kk]=(tgm[kk]||0)+x.n;const m=R.mot[g2]??={UJ:0,UVA:0};m[x.un]+=x.n;const t=R.tip[kk]??={n:0,g:g2};t.n+=x.n}}
+    if(GRUPOS_MOTIVO(x.g)){const tgm=((R.tgm??={})[x.un]??={})[g2]??={},kk=tipCanon(x.t);tgm[kk]=(tgm[kk]||0)+x.n;const m=R.mot[g2]??={UJ:0,UVA:0};m[x.un]+=x.n;const t=R.tip[kk]??={n:0,g:g2};t.n+=x.n;const rw=String(x.t==null?'(sem tipificação)':x.t).replace(/_/g,' '),tr=(R.tipr??={})[kk]??={};tr[rw]=(tr[rw]||0)+x.n}}
   return R;
 }
 const val=(R,p,u,k)=>{const a=R.per[p.k+'|'+u];return !a||!a.n?null:k=='tr'?a.tr/a.n:k=='msg'?a.msg/a.n:k=='ab'?a.ab/a.n:a.n};
@@ -2518,7 +2518,10 @@ function slides(R,RT){
        S.push({k:'l',x:x0+20,y:586,w:310,c:C.line});S.push(txt(x0+20,590,310,42,'➕ Outros temas ('+pc(ou.v/so)+' das sessões): '+ls+'.',{size:10.5,color:C.slate,va:'t'}))}});
    S.push(card(800,208,414,430));S.push(txt(822,220,370,30,'🔎 Principais tipificações',{size:16,bold:1}));S.push(txt(822,248,370,20,'% das sessões com motivo registrado · soma 100%',{size:12,color:C.slate}));
    const tp0=Object.entries(R.tip).sort((a,b)=>b[1].n-a[1].n),tt=tp0.reduce((s,x)=>s+x[1].n,0)||1,rs=tp0.slice(5),tp=tp0.slice(0,5).concat(rs.length?[['Demais tipificações',{n:rs.reduce((s,x)=>s+x[1].n,0)}]]:[]);
-   const at=a100(tp.map(x=>x[1].n));tp.forEach(([t,x],i)=>{const y=282+i*57;S.push({k:'l',x:822,y:y-4,w:370,c:C.line});S.push(txt(822,y,310,38,t.length>44?t.slice(0,43)+'…':t,{size:13}));S.push(txt(1120,y,72,38,pc(at[i]),{size:14,bold:1,al:'r'}))});
+   const at=a100(tp.map(x=>x[1].n)),mic=(t,x)=>{if(t=='Demais tipificações'){const L=rs.slice(0,3).map(z=>(z[0].length>26?z[0].slice(0,25)+'…':z[0])+' '+pc(z[1].n/tt));return L.join(' · ')+(rs.length>3?' · +'+(rs.length-3)+' outras':'')}
+     const rw=Object.entries((R.tipr||{})[t]||{}).sort((a,b)=>b[1]-a[1]);if(!/outros$|^outras tipifica/i.test(t)&&t!='Encerrado em 24 h')return'';
+     return rw.length>1?'Reúne: '+rw.slice(0,3).map(z=>(z[0].length>26?z[0].slice(0,25)+'…':z[0])+' '+pc(z[1]/x.n)).join(' · '):(rw.length?'Tipificação genérica "'+rw[0][0]+'", sem detalhe do motivo':'')};
+   tp.forEach(([t,x],i)=>{const y=282+i*57,mc=mic(t,x[1]||x);S.push({k:'l',x:822,y:y-4,w:370,c:C.line});S.push(txt(822,y,310,mc?20:38,t.length>44?t.slice(0,43)+'…':t,{size:13}));if(mc)S.push(txt(822,y+20,290,34,mc,{size:9.5,color:C.slate,va:'t'}));S.push(txt(1120,y,72,38,pc(at[i]),{size:14,bold:1,al:'r'}))});
    out.push(S)}
   /* 2 · transbordo */
   {const S=[],N=P.length;cab(S,'TAXA DE TRANSBORDO · '+ref,'Transbordo '+((val(R,pn,'T','tr')??0)<(val(R,p0,'T','tr')??0)?'caiu':'foi')+' para '+pc(val(R,pn,'T','tr'))+' em '+pn.label.toLowerCase());
