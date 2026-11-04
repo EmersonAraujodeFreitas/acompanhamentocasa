@@ -2532,9 +2532,9 @@ function slides(R,RT){
      const ad=a100(top.map(x=>x[1].n).concat(rest?[rest]:[])),mxv=Math.max(...ad,.01);
      top.forEach(([l,x],i)=>{const y=282+i*43,v=ad[i],w=Math.max(4,v/mxv*196),th=GNOME[x.g]||x.g;
        const dl=(d=>/^outros$/i.test(d)?l.replace(/\s*–\s*Outros$/i,'')+' – outros':d)(l.includes(' – ')?l.slice(l.indexOf(' – ')+3):l),lb=dl.charAt(0).toUpperCase()+dl.slice(1);
-       S.push(txt(x0+20,y,310,20,(EMO[th]||'')+' '+lb,{size:12,bold:1}));S.push(txt(x0+250,y+19,80,20,th.replace('Informações gerais','Informações'),{size:9,color:C.slate,al:'r'}));
-       S.push({k:'r',x:x0+20,y:y+22,w,h:14,fill:col,line:null,r:3});S.push(txt(x0+20+w+8,y+19,84,20,pc(v),{size:12.5,bold:1}))});
-     if(rest){S.push({k:'l',x:x0+20,y:588,w:310,c:C.line});S.push(txt(x0+20,594,310,30,'Demais motivos ('+Math.max(0,tu.length-7)+'): '+pc(ad[ad.length-1]),{size:11,color:C.slate,va:'t'}))}});
+       S.push(txt(x0+20,y,236,20,(EMO[th]||'')+' '+lb,{size:12,bold:1}));S.push(txt(x0+250,y,80,20,th.replace('Informações gerais','Informações'),{size:9,color:C.slate,al:'r'}));
+       S.push({k:'r',x:x0+20,y:y+23,w:242,h:12,fill:'EEF2F6',line:null,r:3});S.push({k:'r',x:x0+20,y:y+23,w:Math.max(4,v/mxv*242),h:12,fill:col,line:null,r:3});S.push(txt(x0+270,y+18,60,20,pc(v),{size:12.5,bold:1,al:'r'}))});
+     if(rest){S.push({k:'l',x:x0+20,y:588,w:310,c:C.line});S.push(txt(x0+20,596,236,22,'Demais motivos ('+Math.max(0,tu.length-7)+')',{size:11.5,color:C.slate}));S.push(txt(x0+270,596,60,22,pc(ad[ad.length-1]),{size:12.5,bold:1,al:'r'}))}});
    S.push(card(800,208,414,430));S.push(txt(822,220,370,30,'🔎 Principais tipificações',{size:16,bold:1}));S.push(txt(822,248,370,20,'% das sessões com motivo registrado · soma 100%',{size:12,color:C.slate}));
    const tp0=Object.entries(R.tip).sort((a,b)=>b[1].n-a[1].n),tt=tp0.reduce((s,x)=>s+x[1].n,0)||1,rs=tp0.slice(5),tp=tp0.slice(0,5).concat(rs.length?[['Demais tipificações',{n:rs.reduce((s,x)=>s+x[1].n,0)}]]:[]);
    const at=a100(tp.map(x=>x[1].n)),mic=(t,x)=>{if(t=='Demais tipificações'){const L=rs.slice(0,3).map(z=>(z[0].length>26?z[0].slice(0,25)+'…':z[0])+' '+pc(z[1].n/tt));return L.join(' · ')+(rs.length>3?' · +'+(rs.length-3)+' outras':'')}
