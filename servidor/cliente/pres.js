@@ -190,6 +190,7 @@ let SL=[];
 function desenhar(){
   const m=document.getElementById('mn'),P=periodos();
   if(!P.length){m.innerHTML='<h1>Apresentação</h1><div class="c w"><h3>Sem dados de sessões</h3><p style="color:var(--mu)">Importe ou atualize as bases (Usuários e sessões) para montar a apresentação.</p></div>';return}
+  if(typeof RCOK!='undefined'&&!RCOK&&typeof rcLoad=='function'&&!window.__PRCL){window.__PRCL=1;rcLoad().then(()=>{window.__PRCL=0;if(document.getElementById('psls'))desenhar()})}
   const R=calcular(P),RT=retornos(P);SL=slides(R,RT);
   const semOrg=ST.org!='T'&&!SR.some(x=>x.ar&&x.ar!='U');
   const meses=P.length,opt=(v,t,c)=>'<option value="'+v+'"'+(c?' selected':'')+'>'+t+'</option>';
