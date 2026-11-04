@@ -27,7 +27,7 @@ function tela(){
     if(s.aviso)h+='<p class="er">'+e_(s.aviso)+'</p>';
     if(!pronto&&s.rev&&s.fase!='erro')h+='<div class="c" style="padding:10px;margin:10px 0"><b>Último arquivo do robô</b> ('+dh(s.pronto_em)+') · '+Object.entries(s.contagem||{}).map(([u,x])=>UNN[u]+': '+x.sess+' sessões, '+x.conv+' conversas, '+x.prod+' status').join(' · ')+'<div class="ac"><button id="apiimp">Importar novamente</button></div></div>';
     if(pronto)h+='<div class="c" style="padding:10px;margin:10px 0"><b>Há dados novos prontos</b> ('+dh(s.pronto_em)+') · '+Object.entries(s.contagem||{}).map(([u,x])=>UNN[u]+': '+x.sess+' sessões, '+x.conv+' conversas, '+x.prod+' status').join(' · ')+'<div class="ac"><button id="apiimp">Importar agora</button></div></div>';
-    h+='<label>Período a buscar<select id="apidias">'+PER.map(p=>'<option value="'+p[1]+'">'+p[0]+'</option>').join('')+'</select></label><label id="apimxl" style="display:none">Mês <input type="month" id="apimes" min="2024-01" max="'+hojeBR().slice(0,7)+'"></label><label id="apianl" style="display:none">Ano <select id="apiano">'+(()=>{let o='';for(let y=+hojeBR().slice(0,4);y>=2024;y--)o+='<option>'+y+'</option>';return o})()+'</select> <small>Um mês por vez, em sequência. Pode levar horas; deixe esta janela aberta.</small></label><p id="apinov" style="display:none;margin:4px 0"><small><b>Refazer recorrência:</b> reconstrói a base de contatos únicos e recorrência a partir de janeiro do ano escolhido, identificando cada contato. Depois disso as atualizações seguintes ficam exatas. O que for anterior a esse ano deixa de contar na recorrência (as sessões continuam).</small></p><label id="apiprl" style="display:none"><input type="checkbox" id="apipr"> Buscar também o status dos atendentes <small>(Produtividade; é lento: a Botmaker limita a 1 consulta por minuto)</small></label><label><input type="checkbox" id="apiag"> Incluir Métricas por atendente <small>(substitui a base de atendentes de cada universidade pelo período buscado)</small></label>';
+    h+='<label>Período a buscar<select id="apidias">'+PER.map(p=>'<option value="'+p[1]+'">'+p[0]+'</option>').join('')+'</select></label><label id="apimxl" style="display:none">Mês <input type="month" id="apimes" min="2024-01" max="'+hojeBR().slice(0,7)+'"></label><label id="apianl" style="display:none">Ano <select id="apiano">'+(()=>{let o='';for(let y=+hojeBR().slice(0,4);y>=2024;y--)o+='<option>'+y+'</option>';return o})()+'</select> <small>Um mês por vez, em sequência. Pode levar horas; deixe esta janela aberta.</small></label><p id="apinov" style="display:none;margin:4px 0"><small><b>Refazer recorrência:</b> reconstrói a base de contatos únicos e recorrência a partir de janeiro do ano escolhido, identificando cada contato. A base atual continua valendo até o último mês terminar; só então ela é trocada e publicada. Depois disso as atualizações seguintes ficam exatas. O que for anterior a esse ano deixa de contar na recorrência (as sessões continuam).</small></p><label id="apiprl" style="display:none"><input type="checkbox" id="apipr"> Buscar também o status dos atendentes <small>(Produtividade; é lento: a Botmaker limita a 1 consulta por minuto)</small></label><label><input type="checkbox" id="apiag"> Incluir Métricas por atendente <small>(substitui a base de atendentes de cada universidade pelo período buscado)</small></label>';
     if(s.fase=='importado')h+='<p class="ok">Última importação por API: '+dh(s.importado_em)+'.</p>'}
   h+='<div class="ac">'+(ativo||BUSY?'':'<button id="apiref" class="sec"'+(cfg?'':' disabled')+' title="Reconstrói contatos únicos e recorrência de janeiro de '+hojeBR().slice(0,4)+' até hoje, mês a mês">Refazer recorrência ('+hojeBR().slice(0,4)+')</button><button id="apigo"'+(cfg?'':' disabled')+'>Buscar e importar</button>')+'<button id="apifx" class="sec"'+(BUSY?' disabled':'')+'>Fechar</button></div>';
   MODAL.firstChild.innerHTML=h;
@@ -53,7 +53,7 @@ async function disparar(){
 async function importar(comAgente){
   if(BUSY)return;BUSY=1;window.__APISEM=1;const msg=(t,p)=>{EST=Object.assign({},EST,{mensagem:t,pct:p});tela()};
   try{
-    window.__RCAVISO='';window.__RCNOVO=(FILA&&FILA.novo&&FILA.pos==0)?1:0;try{await rcLoad()}catch(e){}
+    window.__RCAVISO='';window.__RCSTAGE=(FILA&&FILA.novo)?1:0;if(window.__RCSTAGE&&FILA.pos==0){window.__RCST={};window.__RCSTCT={}}try{await rcLoad()}catch(e){}
     msg('Carregando a base de status (Lead, aluno, ex-aluno) do servidor…',5);
     try{if(typeof stSync=='function'){await stSync(true);if(window.__STREP){window.__STREP=0;for(const u of['UJ','UVA'])if(STS[u]&&AUTH.can('publicar'))await stPublish(u)}}}catch(e){}
     msg('Baixando os dados do servidor…',10);
@@ -77,13 +77,14 @@ async function importar(comAgente){
       i++;
     }
     try{await AUTH.j('/botmaker/progresso',{method:'POST',body:{fase:'importado',mensagem:'Importado',pct:100}})}catch(e){}
-    window.__APISEM=0;window.__RCNOVO=0;BUSY=0;EST=Object.assign({},EST,{fase:'importado',importado_em:new Date().toISOString(),mensagem:''});tela();
+    window.__APISEM=0;BUSY=0;EST=Object.assign({},EST,{fase:'importado',importado_em:new Date().toISOString(),mensagem:''});tela();
     if(FILA&&FILA.pos+1<FILA.itens.length&&MODAL){FILA.pos++;await disparar();return}
+    if(FILA&&FILA.novo&&window.__RCST){try{for(const u of Object.keys(window.__RCST)){RC[u]=window.__RCST[u];CT[u]=window.__RCSTCT[u]}RCDIRTY=true;RCV.clear();window.__RCST=null;window.__RCSTCT=null;window.__RCSTAGE=0;EST.aviso='Recorrência refeita com identificação dos contatos. Publicando para a equipe…';tela();await autoPub();EST.aviso='Recorrência refeita e publicada.';tela()}catch(e){EST.aviso='A recorrência foi refeita, mas a publicação falhou: '+e.message;tela()}}
     if(FILA)FILA.pos=FILA.itens.length;
     try{const sem=us.filter(u=>!STS[u]&&!(D.contas[u].cob&&(D.contas[u].cob.aluno||D.contas[u].cob.ex||D.contas[u].cob.lead)));if(sem.length){EST.aviso='As sessões de '+sem.map(u=>UNN[u]).join(' e ')+' entraram sem a organização (Lead, aluno ou ex-aluno), porque a Botmaker não trouxe a variável status e a base de planilhas também não está no servidor. Elas contam nos totais, mas não nos filtros Serviços e Admissão. Importe as planilhas em Importar status uma vez e depois use Importar novamente aqui.';tela()}}catch(e){}
     if(window.__RCAVISO){EST.aviso=(EST.aviso?EST.aviso+' ':'')+window.__RCAVISO;tela()}
     try{const l=document.getElementById('lg');if(l){l.style.display='inline-block'}}catch(e){}
-  }catch(e){window.__APISEM=0;window.__RCNOVO=0;BUSY=0;EST=Object.assign({},EST,{fase:'erro',mensagem:e.message});tela()}
+  }catch(e){window.__APISEM=0;window.__RCSTAGE=0;BUSY=0;EST=Object.assign({},EST,{fase:'erro',mensagem:e.message+(FILA&&FILA.novo?' A base de recorrência atual foi mantida; nada foi trocado.':'')});tela()}
 }
 window.apiAtualizar=abrir;
 setInterval(()=>{try{botao()}catch(e){}},1000);
