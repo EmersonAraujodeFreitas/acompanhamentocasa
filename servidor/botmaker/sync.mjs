@@ -114,6 +114,27 @@ async function lerConta([un, token]) {
       return vazias < 6 && vars.size < precisa.size;
     }, { max: 120 });
     prog('chats com variáveis', vars.size, 'de', precisa.size);
+    // a lista de chats é limitada e vem pelos mais recentes: nas universidades com muito volume (UVA) quase nenhum chat antigo aparece nela.
+    // Para as sessões que tiveram operador (onde a tipificação importa) busca o chat um a um.
+    if (process.env.SEM_INDIVIDUAL !== '1') {
+      const comOp = new Set(sessoes.filter(x => (x.messages || []).some(m => m.from === 'agent')).map(x => x.chat && x.chat.chat && x.chat.chat.chatId).filter(Boolean));
+      const falta = [...comOp].filter(id => !vars.has(id)), LIM = parseInt(process.env.MAX_INDIVIDUAIS || '20000', 10), alvo = falta.slice(0, LIM), prazo = Date.now() + 50 * 60e3;
+      prog('chats com operador sem variáveis:', falta.length, '· buscando um a um:', alvo.length);
+      let ix = 0, feitos = 0, achados = 0;
+      const trab = async () => {
+        while (ix < alvo.length && Date.now() < prazo) {
+          const id = alvo[ix++];
+          try {
+            const r = await get('/chats/' + encodeURIComponent(id));
+            if (r.status === 200 && r.j) { const v = r.j.variables || {}; vars.set(id, { t: v.typification || v.tipificacao || null, nps: v.nps ?? null, st: codStatus(v.status), raw: v.status == null ? null : String(v.status).slice(0, 30) }); achados++ }
+          } catch (e) { /* segue com os demais */ }
+          feitos++;
+          if (feitos % 500 === 0) { prog('chats individuais', feitos, 'de', alvo.length); await avanco(un, 65 + Math.round(4 * feitos / alvo.length), 'Lendo ' + nome + ': tipificação de ' + feitos + ' de ' + alvo.length + ' conversas…') }
+        }
+      };
+      await Promise.all(Array.from({ length: 6 }, trab));
+      prog('chats individuais lidos', feitos, 'com variáveis', achados, alvo.length < falta.length ? '(limitado a ' + LIM + ')' : '');
+    }
     await avanco(un, 65, 'Lendo ' + nome + ': tipificação e NPS…');
   }
 
