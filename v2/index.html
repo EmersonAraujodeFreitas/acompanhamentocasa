@@ -2433,19 +2433,13 @@ function periodos(){
 const okOrg=x=>ST.org=='T'||(ST.org=='S'?x.ar=='S':x.ar=='A');
 const GRUPOS_MOTIVO=g=>!['Sem tipificação','Abandono','Resolvido pelo robô'].includes(g);
 
-/* meses cheios: mês inteiro coberto pelos dados importados de cada universidade (todas as sessões, qualquer organização) */
-function cheios(P){
-  const ini=P[0].a.slice(0,7),fim=P[P.length-1].b.slice(0,7),out={n:0,ms:[],por:{UJ:0,UVA:0}},ok={UJ:new Set(),UVA:new Set()},mm=new Set();
-  for(const u of ['UJ','UVA']){let mn=null,mx=null;for(const x of SR){if(x.un!=u||!x.d)continue;if(mn===null||x.d<mn)mn=x.d;if(mx===null||x.d>mx)mx=x.d}
-    if(mn===null)continue;let [y,m]=ini.split('-').map(Number);const [y2,m2]=fim.split('-').map(Number);
-    while(y<y2||(y==y2&&m<=m2)){const k=y+'-'+String(m).padStart(2,'0'),ult=new Date(y,m,0).getDate();if(mn<=k+'-01'&&mx>=k+'-'+String(ult).padStart(2,'0')){ok[u].add(k);mm.add(k)}m++;if(m>12){m=1;y++}}}
-  for(const x of SR){if(!x.d||!ok[x.un]||!ok[x.un].has(x.d.slice(0,7)))continue;out.n+=x.n;out.por[x.un]+=x.n}
-  out.ms=[...mm].sort().map(k=>MS[+k.slice(5,7)-1]);return out}
 /* ---------- números ---------- */
 function calcular(P){
-  const R={P,un:['UJ','UVA'],per:{},mot:{},tip:{},tot:{},ch:cheios(P)};
+  const R={P,un:['UJ','UVA'],per:{},mot:{},tip:{},tot:{},all:{UJ:0,UVA:0,T:0}};
   for(const p of P)for(const u of ['UJ','UVA','T'])R.per[p.k+'|'+u]={n:0,tr:0,msg:0,ab:0};
-  for(const x of SR){if(!x.d||!okOrg(x))continue;const p=P.find(q=>x.d>=q.a&&x.d<=q.b);if(!p)continue;
+  for(const x of SR){if(!x.d)continue;const p=P.find(q=>x.d>=q.a&&x.d<=q.b);if(!p)continue;
+    if(R.all[x.un]!=null){R.all[x.un]+=x.n;R.all.T+=x.n}
+    if(!okOrg(x))continue;
     for(const u of [x.un,'T']){const a=R.per[p.k+'|'+u];if(!a)continue;a.n+=x.n;if(x.o)a.tr+=x.n;a.msg+=(x.u||0)+(x.bt||0)+(x.op||0);if(x.g=='Abandono')a.ab+=x.n}
     if(GRUPOS_MOTIVO(x.g)){const m=R.mot[x.g]??={UJ:0,UVA:0};m[x.un]+=x.n;const t=R.tip[x.t]??={n:0,g:x.g};t.n+=x.n}}
   return R;
@@ -2476,7 +2470,7 @@ function slides(R,RT){
   /* 1 · motivos de contato */
   {const S=[],tot=u=>P.reduce((s,p)=>s+(R.per[p.k+'|'+u].n),0),mots=Object.entries(R.mot).map(([g,m])=>({g,UJ:m.UJ,UVA:m.UVA,T:m.UJ+m.UVA})).sort((a,b)=>b.T-a.T).slice(0,6),sj=mots.reduce((s,m)=>s+m.UJ,0)||1,sv=mots.reduce((s,m)=>s+m.UVA,0)||1,st=mots.reduce((s,m)=>s+m.T,0)||1;
    cab(S,'MOTIVOS DE CONTATO · '+ref,mots.length>1?mots[0].g+' e '+mots[1].g+' lideram os motivos de contato':'Motivos de contato');
-   [['Sessões abertas · Unijorge',tot('UJ'),64],['Sessões abertas · UVA',tot('UVA'),357],['Total · '+orgN,tot('T'),650],['Sessões totais · meses cheios'+(R.ch.ms.length?' ('+R.ch.ms[0]+(R.ch.ms.length>1?'–'+R.ch.ms[R.ch.ms.length-1]:'')+')':''),R.ch.ms.length?R.ch.n:null,942]].forEach(([l,v,x])=>{S.push(card(x,128,272,64,{fill:C.navy,line:null}));S.push(txt(x+14,128,128,64,l,{size:11,color:C.soft}));S.push(txt(x+142,128,118,64,v==null?'–':nf(v),{size:v!=null&&v>=1e5?20:24,bold:1,color:C.yel,al:'r'}))});
+   [['Sessões · Unijorge',R.all.UJ,64],['Sessões · UVA',R.all.UVA,441],['Total de sessões',R.all.T,818]].forEach(([l,v,x])=>{S.push(card(x,128,360,64,{fill:C.navy,line:null}));S.push(txt(x+18,128,150,64,l+' · '+(P.length>1?p0.curto+(ST.modo=='mes'?'–':' → ')+pn.curto:p0.curto),{size:12,color:C.soft}));S.push(txt(x+170,128,175,64,nf(v),{size:28,bold:1,color:C.yel,al:'r'}))});
    S.push(card(64,208,716,430));S.push(txt(86,220,380,30,'% das sessões com motivo registrado',{size:16,bold:1}));leg(S,470,222,[[C.red,'Unijorge'],[C.yel,'UVA']]);S.push(txt(86,250,670,22,'Cada universidade soma 100% entre os motivos mostrados',{size:12,color:C.slate}));
    const mx=Math.max(...mots.map(m=>Math.max(m.UJ/sj,m.UVA/sv)),.01);
    mots.forEach((m,i)=>{const y=284+i*58;S.push(txt(86,y,190,22,m.g,{size:15,bold:1}));S.push(txt(86,y+24,190,20,pc(m.T/st)+' do total',{size:12,color:C.slate}));
