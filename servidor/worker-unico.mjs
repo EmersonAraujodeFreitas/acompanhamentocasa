@@ -811,17 +811,25 @@ async function rotaBotmakerAtualizar(env, u, req) {
   if (!env.GH_TOKEN || !env.GH_REPO) throw new Erro(503, 'A atualização por API ainda não foi configurada no servidor (faltam GH_TOKEN e GH_REPO).');
   let corpo = {}; try { corpo = await req.json(); } catch (e) { /* sem corpo */ }
   const dias = Math.max(1, Math.min(60, parseInt(corpo.dias, 10) || 2));
+  // período fechado (de/ate em aaaa-mm-dd): até 35 dias por rodada; o ano inteiro é pedido mês a mês pelo site
+  const dt = x => /^\d{4}-\d{2}-\d{2}$/.test(String(x || '')) && !isNaN(Date.parse(x + 'T12:00:00Z')) ? String(x) : '';
+  const de = dt(corpo.de), ate = dt(corpo.ate), hoje = new Date(Date.now() - 3 * 36e5).toISOString().slice(0, 10);
+  if (corpo.de || corpo.ate) {
+    if (!de || !ate) throw new Erro(400, 'Informe as duas datas do período (de e até).');
+    if (de > ate || de < '2024-01-01' || ate > hoje) throw new Erro(400, 'Período inválido: use datas entre 01/01/2024 e hoje, com a inicial antes da final.');
+    if ((Date.parse(ate) - Date.parse(de)) / 864e5 > 34) throw new Erro(400, 'Cada rodada busca no máximo 35 dias. Para o ano inteiro, o site pede um mês por vez.');
+  }
   const ant = await lerValor(env, 'api:estado', { fase: 'ocioso' });
   if (['iniciado', 'lendo', 'enviando'].includes(ant.fase) && ant.em && Date.now() - Date.parse(ant.em) < 25 * 6e4) throw new Erro(409, 'Já existe uma atualização em andamento. Aguarde terminar.');
   const r = await fetch('https://api.github.com/repos/' + env.GH_REPO + '/actions/workflows/botmaker-sync.yml/dispatches', {
     method: 'POST',
     headers: { Authorization: 'Bearer ' + env.GH_TOKEN, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', 'User-Agent': 'central-indicadores', 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ref: env.GH_REF || 'main', inputs: { dias: String(dias) } })
+    body: JSON.stringify({ ref: env.GH_REF || 'main', inputs: de ? { dias: String(dias), de, ate, produtividade: corpo.produtividade ? 'sim' : 'nao' } : { dias: String(dias) } })
   });
   if (r.status !== 204) { await registrar(env, u.usuario, 'api-falhou', 'GitHub ' + r.status); throw new Erro(502, 'Não foi possível iniciar o robô (GitHub respondeu ' + r.status + '). Confira o token GH_TOKEN e o nome do repositório.'); }
-  const est = { fase: 'iniciado', mensagem: 'Robô iniciado. Lendo a Botmaker…', pct: 5, em: agora(), pedido_em: agora(), por: u.usuario, dias };
+  const est = { fase: 'iniciado', mensagem: 'Robô iniciado. Lendo a Botmaker…', pct: 5, em: agora(), pedido_em: agora(), por: u.usuario, dias, de, ate };
   await gravarValor(env, 'api:estado', est, u.usuario);
-  await registrar(env, u.usuario, 'api-atualizar', dias + ' dia(s)');
+  await registrar(env, u.usuario, 'api-atualizar', (de ? de + ' a ' + ate : dias + ' dia(s)'));
   return est;
 }
 async function rotaBotmakerProgresso(env, u, req) {

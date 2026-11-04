@@ -7,6 +7,15 @@ on:
       dias:
         description: 'Quantos dias buscar (contando hoje)'
         default: '2'
+      de:
+        description: 'Início do período (aaaa-mm-dd); vazio = usar Dias'
+        default: ''
+      ate:
+        description: 'Fim do período (aaaa-mm-dd)'
+        default: ''
+      produtividade:
+        description: 'Com período fechado: sim = buscar também o status dos atendentes (lento)'
+        default: 'nao'
 concurrency:
   group: botmaker-sync
   cancel-in-progress: false
@@ -15,7 +24,7 @@ permissions:
 jobs:
   sincronizar:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -25,6 +34,10 @@ jobs:
         env:
           MODO: sincronizar
           DIAS: ${{ inputs.dias || '2' }}
+          NODE_OPTIONS: --max-old-space-size=5000
+          DE: ${{ inputs.de }}
+          ATE: ${{ inputs.ate }}
+          SEM_PROD: ${{ (inputs.de != '' && inputs.produtividade != 'sim') && '1' || '' }}
           BOTMAKER_TOKEN_UVA: ${{ secrets.UNIVERSIDADEVEIGAALMEIDA }}
           BOTMAKER_TOKEN_UJ: ${{ secrets.UNIJORGE }}
           SERVIDOR_URL: ${{ secrets.SERVIDOR_URL }}

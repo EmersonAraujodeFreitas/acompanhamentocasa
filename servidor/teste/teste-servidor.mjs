@@ -128,5 +128,13 @@ r = await call('POST', '/botmaker/atualizar', { dias: 2 }, ea); chk('depois do e
 globalThis.fetch = async () => new Response(JSON.stringify({ workflow_runs: [] }), { status: 200 });
 await db.exec("UPDATE valores SET dados = json_set(dados, '$.em', '2020-01-01T00:00:00.000Z') WHERE chave = 'api:estado'");
 r = await call('GET', '/botmaker/estado', undefined, ea); chk('robô parado há mais de 30 min vira erro', r.j.fase === 'erro' && /30 minutos/.test(r.j.mensagem));
+await call('POST', '/botmaker/progresso', { fase: 'importado', pct: 100 }, ea);
+r = await call('POST', '/botmaker/atualizar', { de: '2026-01-01', ate: '2026-12-31' }, ea); chk('período maior que 35 dias recusado', r.s === 400);
+r = await call('POST', '/botmaker/atualizar', { de: '2026-03-01', ate: '2026-02-01' }, ea); chk('datas invertidas recusadas', r.s === 400);
+r = await call('POST', '/botmaker/atualizar', { de: '2026-10-01' }, ea); chk('só uma data recusada', r.s === 400);
+chamadas.length = 0;
+globalThis.fetch = async (u, o) => { chamadas.push([String(u), o]); return new Response(null, { status: 204 }); };
+r = await call('POST', '/botmaker/atualizar', { de: '2026-01-01', ate: '2026-01-31', produtividade: false }, ea);
+chk('mês fechado dispara o robô com de/ate', r.s === 200 && chamadas.length === 1 && JSON.parse(chamadas[0][1].body).inputs?.de === '2026-01-01');
 globalThis.fetch = f0;
 console.log(`ok=${ok} falhas=${bad}`);

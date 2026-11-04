@@ -78,3 +78,6 @@ O robô roda no **GitHub Actions** (de hora em hora e quando alguém clica no bo
 
 ## Página “Apresentação”
 Monta ao vivo slides no estilo do modelo de Serviços (motivos de contato, transbordo, efetividade e frentes de atuação), **por mês ou por semana**, com os filtros de organização e período, e exporta em **PPTX**. Usa os dados já carregados no painel; os textos editoriais (principal motivador, ações) são editáveis e ficam salvos neste navegador. O slide “Orçamento × Realizado” não está incluído porque o painel não guarda orçamento.
+
+## Período fechado e ano inteiro (Atualizar via API)
+No botão **Atualizar via API** há: Mês atual, Mês anterior, Escolher um mês e **Ano inteiro (mês a mês)**. O site pede um mês por vez ao robô (máximo de 35 dias por rodada), importa e segue para o próximo; a janela precisa ficar aberta. Em período fechado o status dos atendentes (Produtividade) só é buscado se a caixa for marcada, porque a Botmaker limita a 1 consulta por minuto. Depois de atualizar o Worker (`worker-unico.mjs`), o workflow novo já aceita `de`, `ate` e `produtividade`.
