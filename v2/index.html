@@ -2461,6 +2461,7 @@ function calcular(P){
     if(!okOrg(x))continue;
     for(const u of [x.un,'T']){const a=R.per[p.k+'|'+u];if(!a)continue;a.n+=x.n;if(x.o)a.tr+=x.n;a.msg+=(x.u||0)+(x.bt||0)+(x.op||0);if(x.g=='Abandono')a.ab+=x.n}
     if(x.g=='Outros temas'){const o=(R.out??={UJ:{n:0,l:{}},UVA:{n:0,l:{}}})[x.un];if(o){o.n+=x.n;const k=tipCanon(x.t);o.l[k]=(o.l[k]||0)+x.n}}
+    if(GRUPOS_MOTIVO(x.g)){const tgm=((R.tgm??={})[x.un]??={})[x.g]??={},kk=tipCanon(x.t);tgm[kk]=(tgm[kk]||0)+x.n}
     if(GRUPOS_MOTIVO(x.g)){const m=R.mot[x.g]??={UJ:0,UVA:0};m[x.un]+=x.n;const tc=tipCanon(x.t),t=R.tip[tc]??={n:0,g:x.g};t.n+=x.n}}
   return R;
 }
@@ -2496,6 +2497,9 @@ function slides(R,RT){
    const linhas=(u,N)=>{const rs=mots.filter(m=>m[u]>0).map(m=>({g:m.g,v:m[u]})),ou=(R.out||{})[u],ls=ou?Object.entries(ou.l).sort((a,b)=>b[1]-a[1]):[],usados=new Set();
      const get=()=>rs.find(r=>r.g=='Outros temas');
      if(N){while(rs.length<N&&get()&&ls.some(x=>!usados.has(x[0]))&&ls.filter(x=>!usados.has(x[0])).length>1){const [l,n]=ls.find(x=>!usados.has(x[0]));usados.add(l);const o=get();o.v-=n;rs.push({g:l,v:n,t:1})}
+       while(N&&rs.length<N){const c=rs.filter(r=>!r.t&&r.g!='Outros temas'&&Object.keys(((R.tgm||{})[u]||{})[r.g]||((R.tgm||{})[u]||{})[Object.keys(GNOME).find(k=>GNOME[k]==r.g)]||{}).length>1).sort((a,b)=>b.v-a.v)[0];if(!c)break;
+         const dg=((R.tgm||{})[u]||{}),src=dg[c.g]||dg[Object.keys(GNOME).find(k=>GNOME[k]==c.g)],es=Object.entries(src).sort((a,b)=>b[1]-a[1]),falta=N-rs.length,k=Math.min(es.length,falta+1),tot=es.reduce((s,x)=>s+x[1],0),esc=c.v/tot;
+         rs.splice(rs.indexOf(c),1);es.slice(0,k).forEach(([l,n],i)=>rs.push({g:i==k-1&&es.length>k?'Demais de '+c.g:(d=>/^outros$/i.test(d)?c.g+' · outros':d)(l.replace(/^[^–]*–\s*/,'')).slice(0,23),v:i==k-1&&es.length>k?es.slice(k-1).reduce((s,x)=>s+x[1],0)*esc:n*esc,t:1}))}
        while(rs.length>N){rs.sort((a,b)=>b.v-a.v);const z=rs.pop();let o=get();if(!o){o={g:'Outros temas',v:0};rs.push(o)}o.v+=z.v}}
      rs.forEach(r=>{if(r.g=='Outros temas'&&r.v<=0)r.v=0});
      return{rs:rs.filter(r=>r.v>0).sort((a,b)=>b.v-a.v),rest:ls.filter(x=>!usados.has(x[0]))}};
